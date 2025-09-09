@@ -27,10 +27,7 @@ function tokenize(s) {
 /* ========================= RAG ========================= */
 
 function parseBlocks(raw) {
-  // Format attendu dans data/data.txt :
-  // [Titre]
-  // Synonymes: a, b, c  (optionnel)
-  // ...contenu...
+  // Format: [Titre]\nSynonymes: ... (optionnel)\n...contenu...
   const parts = raw.split(/\n(?=\[[^\]]+\]\s*)/g);
   return parts.map(p => {
     const m = p.match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
@@ -79,8 +76,9 @@ function detectCategory(text = '') {
 const expertiseLabel = (cat) =>
   (['GEN', 'AUTRE'].includes(cat) ? 'proche' : `expert ${cat.toLowerCase()}`);
 
-/* ============ Sanitize : jamais Carter-Cash hors FAP ============ */
+/* ====== Sanitize : jamais Carter-Cash hors FAP + FAP safe ====== */
 
+// Non-FAP : purge Carter-Cash & force RDV garage
 function sanitizeReplyNonFAP(text, category) {
   let out = text;
 
@@ -106,6 +104,37 @@ function sanitizeReplyNonFAP(text, category) {
     );
   }
   return out.trim();
+}
+
+// FAP : neutralise %/garantie & roulage non conditionné
+function sanitizeFAPReply(text) {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const safeLine =
+    "Le nettoyage Re-FAP est généralement la meilleure option qualité/prix/fiabilité quand le FAP n’est pas endommagé (solution économique et éco-responsable).";
+
+  const rewritten = sentences.map(s => {
+    const sLow = s.toLowerCase();
+    const hasPct = /(\d{1,3}\s?%)/.test(s);
+    const hasGuarantee = /garanti|garantie|garanties/.test(sLow);
+    const strongClaim = /(restaur|efficacit|performance)/i.test(s) && (hasPct || hasGuarantee);
+    if (hasPct || hasGuarantee || strongClaim) return safeLine;
+
+    // “Rouler 10–15 min … à 2500 tr/min” → version conditionnelle
+    if (/rouler.*(10|15).*(min|minutes).*2500.*tr\/?min/i.test(sLow)) {
+      return "Si le voyant est récent et sans perte de puissance ni fumée : un trajet d’autoroute 10–15 min autour de 2500 tr/min peut aider. Sinon, ne pas rouler et passer au diagnostic.";
+    }
+    return s;
+  });
+
+  let out = rewritten.join(' ');
+
+  // Remplacements conservateurs
+  out = out.replace(/(\d{4,5}\s?€\s?pour\s?un\s?neuf)/gi, "plusieurs milliers d’€ pour un remplacement");
+  out = out.replace(/\b(alternative|solution)\s+prouv(ée|e)s?\b/gi, "option recommandée dans de nombreux cas");
+
+  // Nettoyage
+  out = out.replace(/\n{3,}/g, '\n\n').replace(/\s{2,}/g, ' ').trim();
+  return out;
 }
 
 /* ========================= Handler ========================= */
@@ -142,10 +171,10 @@ export default async function handler(req, res) {
 
   // Tails (fin de réponse)
   const tailForFAP = `
-**Info :** Le nettoyage Re-FAP est généralement la meilleure option *qualité / prix / fiabilité* quand le FAP n’est pas endommagé (solution économique et éco-responsable).
+**Info :** Quand le FAP n’est pas endommagé (pas fissuré/fondu), le nettoyage Re-FAP est généralement la meilleure option *qualité / prix / fiabilité* (solution économique et éco-responsable).
 **Prochaine étape :** (1 phrase orientée action)
 **Question finale :** Sais-tu démonter ton FAP toi-même ?
-→ Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`.trim();
+→ Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=cartercash) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage)`.trim();
 
   const tailForDiag = `
 **Prochaine étape :** (1 phrase orientée action)
@@ -161,6 +190,7 @@ Règles:
 - Format COMPACT (≤110 mots), sans lignes vides superflues.
 - Utilise le CONTEXTE si pertinent.
 - Interdiction absolue : si CATEGORY ≠ FAP, ne mentionne jamais "Carter-Cash" ni un choix "Oui/Non".
+- N’écris JAMAIS “rouler X minutes à 2500 tr/min” sauf si l’utilisateur indique explicitement voyant récent, AUCUNE perte de puissance ET AUCUNE fumée.
 `.trim();
 
   const userContent = `
@@ -207,7 +237,9 @@ ${nextType === 'FAP' ? tailForFAP : tailForDiag}
 
     const data  = await r.json();
     let reply   = (data.choices?.[0]?.message?.content || '').trim() || 'Réponse indisponible pour le moment.';
-    if (nextType !== 'FAP') reply = sanitizeReplyNonFAP(reply, category);
+    reply = (nextType === 'FAP')
+      ? sanitizeFAPReply(reply)
+      : sanitizeReplyNonFAP(reply, category);
 
     return res.status(200).json({ reply, nextAction: { type: nextType } });
   } catch {
