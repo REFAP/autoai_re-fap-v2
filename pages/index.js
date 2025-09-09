@@ -223,17 +223,23 @@ function CtaForFAP({ highlight }) {
   );
 }
 
+// Remplace TOUT le composant CtaForDiag existant
 function CtaForDiag({ highlight }) {
   return (
     <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
-      <div className="cta-title">Besoin d’un diagnostic électronique</div>
-      <p className="cta-desc">
-        Lecture des codes + tests des composants pour identifier la cause réelle
-        (turbo, EGR, capteurs, AdBlue…) avant toute réparation.
-      </p>
+      <div className="cta-title">Besoin d’un diagnostic électronique ?</div>
+      <ul className="cta-desc">
+        <li>On te met en relation avec un <strong>garage partenaire de confiance</strong>.</li>
+        <li>Tu renseignes <strong>immatriculation</strong> et <strong>code postal</strong> pour voir les garages <strong>près de chez toi</strong>.</li>
+        <li><strong>Tarif clair</strong> pour le diagnostic et <strong>créneaux rapides</strong> pour réserver en ligne.</li>
+      </ul>
       <div className="cta-actions">
-        <a href="https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage" className="garage-button" rel="noopener noreferrer">
-          Prendre RDV avec un garage 🔎
+        <a
+          href="https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=diag_preamble"
+          className="garage-button"
+          rel="noopener noreferrer"
+        >
+          Trouver un garage & réserver 🔎
         </a>
       </div>
     </div>
@@ -331,3 +337,4 @@ function InlineCTA({ type }) {
     </div>
   );
 }
+
