@@ -301,4 +301,9 @@ h1{
   .container{ padding:0 12px; }
   .garage-button, .carter-button{ padding:12px; }
 }
+/* public/style.css */
+@media (min-width: 1200px) {
+  .chat-window { max-width: 880px; } /* avant ~760-820 */
+}
+
 
