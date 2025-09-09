@@ -1,10 +1,11 @@
 // pages/api/chat.js
 //
-// API de chat pour AutoAI (Next.js pages router).
-// - Détection locale de catégorie (FAP vs DIAG générique).
-// - Prompt FR pédagogique.
-// - Jamais de Carter-Cash hors FAP (sanitizer).
-// - Appel Mistral si MISTRAL_API_KEY présent, sinon fallback local.
+// AutoAI v2 — flux FAP en 2 temps (triage → solution), réponses compactes.
+// - Détection FAP/DIAG
+// - Triage obligatoire si message trop vague ("fap", peu d'infos)
+// - Prompt strict + post-traitement (cap des puces, troncature)
+// - Carter-Cash uniquement en FAP
+// - Mistral si clé dispo, sinon fallback local concis
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,19 +15,15 @@ export default async function handler(req, res) {
   try {
     const { question = '', historique = '' } = req.body || {};
     const q = String(question || '').trim();
-    if (!q) {
-      return res.status(400).json({ error: 'question manquante' });
-    }
+    if (!q) return res.status(400).json({ error: 'question manquante' });
 
     const category = detectCategory(q);
+    const needTriage = category === 'FAP' && needsFapTriage(q, historique);
+    const system = buildSystemPrompt(category, historique, needTriage);
 
-    // Prompt système (règles de ton bot)
-    const system = buildSystemPrompt(category, historique);
-
-    // On tente Mistral si clé dispo, sinon fallback
-    let reply;
     const apiKey = process.env.MISTRAL_API_KEY;
     const model = process.env.MISTRAL_MODEL || 'mistral-large-latest';
+    let reply;
 
     if (apiKey) {
       try {
@@ -43,146 +40,229 @@ export default async function handler(req, res) {
               { role: 'user', content: q },
             ],
             temperature: 0.2,
-            max_tokens: 800,
+            top_p: 0.6,
+            // volontairement court pour éviter la logorrhée
+            max_tokens: needTriage ? 260 : 420,
           }),
         });
-
-        if (!r.ok) {
-          throw new Error(`Mistral HTTP ${r.status}`);
-        }
+        if (!r.ok) throw new Error(`Mistral HTTP ${r.status}`);
         const data = await r.json();
-        reply = data?.choices?.[0]?.message?.content?.trim();
-      } catch (e) {
-        // Fallback local si souci API
-        reply = fallbackAnswer(category, q);
+        reply = (data?.choices?.[0]?.message?.content || '').trim();
+      } catch {
+        reply = needTriage ? fallbackTriage() : fallbackAnswer(category);
       }
     } else {
-      reply = fallbackAnswer(category, q);
+      reply = needTriage ? fallbackTriage() : fallbackAnswer(category);
     }
 
-    // Sécurité : jamais de Carter-Cash hors FAP
-    if (category !== 'FAP') {
-      reply = sanitizeReplyNonFAP(reply);
-    }
+    // Couper tout ce qui dépasse le marqueur de fin
+    reply = reply.split('<<<END>>>')[0];
 
-    // nextAction aligne la colonne droite
-    const nextAction = { type: category === 'FAP' ? 'FAP' : 'DIAG' };
+    // Jamais Carter-Cash hors FAP
+    if (category !== 'FAP') reply = sanitizeReplyNonFAP(reply);
 
+    // Compactage (cap puces + nettoyage + troncature dure)
+    reply = enforceFormat(reply, category);
+
+    const nextAction = { type: needTriage ? 'FAP_TRIAGE' : (category === 'FAP' ? 'FAP' : 'DIAG') };
     return res.status(200).json({ reply, nextAction });
-  } catch (e) {
+  } catch {
     return res.status(500).json({ error: 'Erreur serveur' });
   }
 }
 
-/* ---------------------- Helpers ---------------------- */
+/* ---------------------- Détection & triage ---------------------- */
 
 function detectCategory(text) {
   const t = (text || '').toLowerCase();
-
-  // Indices FAP/DPF
   const fapTerms = [
-    'fap', 'dpf', 'p2463', 'p2002', 'regeneration', 'régénération', 'suie',
-    'filtre à particules', 'filtre a particules', 'colmatage', 'voyant fap'
+    'fap','dpf','p2463','p2002','regeneration','régénération','suie',
+    'filtre à particules','filtre a particules','colmatage','voyant fap'
   ];
   if (fapTerms.some(w => t.includes(w))) return 'FAP';
 
-  // Quelques cas "non FAP" fréquents -> diag générique
   const diagTerms = [
-    'vibration', 'vibre', 'tremble', 'roulement', 'bruit', 'turbo',
-    'fumée', 'fumee', 'egr', 'capteur', 'injecteur', 'adblue', 'démarre pas',
-    'demarre pas', 'perte de puissance'
+    'vibration','vibre','tremble','roulement','bruit','turbo',
+    'fumée','fumee','egr','capteur','injecteur','adblue',
+    'démarre pas','demarre pas','perte de puissance'
   ];
   if (diagTerms.some(w => t.includes(w))) return 'DIAG';
-
-  // Par défaut : diag générique
   return 'DIAG';
 }
 
-function buildSystemPrompt(category, historique) {
-  const common = `
-Tu es **AutoAI** (Re-FAP). Tu réponds **en français**, clair, concret, concis.
-Style : pédagogique, orienté action. Tu expliques **pourquoi c’est important**, **quoi faire maintenant**, puis **prochaine étape**.
-Ne promets jamais de réparation magique. Suggère un **diagnostic pro** si doute de sécurité.
+function needsFapTriage(q, historique) {
+  const txt = (q + ' ' + (historique || '')).toLowerCase();
+  const hasDetail =
+    /(voyant|p2002|p2463|fum[ée]e|perte de puissance|r[ée]g[ée]n[ée]ration|code|diag)/.test(txt);
+  const veryShort = q.length < 20;
+  return veryShort || !hasDetail;
+}
 
-Historique (dernier contexte utilisateur) :
-${(historique || '').slice(0, 2000)}
+/* ---------------------- Prompt ---------------------- */
+
+function buildSystemPrompt(category, historique, needTriage) {
+  const shortHistory = String(historique || '').slice(0, 1000);
+
+  const common = `
+Tu es **AutoAI** (Re-FAP). Français clair, **court**, orienté actions & sécurité.
+Toujours respecter ce gabarit et rester **concis**. Zéro blabla.
+
+RÈGLES DE LONGUEUR (STRICT) :
+- Résumé : **2 phrases max**
+- Liste : **3–6 puces** (≤ 120 caractères/puce)
+- Prochaine étape : **1 phrase**
+- Question finale : **1 phrase**, **1–2 questions max**
+- Rien d’autre après <<<END>>>.
+`.trim();
+
+  const blockTRIAGE = `
+OBJECTIF : l’utilisateur a donné peu d’infos (“fap”, court).
+FAIRE D’ABORD **UN TRIAGE EN 4 QUESTIONS**, puis s’arrêter.
+
+Renvoie **uniquement** :
+<<<START>>>
+**Avant de proposer une solution, vérifions si c’est bien le FAP :**
+
+Réponds en une fois, par ex. *"1) oui — 2) non — 3) 3 jours, trajets courts — 4) P2463"*.
+
+1) Voyant FAP allumé ? (oui/non)
+2) Perte de puissance ou fumée noire ? (oui/non)
+3) Depuis quand + type de trajets (courts/longs) ?
+4) Code défaut lu (P2002/P2463/…) ?
+<<<END>>>
 `.trim();
 
   const blockFAP = `
-# Contexte FAP
-- Quand le FAP n’est **pas endommagé**, le **nettoyage Re-FAP** restaure les performances d’origine dans la grande majorité des cas.
-- Avantage : **économique** (évite remplacement coûteux, Carter-Cash à partir de **99€ TTC**), **éco-responsable** (on réutilise la pièce).
-- Quand ça ne suffit pas : FAP **fissuré/fondu**, capteurs **différentiel/température** HS, mode **dégradé** non levé ⇒ garage partenaire.
+Contexte solution FAP :
+- Si FAP **non endommagé**, le **nettoyage Re-FAP** restaure la perf. d’origine dans la majorité des cas.
+- **Meilleur rapport qualité/prix/fiabilité** ; évite le remplacement. Carter-Cash à partir de **99€ TTC**.
+- Carter-Cash/CTA **uniquement en FAP**.
 
-# Structure de ta réponse FAP (Markdown simple)
-- **En bref :** mini-diagnostic.
-- **Pourquoi c’est important :** risques si on ignore.
-- **À faire maintenant :** 3–6 puces concrètes.
-- **Info / prochaine étape :** nettoyage Re-FAP vs remplacement.
-- **Question finale — choisis une option :**
-  - ✅ **Oui, je peux démonter le FAP** → [Trouver un Carter-Cash près de chez toi](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=md_oui&utm_campaign=v2)
-  - 🔧 **Non, j’ai besoin d’un pro** → [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=md_non&utm_campaign=v2)
+FORMAT DE RÉPONSE :
+<<<START>>>
+**En bref :** (2 phrases)
+**Pourquoi c’est important :** (1–2 phrases)
+
+**À faire maintenant :**
+- (3–6 puces - ≤ 120 char/puce, impératif)
+
+**Prochaine étape :** (1 phrase)
+**Question finale :** Sais-tu démonter ton FAP toi-même ?
+
+→ **Oui** : [Trouver un Carter-Cash](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_oui)
+ • **Non** : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_non)
+<<<END>>>
 `.trim();
 
   const blockDIAG = `
-# Contexte DIAG (générique/hors FAP)
-- Tu guides vers un **diagnostic mécanique/électronique** : lecture codes + tests pour identifier la cause (turbo, EGR, capteurs, AdBlue, transmission…).
-- **Interdit** : mentionner Carter-Cash ou nettoyage FAP (sauf si la question parle de FAP).
+Contexte DIAG :
+- On oriente vers un **diagnostic mécanique/électronique** (codes + tests) pour identifier la cause réelle.
+- **Interdit** : mentionner Carter-Cash ou “nettoyage FAP” hors FAP.
 
-# Structure de ta réponse DIAG (Markdown simple)
-- **En bref :** mini-diagnostic ou hypothèses probables.
-- **Pourquoi c’est important :** risques/coûts si on ignore.
-- **À faire maintenant :** 3–6 puces concrètes de vérifs simples.
-- **Prochaine étape :** Diagnostic en garage.
-- **Question finale :** *Souhaites-tu qu’on te mette en relation avec un garage proche ?*
+FORMAT DE RÉPONSE :
+<<<START>>>
+**En bref :** (2 phrases)
+**Pourquoi c’est important :** (1–2 phrases)
+
+**À faire maintenant :**
+- (3–6 puces courtes)
+
+**Prochaine étape :** (1 phrase)
+**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage proche ?
+<<<END>>>
 `.trim();
 
-  return `${common}\n\n${category === 'FAP' ? blockFAP : blockDIAG}`;
+  const hist = `Historique (contexte) :\n${shortHistory}`.trim();
+  if (category === 'FAP' && needTriage) return `${common}\n\n${blockTRIAGE}\n\n${hist}`;
+  return `${common}\n\n${category === 'FAP' ? blockFAP : blockDIAG}\n\n${hist}`;
 }
 
+/* ---------------------- Fallbacks ---------------------- */
+
+function fallbackTriage() {
+  return `
+<<<START>>>
+**Avant de proposer une solution, vérifions si c’est bien le FAP :**
+
+Réponds en une fois, par ex. *"1) oui — 2) non — 3) 2 trajets courts — 4) P2463"*.
+
+1) Voyant FAP allumé ? (oui/non)
+2) Perte de puissance ou fumée noire ? (oui/non)
+3) Depuis quand + type de trajets (courts/longs) ?
+4) Code défaut lu (P2002/P2463/…) ?
+<<<END>>>
+`.trim();
+}
+
+function fallbackAnswer(category) {
+  if (category === 'FAP') {
+    return `
+<<<START>>>
+**En bref :** Voyant FAP/symptômes compatibles → filtre saturé probable.
+**Pourquoi c’est important :** Ignorer = surconsommation + risque casse (turbo/EGR).
+
+**À faire maintenant :**
+- Évite trajets courts.
+- Si perte de puissance/fumée noire → stoppe le véhicule.
+- Ne tente pas de “nettoyage maison”.
+- Prépare localisation du FAP pour l’intervention.
+
+**Prochaine étape :** Confirmer par lecture des codes (P2002/P2463) ou régénération encadrée.
+**Question finale :** Sais-tu démonter ton FAP toi-même ?
+→ **Oui** : [Trouver un Carter-Cash](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_oui)
+ • **Non** : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_non)
+<<<END>>>
+`.trim();
+  }
+  return `
+<<<START>>>
+**En bref :** Il faut un **diagnostic** (codes + tests) pour cibler la panne.
+**Pourquoi c’est important :** Ignorer peut aggraver l’usure et la facture.
+
+**À faire maintenant :**
+- Noter symptômes + contexte (depuis quand, à chaud/froid).
+- Vérifier niveaux simples (huile, LDR), pression pneus si vibrations.
+- Éviter accélérations si bruit anormal.
+
+**Prochaine étape :** Diagnostic en garage (lecture codes + tests ciblés).
+**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage proche ?
+<<<END>>>
+`.trim();
+}
+
+/* ---------------------- Sécurité / format ---------------------- */
+
 function sanitizeReplyNonFAP(text) {
-  const t = String(text || '');
-  // supprime toute mention Carter-Cash ou nettoyage FAP s’il n’y a pas de FAP
-  return t
+  return String(text || '')
     .replace(/carter-?cash/gi, 'garage')
     .replace(/nettoyage\s+re-?fap/gi, 'diagnostic en garage')
     .replace(/nettoyage\s+(du\s+)?fap/gi, 'diagnostic en garage');
 }
 
-function fallbackAnswer(category, q) {
-  if (category === 'FAP') {
-    return `
-**En bref :** Voyant FAP allumé = filtre saturé, risque de colmatage avancé si ignoré.
+function enforceFormat(text, category) {
+  let out = String(text || '');
+  // normalisation basique
+  out = out.replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
-**Pourquoi c’est important :** un FAP bouché force le moteur, augmente la consommation et peut endommager turbo/EGR. Agir vite évite des coûts élevés.
-
-**À faire maintenant :**
-- Évite les trajets courts (le FAP ne se régénère pas).
-- Vérifie perte de puissance ou fumée noire → si oui, arrêt immédiat.
-- Pas de “vidange maison” : risque de casse.
-- Prépare : localise ton FAP pour l’intervention.
-
-**Info :** le **nettoyage Re-FAP** (≈99–149€) restaure souvent l’efficacité ; remplacement = >2000€.
-**Prochaine étape :** confirmer l’état actuel (code défauts/diagnostic récent ?).
-
-**Question finale — choisis une option :**
-- ✅ **Oui, je peux démonter le FAP** → [Trouver un Carter-Cash près de chez toi](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=fallback_oui&utm_campaign=v2)
-- 🔧 **Non, j’ai besoin d’un pro** → [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=fallback_non&utm_campaign=v2)
-`.trim();
+  // Cap des listes à 6 puces consécutives max
+  const lines = out.split('\n');
+  let streak = 0;
+  const kept = [];
+  for (const l of lines) {
+    if (/^\s*[-•]/.test(l)) {
+      streak += 1;
+      if (streak <= 6) kept.push(l);
+      // on ignore au-delà de 6
+    } else {
+      streak = 0;
+      kept.push(l);
+    }
   }
+  out = kept.join('\n');
 
-  // DIAG générique
-  return `
-**En bref :** ton souci nécessite un **diagnostic mécanique/électronique** pour identifier précisément la cause (codes défauts + tests ciblés).
+  // Dure limite de longueur (sécurité)
+  const hardLimit = category === 'FAP' ? 1600 : 1400;
+  if (out.length > hardLimit) out = out.slice(0, hardLimit).trim();
 
-**Pourquoi c’est important :** ignorer peut aggraver l’usure et augmenter la facture (ex. transmission, capteurs, turbo, AdBlue, EGR).
-
-**À faire maintenant :**
-- Noter les symptômes (fumée, pertes, bruits), depuis quand, conditions d’apparition.
-- Vérifier niveaux simples (huile, liquide refroidissement), pression pneus si vibrations.
-- Éviter les accélérations brutales si bruit anormal.
-
-**Prochaine étape :** diagnostic en garage (lecture codes + tests composants).
-**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage proche ?
-`.trim();
+  return out;
 }
