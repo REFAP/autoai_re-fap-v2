@@ -289,6 +289,24 @@ button:hover {
   gap: 10px;
   flex-wrap: wrap;
 }
+/* --- FIX wrap du texte dans le chat --- */
+.chat-window, .chat-window * {
+  word-break: normal !important;      /* ne coupe plus au milieu des mots */
+  overflow-wrap: anywhere;            /* casse proprement si très long (URL) */
+}
+
+.user-msg, .bot-msg {
+  white-space: pre-wrap;              /* garde les retours à la ligne */
+  max-width: 100%;
+}
+
+.chat-window p,
+.chat-window li {
+  margin: 0.25rem 0;                  /* respiration dans les listes */
+}
+
+.chat-window ul { padding-left: 1.1rem; }  /* indentation des puces */
+
 
 
 
