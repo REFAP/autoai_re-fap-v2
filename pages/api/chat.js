@@ -1,13 +1,7 @@
 // pages/api/chat.js
-//
-// AutoAI v2.3 — Fast triage + lead CTA
-// - Réponses courtes et actionnables (bref + 3–5 puces + question finale)
-// - Triage quand entrée vague (FAP ou DIAG "vibrations")
-// - Bloc lead clair (immat + code postal -> devis diag au meilleur prix + RDV)
-// - Carter-Cash uniquement en FAP
-// - Normalisation d'affichage (pas de <<>>, puces compactes, pas de lignes cassées)
+// AutoAI v2.5 — triage court, CTA direct (DIAG), Oui/Non (FAP), format propre
 
-const PROMPT_VERSION = '2.3-fast-triage';
+const PROMPT_VERSION = '2.5-fast-triage-direct-cta';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée.' });
@@ -34,9 +28,8 @@ export default async function handler(req, res) {
             model,
             messages: [
               { role: 'system', content: system },
-              { role: 'user', content: q },
+              { role: 'user',    content: q },
             ],
-            // Réponses courtes et stables
             temperature: 0.2,
             top_p: 0.6,
             max_tokens: needTriage ? 220 : 360,
@@ -52,25 +45,29 @@ export default async function handler(req, res) {
       reply = needTriage ? fallbackTriage(category) : fallbackAnswer(category);
     }
 
-    // --- Post-traitement pour un rendu propre et concis ---
-    reply = stripMarkers(reply);            // enlève <<>>, <<<START/END>>>
-    reply = collapseSoftBreaks(reply);      // fusionne les sauts de ligne inutiles
-    reply = normalizeBullets(reply);        // 1 ligne/puce + puces cohérentes
-    reply = enforceSections(reply);         // titres ### + ordre sections
-    reply = capBullets(reply, 5);           // max 5 puces
-    reply = lengthCap(reply, 1300);         // cap dur longueur
+    // ---------- durcisseurs de format ----------
+    reply = stripMarkers(reply);
+    reply = stripKeycapEmojis(reply);
+    reply = normalizeEnumerations(reply);
+    reply = fixColonBreaks(reply);
+    reply = collapseSoftBreaks(reply);
+    reply = normalizeBullets(reply);
+    reply = enforceSections(reply);
+    reply = capBullets(reply, 5);
+    reply = lengthCap(reply, 1300);
 
-    // Bloc lead toujours présent en DIAG (pas FAP)
+    // ---------- CTA logique ----------
     if (category !== 'FAP') {
-      reply = ensureLeadSnippet(reply);
-      reply = ensureFinalQuestion(reply, `Veux-tu que je t’envoie le lien pour trouver un garage de confiance près de chez toi ?`);
+      // Jamais de Carter-Cash hors FAP
+      reply = sanitizeReplyNonFAP(reply);
+      // On enlève toute "Question finale" en DIAG et on pousse le CTA direct
+      reply = removeQuestionFinale(reply);
+      reply = ensureLeadSnippetWithLink(reply);
     } else {
-      // en FAP on garde la question Oui/Non (Carter-Cash vs garage partenaire)
-      reply = ensureFinalQuestion(reply, `Sais-tu démonter ton FAP toi-même ?`);
+      // En FAP : on garde la question Oui/Non
+      reply = ensureFinalQuestion(reply, 'Sais-tu démonter ton FAP toi-même ?');
+      // le contenu peut mentionner Carter-Cash en FAP
     }
-
-    // Sécurité : jamais de Carter-Cash hors FAP
-    if (category !== 'FAP') reply = sanitizeReplyNonFAP(reply);
 
     const nextAction = { type: needTriage ? (category === 'FAP' ? 'FAP_TRIAGE' : 'DIAG_TRIAGE') : category };
     return res.status(200).json({ reply, nextAction, promptVersion: PROMPT_VERSION });
@@ -83,15 +80,10 @@ export default async function handler(req, res) {
 
 function detectCategory(text) {
   const t = (text || '').toLowerCase();
-
-  // FAP
   const fapTerms = ['fap','dpf','p2463','p2002','regeneration','régénération','suie','filtre à particules','filtre a particules','colmatage','voyant fap'];
   if (fapTerms.some(w => t.includes(w))) return 'FAP';
-
-  // DIAG générique (vibrations, bruits, etc.)
   const diagTerms = ['vibration','vibre','tremble','roulement','bruit','turbo','fumée','fumee','egr','capteur','injecteur','adblue','démarre pas','demarre pas','perte de puissance'];
   if (diagTerms.some(w => t.includes(w))) return 'DIAG';
-
   return 'DIAG';
 }
 
@@ -100,8 +92,7 @@ function needsTriage(category, q, historique) {
   const short = q.length < 20;
   const hasDetail = /(p2463|p2002|voyant|code|diag|perte de puissance|fum[ée]e|r[ée]g[ée]n[ée]ration)/.test(txt);
   if (category === 'FAP') return short || !hasDetail;
-  // vibrations / diag : triage si phrase très courte et vague
-  const vagueDiag = /(vibration|bruit|tremble)/.test(txt) && !/(accélération|freinage|90|100|130|roue|pneu|cardan|roulement)/.test(txt);
+  const vagueDiag = /(vibration|bruit|tremble)/.test(txt) && !/(accélération|freinage|90|100|110|120|130|roue|pneu|cardan|roulement)/.test(txt);
   return short || vagueDiag;
 }
 
@@ -111,88 +102,80 @@ function buildSystemPrompt(category, historique, needTriage) {
   const H = String(historique || '').slice(0, 800);
 
   const COMMON = `
-Tu es **AutoAI** (Re-FAP). Écris en **français**, très **concis** et **actionnable**.
-FORMAT OBLIGATOIRE :
+Tu es **AutoAI** (Re-FAP). Écris en **français**, **concis** et **actionnable**.
+RÈGLES :
+- **Pas d’emojis**, **pas de listes numérotées** ; uniquement des puces "- ".
+- **Une seule ligne par puce** (pas de retour à la ligne dans une puce).
+- 3 à 5 puces maximum dans "À faire maintenant" (ou "Questions rapides").
+FORMAT :
 ### En bref
-(deux phrases maximum)
+(deux phrases max)
 ### Pourquoi c’est important
 (une phrase)
 ### À faire maintenant
-- 3 à 5 puces, **1 seule ligne par puce**
+- …
 ### Prochaine étape
 (une phrase)
-### Question finale
-(une phrase)
-`.trim();
-
-  const LEAD = `
-### Trouver un garage proche (option rapide)
-- Garage de **confiance** près de chez toi : entre **immatriculation** et **code postal**, tu reçois un **devis de diagnostic au meilleur prix** et tu peux **prendre RDV rapidement**.
 `.trim();
 
   const FAP_TRIAGE = `
-OBJECTIF TRIAGE FAP : l’utilisateur tape juste “fap”.
-- **Pose d’abord 3 à 4 questions fermées** pour situer l’urgence (voyant, fumée noire, perte de puissance, trajet récent).
-- **Ne donne pas la solution complète** tant que les réponses ne sont pas claires.
-- Garde chaque question sur **une seule ligne**.
+TRIAGE FAP : si l’utilisateur tape juste "fap".
+- **Pose d’abord 3–4 questions fermées** (voyant, fumée noire, perte de puissance, dernier long trajet).
+- **N’expose pas** la conduite détaillée avant ces réponses.
+### Questions rapides
+- Voyant FAP allumé ?
+- Fumée noire visible ?
+- Perte de puissance marquée ?
+- Dernier long trajet (30 min à 2500 tr/min) récent ?
 `.trim();
 
   const DIAG_TRIAGE = `
-OBJECTIF TRIAGE DIAG : entrée vague “vibrations / bruit”.
-- **Pose d’abord 3 questions rapides** : vitesse d’apparition (≈90/110 km/h ?), contexte (accélération / freinage / virage ?), bruit associé (clac-clac ?).
-- Ensuite seulement, propose **les 3 causes probables** (1 ligne chacune) et la prochaine étape.
+TRIAGE DIAG : entrée vague "vibrations/bruit".
+- **Pose d’abord 3 questions** : vitesse d’apparition (~90/110/130 km/h ?), contexte (accélération / freinage / stabilisé ?), bruit associé (clac-clac ?).
+`.trim();
+
+  const DIAG_RULE = `
+En DIAG, **pas de "Question finale"** : termine par une **proposition directe** pour un garage de confiance.
 `.trim();
 
   if (category === 'FAP') {
-    return [
-      COMMON,
-      needTriage ? FAP_TRIAGE : '',
-      // En FAP, la vente Carter-Cash se fait via la question finale (oui/non)
-      `Rappel : **Carter-Cash** n’est mentionné **qu’en FAP** (jamais en DIAG).`,
-      `Historique :\n${H}`
-    ].filter(Boolean).join('\n\n');
+    return [COMMON, needTriage ? FAP_TRIAGE : '', `Historique :\n${H}`].filter(Boolean).join('\n\n');
   }
-
-  // DIAG
-  return [
-    COMMON,
-    needTriage ? DIAG_TRIAGE : '',
-    LEAD,
-    `Interdiction : ne mentionne pas Carter-Cash ni “nettoyage FAP” en DIAG.`,
-    `Historique :\n${H}`
-  ].filter(Boolean).join('\n\n');
+  return [COMMON, needTriage ? DIAG_TRIAGE : '', DIAG_RULE, `Historique :\n${H}`]
+    .filter(Boolean).join('\n\n');
 }
 
-/* ---------------------- Fallbacks très courts ---------------------- */
+/* ---------------------- Fallbacks courts ---------------------- */
 
 function fallbackTriage(category) {
   if (category === 'FAP') {
     return `
 ### En bref
-On vérifie d’abord si c’est bien le FAP et le niveau d’urgence.
+On confirme d’abord si c’est bien le FAP et le niveau d’urgence.
 ### Questions rapides
-1) Voyant FAP allumé ? 2) Fumée noire ? 3) Perte de puissance ? 4) Dernier long trajet (30 min à 2500 tr/min) récent ?
+- Voyant FAP allumé ?
+- Fumée noire visible ?
+- Perte de puissance ?
+- Dernier long trajet (30 min à 2500 tr/min) récent ?
 ### À faire maintenant
 - Si **voyant + perte de puissance** → évite de rouler et consulte vite.
-- Note les codes défauts si tu peux (OBD).
+- Note les codes défauts si possible (OBD).
 ### Prochaine étape
-Dès que tu réponds, je te dis quoi faire précisément.
-### Question finale
-Tu peux répondre aux 4 questions ci-dessus ?
+Dès tes réponses, je te donne la conduite précise.
 `.trim();
   }
   return `
 ### En bref
 On clarifie tes vibrations pour éviter un mauvais diagnostic.
 ### Questions rapides
-1) À quelle vitesse ça apparaît (≈90/110/130 km/h) ? 2) En **accélérant**, **freinant** ou **stabilisé** ? 3) Bruit “clac-clac” ?
+- À quelle vitesse (~90/110/130 km/h) ?
+- En **accélérant**, **freinant** ou **stabilisé** ?
+- Bruit "clac-clac" entendu ?
 ### À faire maintenant
-- Vérifie pression pneus ; si très basse → regonfle.
+- Vérifie la pression des pneus.
 - Évite les tests à haute vitesse si ça vibre fort.
 ### Prochaine étape
-Selon tes réponses, je te propose la piste la plus probable.
-### Question finale
-Tu me donnes ces 3 infos ?
+Selon tes réponses : piste la plus probable.
 `.trim();
 }
 
@@ -200,116 +183,113 @@ function fallbackAnswer(category) {
   if (category === 'FAP') {
     return `
 ### En bref
-Voyant FAP = filtre saturé, à confirmer avant de rouler longtemps.
+Voyant FAP = filtre saturé, à confirmer.
 ### Pourquoi c’est important
-Forcer le moteur aggrave la casse (turbo/EGR) et la facture.
+Forcer le moteur abîme turbo/EGR et augmente la facture.
 ### À faire maintenant
-- Évite les trajets courts ; observe fumée noire / perte de puissance.
-- Si voyant + perte de puissance → limite la conduite.
+- Évite les trajets courts ; observe fumée noire / pertes.
+- Si voyant + pertes → limite la conduite.
 - Note les codes (si OBD).
 ### Prochaine étape
-On confirmera : régénération / nettoyage Re-FAP / garage partenaire.
+On confirme : régénération, **nettoyage Re-FAP** ou garage partenaire.
 ### Question finale
 Sais-tu démonter ton FAP toi-même ?
 `.trim();
   }
   return `
 ### En bref
-Vibrations = roues/jantes déséquilibrées (le plus fréquent) ou transmission.
+Vibrations : roues/jantes déséquilibrées (le plus fréquent) ou transmission.
 ### Pourquoi c’est important
 Ignorer use pneus/suspension et peut créer une casse.
 ### À faire maintenant
-- Équilibrage roues (#1) ; vérifier usure/hernies.
-- Test : apparaît à 100–130 km/h seulement ?
-- Si bruit “clac-clac” → cardan à contrôler.
+- Équilibrage roues ; contrôler usure/hernies.
+- Si ça n’apparaît qu’à 100–130 km/h : suspect roues/jantes.
+- Bruit "clac-clac" : contrôler cardan.
 ### Prochaine étape
-Diagnostic rapide en garage si ça persiste après équilibrage.
-### Question finale
-Veux-tu le lien pour trouver un garage de confiance près de chez toi ?
+Si ça persiste : diagnostic en garage.
 `.trim();
 }
 
-/* ---------------------- Normalisation & garde-fous ---------------------- */
+/* ---------------------- Format guards ---------------------- */
 
-function stripMarkers(t) {
-  return String(t || '')
-    .replace(/<{1,3}<?(start|end)>{1,3}/ig, '')
-    .replace(/<<+|>>+/g, '');
+function stripMarkers(t){ return String(t||'').replace(/<{1,3}<?(start|end)>{1,3}/ig,'').replace(/<<+|>>+/g,''); }
+function stripKeycapEmojis(t){ return String(t||'').replace(/([0-9])\uFE0F?\u20E3/g,'$1. '); }
+function normalizeEnumerations(t){ return String(t||'').split('\n').map(l=>l.replace(/^\s*\d+[\.\)]\s+/, '- ')).join('\n'); }
+function fixColonBreaks(t){ return String(t||'').replace(/\n\s*:\s*/g,' : '); }
+function collapseSoftBreaks(t){
+  return String(t||'')
+    .replace(/([^\n])\n(?!\n)(?!\s*(?:### |\-\s|•\s|\d+[\.\)]\s))/g,'$1 ')
+    .replace(/\n{3,}/g,'\n\n');
 }
-
-function collapseSoftBreaks(t) {
-  // Fusionne “mots\nmots” en “mots mots” sauf titres/puces
-  return t
-    .replace(/[^\S\r\n]*\n(?!\n)(?![#*-]|\d+\))/g, ' ')
-    .replace(/\n{3,}/g, '\n\n');
-}
-
-function normalizeBullets(t) {
-  const lines = String(t || '').split('\n').map(l => l.trimEnd());
-  // normalise les puces en “- ...”
-  for (let i = 0; i < lines.length; i++) {
-    if (/^(\*|\u2022|\-)\s*/.test(lines[i])) {
-      lines[i] = '- ' + lines[i].replace(/^(\*|\u2022|\-)\s*/, '');
+function normalizeBullets(t){
+  return String(t||'').split('\n').map(l=>{
+    if (/^(\*|•|\-)\s*/.test(l)) {
+      l = '- ' + l.replace(/^(\*|•|\-)\s*/, '');
+      l = l.replace(/\s+/g,' ').trim();
     }
-  }
-  return lines.join('\n');
+    return l;
+  }).join('\n');
 }
-
-function enforceSections(t) {
-  let out = t;
-
-  // force les titres en “### …”
+function enforceSections(t){
+  let out = String(t||'');
   out = out
-    .replace(/^en bref\s*:?/gim, '### En bref')
-    .replace(/^pourquoi c[’']est important\s*:?/gim, '### Pourquoi c’est important')
-    .replace(/^à faire maintenant\s*:?/gim, '### À faire maintenant')
-    .replace(/^prochaine étape\s*:?/gim, '### Prochaine étape')
-    .replace(/^question finale\s*:?/gim, '### Question finale')
-    .replace(/^questions rapides\s*:?/gim, '### Questions rapides')
-    .replace(/^trouver un garage proche.*$/gim, '### Trouver un garage proche (option rapide)');
-
+    .replace(/^en bref\s*:?/gim,'### En bref')
+    .replace(/^pourquoi c[’']est important\s*:?/gim,'### Pourquoi c’est important')
+    .replace(/^à faire maintenant\s*:?/gim,'### À faire maintenant')
+    .replace(/^prochaine étape\s*:?/gim,'### Prochaine étape')
+    .replace(/^question finale\s*:?/gim,'### Question finale')
+    .replace(/^questions rapides\s*:?/gim,'### Questions rapides');
   return out;
 }
-
-function capBullets(t, max = 5) {
-  const lines = String(t || '').split('\n');
-  let inside = false, count = 0;
-  const res = [];
-
-  for (const line of lines) {
+function capBullets(t, max=5){
+  const lines = String(t||'').split('\n');
+  let inList=false, count=0; const res=[];
+  for (const line of lines){
     const isSection = /^### /.test(line);
-    if (isSection) { inside = /À faire maintenant/i.test(line) || /Questions rapides/i.test(line); count = 0; res.push(line); continue; }
-
-    if (inside && /^\-\s/.test(line)) {
-      if (count < max) { res.push(line.replace(/\s+/g, ' ').trim()); count++; }
-      else { continue; }
-    } else {
-      res.push(line);
-      if (/^$/.test(line)) inside = false;
-    }
+    if (isSection){ inList=/À faire maintenant|Questions rapides/i.test(line); count=0; res.push(line); continue; }
+    if (inList && /^\-\s/.test(line)){ if (count<max){ res.push(line); count++; } continue; }
+    res.push(line);
+    if (!line.trim()) inList=false;
   }
-  return res.join('\n').replace(/\n{3,}/g, '\n\n');
+  return res.join('\n').replace(/\n{3,}/g,'\n\n');
+}
+function lengthCap(t, max=1300){
+  const s = String(t||''); if (s.length<=max) return s;
+  return s.slice(0, max-20).replace(/\n+?[^#\n]*$/,'')+'\n…';
 }
 
-function lengthCap(t, max = 1300) {
-  const s = String(t || '');
-  if (s.length <= max) return s;
-  return s.slice(0, max - 20).replace(/\n+?[^#\n]*$/, '') + '\n…';
+// Supprime toute section "### Question finale" (utilisé en DIAG)
+function removeQuestionFinale(t){
+  const lines = String(t||'').split('\n');
+  const out=[]; let skip=false;
+  for (const line of lines){
+    if (/^### Question finale/i.test(line)){ skip=true; continue; }
+    if (skip && /^### /.test(line)){ skip=false; }
+    if (!skip) out.push(line);
+  }
+  return out.join('\n').replace(/\n{3,}/g,'\n\n');
 }
 
-function ensureFinalQuestion(t, question) {
+// Ajoute/garantit le bloc lead + lien cliquable en DIAG
+function ensureLeadSnippetWithLink(t){
+  if (/### Trouver un garage proche/i.test(t)) return t;
+  const lead =
+`### Trouver un garage proche (option rapide)
+- Garage de **confiance** près de chez toi : entre **immatriculation** et **code postal**, tu reçois un **devis de diagnostic au meilleur prix** et tu peux **prendre RDV rapidement**.
+- 👉 [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=lead_snippet)`;
+  return `${t.trim()}\n\n${lead}`;
+}
+
+// En FAP : on garde une seule "Question finale"
+function ensureFinalQuestion(t, q){
   if (/^### Question finale/im.test(t)) return t;
-  return t.trim() + `\n\n### Question finale\n${question}`;
+  return `${t.trim()}\n\n### Question finale\n${q}`;
 }
 
-function ensureLeadSnippet(t) {
-  if (/### Trouver un garage proche/im.test(t)) return t;
-  return `${t}\n\n### Trouver un garage proche (option rapide)\n- Garage de **confiance** près de chez toi : entre **immatriculation** et **code postal**, tu reçois un **devis de diagnostic au meilleur prix** et tu peux **prendre RDV rapidement**.`;
-}
-
-function sanitizeReplyNonFAP(text) {
-  return String(text || '')
-    .replace(/carter-?cash/gi, 'garage')
-    .replace(/nettoyage\s+re-?fap/gi, 'diagnostic en garage')
-    .replace(/nettoyage\s+(du\s+)?fap/gi, 'diagnostic en garage');
+// Sanitize : jamais Carter-Cash / nettoyage FAP en DIAG
+function sanitizeReplyNonFAP(text){
+  return String(text||'')
+    .replace(/carter-?cash/gi,'garage')
+    .replace(/nettoyage\s+re-?fap/gi,'diagnostic en garage')
+    .replace(/nettoyage\s+(du\s+)?fap/gi,'diagnostic en garage');
 }
