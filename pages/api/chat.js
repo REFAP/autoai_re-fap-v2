@@ -2,26 +2,31 @@
 import fs from 'fs';
 import path from 'path';
 
+// --- utils ----------------------------------------------------
 const STOPWORDS_FR = new Set([
   'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a',"d'","l'",
   'pour','avec','sur','est',"c'est",'il','elle','on','tu','te','ton','ta','tes','vos','votre',
   'mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet','cette','ses','son','leurs'
 ]);
 
-function normalize(s='') {
-  return s.toLowerCase()
+function normalize(s = '') {
+  return s
+    .toLowerCase()
     .normalize('NFD').replace(/\p{Diacritic}+/gu,'')
     .replace(/[^\p{L}\p{N}\s\-]/gu,' ')
     .replace(/\s+/g,' ')
     .trim();
 }
 function tokenize(s) {
-  return normalize(s).split(' ').filter(t => t && t.length>2 && !STOPWORDS_FR.has(t));
+  return normalize(s).split(' ').filter(t => t && t.length > 2 && !STOPWORDS_FR.has(t));
 }
 
-/* ---------- RAG parsing & scoring ---------- */
+// --- RAG parsing & scoring -----------------------------------
 function parseBlocks(raw) {
-  // [Titre]\nSynonymes: a, b (optionnel)\n...texte...
+  // Format attendu dans data.txt:
+  // [Titre]
+  // Synonymes: a, b, c   (optionnel)
+  // ...contenu...
   const parts = raw.split(/\n(?=\[[^\]]*\]\s*)/g);
   return parts.map(p => {
     const m = p.match(/^\[([^\]]*)\]\s*([\s\S]*)$/);
@@ -33,18 +38,19 @@ function parseBlocks(raw) {
     return { title, body, synonyms };
   }).filter(Boolean);
 }
+
 function scoreBlock(block, queryTokens) {
-  const bag = tokenize(block.title + ' ' + block.body + ' ' + (block.synonyms||[]).join(' '));
+  const bag = tokenize(block.title + ' ' + block.body + ' ' + (block.synonyms || []).join(' '));
   if (!bag.length) return 0;
   let hits = 0;
   for (const t of queryTokens) if (bag.includes(t)) hits++;
-  const titleHits = tokenize(block.title).filter(t=>queryTokens.includes(t)).length;
-  const synHits   = tokenize((block.synonyms||[]).join(' ')).filter(t=>queryTokens.includes(t)).length;
-  return hits + 1.5*titleHits + 1.2*synHits;
+  const titleHits = tokenize(block.title).filter(t => queryTokens.includes(t)).length;
+  const synHits   = tokenize((block.synonyms || []).join(' ')).filter(t => queryTokens.includes(t)).length;
+  return hits + 1.5 * titleHits + 1.2 * synHits;
 }
 
-/* ---------- Détection catégorie (avant LLM) ---------- */
-function detectCategory(text='') {
+// --- Catégorisation (source de vérité pour CTA) ---------------
+function detectCategory(text = '') {
   const t = normalize(text);
 
   // FAP (synonymes + codes typiques)
@@ -59,74 +65,67 @@ function detectCategory(text='') {
   // ADBLUE / SCR
   if (/adblue|uree|scr|compte a rebours|anti.?demarrage|p20ee\b|p2bae\b/.test(t)) return 'ADBLUE';
 
-  // Entretien / générique (pas d'urgence)
+  // Entretien / générique (pas urgent) → on dirigera vers DIAG
   if (/entretien|revision|vidange|controle technique/.test(t)) return 'GEN';
 
-  // Par défaut : besoin d’un diagnostic
+  // Par défaut
   return 'AUTRE';
 }
 
-// Classification de secours post-LLM (garde-fou)
-function classifyPost(text='') {
-  const t = normalize(text);
-  if (/\bfap\b|\bdpf\b|filtre a particule/.test(t)) return 'FAP';
-  if (/diag(nostic)?|rdv|rendez.?vous/.test(t)) return 'DIAG';
-  return 'GEN';
-}
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error:'Méthode non autorisée' });
-  if (!process.env.MISTRAL_API_KEY) return res.status(500).json({ error:'MISTRAL_API_KEY manquante' });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
+  if (!process.env.MISTRAL_API_KEY) return res.status(500).json({ error: 'MISTRAL_API_KEY manquante' });
 
   const { question, historique } = req.body || {};
-  if (!question || typeof question !== 'string') return res.status(400).json({ error:'Question invalide' });
+  if (!question || typeof question !== 'string') return res.status(400).json({ error: 'Question invalide' });
 
-  // 1) Catégorie AVANT génération (source de vérité pour les CTA)
-  const category = detectCategory(`${historique||''} ${question}`);
-  // Mappage CTA
-  const preNext = category === 'FAP' ? 'FAP' : (category === 'GEN' ? 'GEN' : 'DIAG');
+  // 1) Catégorie basée UNIQUEMENT sur la question courante (ne pas polluer avec l’historique)
+  const category = detectCategory(question);
+  // Politique CTA: Carter-Cash uniquement si catégorie = FAP, sinon DIAG
+  const preNextType = category === 'FAP' ? 'FAP' : 'DIAG';
 
-  // 2) RAG
-  let raw;
+  // 2) RAG local
+  let raw = '';
   try {
-    raw = fs.readFileSync(path.join(process.cwd(),'data','data.txt'),'utf-8');
+    raw = fs.readFileSync(path.join(process.cwd(), 'data', 'data.txt'), 'utf-8');
   } catch {
-    return res.status(500).json({ error:'Erreur de lecture des données' });
+    return res.status(500).json({ error: 'Erreur de lecture des données' });
   }
   const blocks = parseBlocks(raw);
-  const queryTokens = tokenize(`${historique||''} ${question}`);
+  const queryTokens = tokenize(`${historique || ''} ${question}`);
   const ranked = blocks
     .map(b => ({ b, s: scoreBlock(b, queryTokens) }))
-    .sort((a,b) => b.s - a.s)
+    .sort((a, b) => b.s - a.s)
     .slice(0, 3)
     .map(x => x.b);
 
   const contextText = ranked.length
     ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
-    : "Aucune correspondance fiable dans la base locale.";
+    : "Aucune correspondance fiable dans la base locale. Donne une réponse brève, honnête, puis pose 2 questions utiles pour préciser.";
 
-  // 3) Prompt — structure pédagogique + CTA conditionnels
-  const tailForFAP =
-`**Prochaine étape :** (1 phrase orientée action)
+  // 3) Prompt – structure pédagogique + queue conditionnelle
+  const tailForFAP = `
+**Prochaine étape :** (1 phrase orientée action)
 **Question finale :** Sais-tu démonter ton FAP toi-même ?
-→ Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`;
+→ Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`.trim();
 
-  const tailForDiag =
-`**Prochaine étape :** (1 phrase orientée action)
-**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${category==='AUTRE' ? 'proche' : 'expert ' + category.toLowerCase()} ?
-→ Prendre RDV : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`;
+  const tailForDiag = `
+**Prochaine étape :** (1 phrase orientée action)
+**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${category === 'AUTRE' ? 'proche' : 'expert ' + category.toLowerCase()} ?
+→ Prendre RDV : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`.trim();
 
   const system = `
 Tu es AutoAI, mécano expérimenté, direct et pro.
 Objectif: expliquer simplement la situation, les risques et quoi faire maintenant.
 Règles:
-- 0 blabla; pas d’invention; si tu ne sais pas, dis-le.
-- Format COMPACT (≤110 mots), pas de lignes vides inutiles.
-- Utilise le CONTEXTE quand pertinent.`;
+- 0 blabla, pas d'invention; si tu ne sais pas, dis-le.
+- Format COMPACT (≤110 mots), pas de lignes vides superflues.
+- Utilise le CONTEXTE quand pertinent.
+`.trim();
 
   const userContent = `
 CATEGORY: ${category}   (FAP | TURBO | EGR | ADBLUE | GEN | AUTRE)
-Historique (résumé): ${historique||'(vide)'}
+Historique (résumé): ${historique || '(vide)'}
 Question: ${question}
 
 === CONTEXTE STRUCTURÉ ===
@@ -137,54 +136,46 @@ Structure attendue (respecte les titres EXACTS):
 **Pourquoi c'est important :** (1–2 phrases pédagogiques)
 **À faire maintenant :**
 - (2–4 puces d’actions concrètes)
-${
-  category === 'FAP' ? tailForFAP : tailForDiag
-}
-`;
+${preNextType === 'FAP' ? tailForFAP : tailForDiag}
+`.trim();
 
   try {
-    const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
+    const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "mistral-medium-latest",
+        model: 'mistral-medium-latest',
         temperature: 0.2,
         top_p: 0.9,
         max_tokens: 600,
         messages: [
-          { role: "system", content: system },
-          { role: "user", content: userContent }
-        ]
-      })
+          { role: 'system', content: system },
+          { role: 'user', content: userContent },
+        ],
+      }),
     });
 
     if (!r.ok) {
-      const minimal = preNext === 'FAP'
+      const minimal = preNextType === 'FAP'
         ? `Possible souci FAP. Dis-moi: voyant FAP allumé ? perte de puissance ? odeur/fumée ?`
-        : `On va prioriser avec 2 infos: voyant moteur fixe ou clignotant ? symptômes (fumée, sifflement, perte de puissance) ?`;
-      return res.status(r.status).json({ reply: minimal, nextAction: { type: preNext } });
+        : `On priorise avec 2 infos: voyant moteur (fixe/clignotant) ? symptômes (fumée, sifflement, perte de puissance) ?`;
+      return res.status(r.status).json({ reply: minimal, nextAction: { type: preNextType } });
     }
 
     const data = await r.json();
-    const reply = (data.choices?.[0]?.message?.content || '').trim() || "Réponse indisponible pour le moment.";
+    const reply = (data.choices?.[0]?.message?.content || '').trim() || 'Réponse indisponible pour le moment.';
 
-    // 4) Garde-fou post LLM (mais on NE force pas FAP si la catégorie ne l'était pas)
-    const post = classifyPost(reply);
-    let finalType = preNext;
-    if (preNext !== 'FAP' && post === 'FAP') {
-      // on reste prudent: on ne bascule à FAP que si la requête d'origine contenait FAP
-      finalType = 'DIAG';
-    }
+    // Sortie stricte: si ce n'est pas FAP, on reste DIAG (pas de Carter-Cash possible)
+    const finalType = preNextType;
 
     return res.status(200).json({ reply, nextAction: { type: finalType } });
-
   } catch {
-    const backup = preNext === 'FAP'
+    const backup = preNextType === 'FAP'
       ? `Problème technique. Voyant FAP ? perte de puissance ? On oriente ensuite (Carter-Cash si FAP démonté, sinon garage partenaire).`
       : `Problème technique. Donne 2 infos: voyant fixe/clignotant ? symptômes (fumée, sifflement, perte de puissance) ?`;
-    return res.status(200).json({ reply: backup, nextAction: { type: preNext } });
+    return res.status(200).json({ reply: backup, nextAction: { type: preNextType } });
   }
 }
