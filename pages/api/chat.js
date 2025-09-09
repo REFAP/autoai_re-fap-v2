@@ -2,12 +2,16 @@
 import fs from 'fs';
 import path from 'path';
 
-/* ========================= Utils ========================= */
+/* =========================================================
+   Utils
+   ========================================================= */
 
 const STOPWORDS_FR = new Set([
-  'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a',"d'","l'",
-  'pour','avec','sur','est',"c'est",'il','elle','on','tu','te','ton','ta','tes','vos','votre',
-  'mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet','cette','ses','son','leurs'
+  'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a',
+  "d'","l'","t'","qu'","jusqu'","puisqu'","lorsqu'",
+  'pour','avec','sur','est',"c'est",'il','elle','on','tu','te','toi','ton','ta','tes',
+  'vos','votre','mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet',
+  'cette','ses','son','leurs','leur','aux','par','chez','deux','trois'
 ]);
 
 function normalize(s = '') {
@@ -18,16 +22,22 @@ function normalize(s = '') {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
 function tokenize(s) {
   return normalize(s)
     .split(' ')
     .filter(t => t && t.length > 2 && !STOPWORDS_FR.has(t));
 }
 
-/* ========================= RAG ========================= */
+/* =========================================================
+   RAG : lecture data.txt + scoring simple
+   ========================================================= */
 
 function parseBlocks(raw) {
-  // Format: [Titre]\nSynonymes: ... (optionnel)\n...contenu...
+  // Format attendu dans data.txt :
+  // [Titre]
+  // Synonymes: a,b,c  (optionnel)
+  // ...contenu markdown...
   const parts = raw.split(/\n(?=\[[^\]]+\]\s*)/g);
   return parts.map(p => {
     const m = p.match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
@@ -40,26 +50,28 @@ function parseBlocks(raw) {
   }).filter(Boolean);
 }
 
-function scoreBlock(block, queryTokens) {
+function scoreBlock(block, qTokens) {
   const bag = tokenize(block.title + ' ' + block.body + ' ' + (block.synonyms || []).join(' '));
   if (!bag.length) return 0;
   let hits = 0;
-  for (const t of queryTokens) if (bag.includes(t)) hits++;
-  const titleHits = tokenize(block.title).filter(t => queryTokens.includes(t)).length;
-  const synHits   = tokenize((block.synonyms || []).join(' ')).filter(t => queryTokens.includes(t)).length;
+  for (const t of qTokens) if (bag.includes(t)) hits++;
+  const titleHits = tokenize(block.title).filter(t => qTokens.includes(t)).length;
+  const synHits   = tokenize((block.synonyms || []).join(' ')).filter(t => qTokens.includes(t)).length;
   return hits + 1.5 * titleHits + 1.2 * synHits;
 }
 
-/* ==================== Catégorisation ==================== */
+/* =========================================================
+   Catégorisation légère (basée sur la question)
+   ========================================================= */
 
 function detectCategory(text = '') {
   const t = normalize(text);
 
   // FAP / DPF
-  if (/\bfap\b|\bdpf\b|filtre a particules|p2002\b|p2463\b|p242f\b|p244[a-b]\b/.test(t)) return 'FAP';
+  if (/\bfap\b|\bdpf\b|filtre a particules|p2002\b|p2463\b|p242f\b|p244[ab]\b/.test(t)) return 'FAP';
 
   // TURBO
-  if (/\bturbo\b|wastegate|surpression|siffle|p0234\b|p0299\b|p2263\b|geometrie variable/.test(t)) return 'TURBO';
+  if (/\bturbo\b|wastegate|siffle|p0234\b|p0299\b|p2263\b|geometrie variable/.test(t)) return 'TURBO';
 
   // EGR
   if (/\begr\b|vanne egr|p040[0-3]\b|p040[5-6]\b/.test(t)) return 'EGR';
@@ -67,32 +79,33 @@ function detectCategory(text = '') {
   // ADBLUE / SCR
   if (/adblue|uree|scr|compte a rebours|anti.?demarrage|p20ee\b|p2bae\b|p204f\b/.test(t)) return 'ADBLUE';
 
-  // Générique / châssis / entretien
-  if (/entretien|revision|vidange|controle technique|vibration|roue|pneu|amortisseur|equilibrage|parallell?isme/.test(t)) return 'GEN';
+  // Symptômes châssis / génériques
+  if (/entretien|revision|vidange|controle technique|vibration|roulement|roue|pneu|amortisseur|equilibrage|parallell?isme/.test(t)) return 'GEN';
 
   return 'AUTRE';
 }
 
 const expertiseLabel = (cat) =>
-  (['GEN', 'AUTRE'].includes(cat) ? 'proche' : `expert ${cat.toLowerCase()}`);
+  (['GEN','AUTRE'].includes(cat) ? 'proche' : `expert ${cat.toLowerCase()}`);
 
-/* ====== Sanitize : jamais Carter-Cash hors FAP + FAP safe ====== */
+/* =========================================================
+   Sanitize : règles éditoriales
+   ========================================================= */
 
-// Non-FAP : purge Carter-Cash & force RDV garage
+// Hors FAP : jamais de Carter-Cash, on pousse RDV garage
 function sanitizeReplyNonFAP(text, category) {
   let out = text;
 
-  // Supprime lignes mentionnant Carter(-)Cash
+  // Supprimer toute ligne mentionnant Carter(-)Cash
   out = out.replace(/^.*carter[\-\s]?cash.*$/gim, '');
 
-  // Supprime choix Oui/Non
+  // Supprimer les choix Oui/Non éventuels
   out = out.replace(/^\s*→\s*Oui\s*:.*$/gim, '');
   out = out.replace(/^\s*(•\s*)?Non\s*:.*$/gim, '');
 
-  // Nettoyage
   out = out.replace(/\n{3,}/g, '\n\n').trim();
 
-  const qLine = `**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${expertiseLabel(category)} ?`;
+  const qLine   = `**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${expertiseLabel(category)} ?`;
   const ctaLine = `→ Prendre RDV : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`;
 
   if (!/Question finale\s*:/i.test(out)) {
@@ -106,7 +119,7 @@ function sanitizeReplyNonFAP(text, category) {
   return out.trim();
 }
 
-// FAP : neutralise %/garantie & roulage non conditionné
+// FAP : prudence sur %/garantie/prix/roulage + dédoublonnage + 4 puces max
 function sanitizeFAPReply(text) {
   const sentences = text.split(/(?<=[.!?])\s+/);
   const safeLine =
@@ -119,25 +132,62 @@ function sanitizeFAPReply(text) {
     const strongClaim = /(restaur|efficacit|performance)/i.test(s) && (hasPct || hasGuarantee);
     if (hasPct || hasGuarantee || strongClaim) return safeLine;
 
-    // “Rouler 10–15 min … à 2500 tr/min” → version conditionnelle
+    // “Rouler 10–15 min … 2500 tr/min” → version conditionnelle
     if (/rouler.*(10|15).*(min|minutes).*2500.*tr\/?min/i.test(sLow)) {
-      return "Si le voyant est récent et sans perte de puissance ni fumée : un trajet d’autoroute 10–15 min autour de 2500 tr/min peut aider. Sinon, ne pas rouler et passer au diagnostic.";
+      return "Si voyant récent et sans perte de puissance ni fumée : un trajet d’autoroute 10–15 min à ~2500 tr/min peut aider. Sinon, ne pas rouler et passer au diagnostic.";
     }
     return s;
   });
 
   let out = rewritten.join(' ');
 
-  // Remplacements conservateurs
+  // Montants rigides → wording générique
   out = out.replace(/(\d{4,5}\s?€\s?pour\s?un\s?neuf)/gi, "plusieurs milliers d’€ pour un remplacement");
-  out = out.replace(/\b(alternative|solution)\s+prouv(ée|e)s?\b/gi, "option recommandée dans de nombreux cas");
+  out = out.replace(/[~≈]?\s*\d{4,5}\s?€/g, "plusieurs milliers d’€");
+  out = out.replace(/\benviron\s+\d{4,5}\s?€/gi, "plusieurs milliers d’€");
+  out = out.replace(/\b(\d{4,5})\s?€\s*(le|pour\s+un)\s+neuf/gi, "plusieurs milliers d’€ pour un remplacement");
+  out = out.replace(/\balternative\s+prouv(ée|e)s?\b/gi, "option souvent recommandée");
 
-  // Nettoyage
+  // 1) Dédupe de lignes quasi identiques (évite redite)
+  {
+    const seen = new Set();
+    out = out
+      .split('\n')
+      .filter((ln) => {
+        const key = ln.toLowerCase()
+          .replace(/\s+/g, ' ')
+          .replace(/[.,;:!?]/g, '')
+          .trim();
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .join('\n');
+  }
+
+  // 2) Limiter à 4 puces dans le bloc "**À faire maintenant :**"
+  out = out.replace(/(\*\*À faire maintenant\s*:\*\*[\s\S]*?)(?=\n\*\*|$)/i, (m, block) => {
+    const lines = block.split('\n');
+    const head = lines.shift(); // "**À faire maintenant :**"
+    const bullets = [];
+    const others  = [];
+    for (const l of lines) {
+      if (/^\s*[-•]/.test(l)) bullets.push(l);
+      else others.push(l);
+    }
+    const kept = bullets.slice(0, 4);
+    return [head, ...kept, ...others].join('\n');
+  });
+
+  // Nettoyage final
   out = out.replace(/\n{3,}/g, '\n\n').replace(/\s{2,}/g, ' ').trim();
   return out;
 }
 
-/* ========================= Handler ========================= */
+/* =========================================================
+   Handler
+   ========================================================= */
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
@@ -158,18 +208,18 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Erreur de lecture des données' });
   }
   const blocks = parseBlocks(raw);
-  const queryTokens = tokenize(`${historique || ''} ${question}`);
+  const qTokens = tokenize(`${historique || ''} ${question}`);
   const ranked = blocks
-    .map(b => ({ b, s: scoreBlock(b, queryTokens) }))
+    .map(b => ({ b, s: scoreBlock(b, qTokens) }))
     .sort((a, b) => b.s - a.s)
     .slice(0, 3)
     .map(x => x.b);
 
   const contextText = ranked.length
     ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
-    : "Aucune correspondance fiable dans la base locale. Donne une réponse brève, honnête, puis pose 2 questions utiles pour préciser.";
+    : "Aucune correspondance fiable dans la base locale. Réponds brièvement et honnêtement, puis pose 2 questions utiles pour préciser.";
 
-  // Tails (fin de réponse)
+  // Tails (fin de réponse) avec UTM
   const tailForFAP = `
 **Info :** Quand le FAP n’est pas endommagé (pas fissuré/fondu), le nettoyage Re-FAP est généralement la meilleure option *qualité / prix / fiabilité* (solution économique et éco-responsable).
 **Prochaine étape :** (1 phrase orientée action)
@@ -190,7 +240,7 @@ Règles:
 - Format COMPACT (≤110 mots), sans lignes vides superflues.
 - Utilise le CONTEXTE si pertinent.
 - Interdiction absolue : si CATEGORY ≠ FAP, ne mentionne jamais "Carter-Cash" ni un choix "Oui/Non".
-- N’écris JAMAIS “rouler X minutes à 2500 tr/min” sauf si l’utilisateur indique explicitement voyant récent, AUCUNE perte de puissance ET AUCUNE fumée.
+- N’écris JAMAIS “rouler X minutes à 2500 tr/min” sauf si l’utilisateur indique explicitement voyant récent ET AUCUNE perte de puissance ET AUCUNE fumée.
 `.trim();
 
   const userContent = `
