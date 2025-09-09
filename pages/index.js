@@ -266,44 +266,25 @@ function CtaForFAP({ highlight }) {
 
 function CtaForDiag({ highlight }) {
   return (
-    <>
-      <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
-        <div className="cta-title">Besoin d’un diagnostic électronique</div>
-        <p className="cta-desc">
-          Lecture des codes défaut + tests des composants pour être sûr du
-          problème avant d’intervenir. Idéal si voyant moteur, doute FAP/EGR,
-          ou symptômes intermittents.
-        </p>
-        <div className="cta-actions">
-          <a
-            href="https://re-fap.fr/trouver_garage_partenaire/"
-            className="garage-button"
-            rel="noopener noreferrer"
-          >
-            Prendre RDV diagnostic 🔎
-          </a>
-        </div>
+    <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
+      <div className="cta-title">Besoin d’un diagnostic électronique</div>
+      <p className="cta-desc">
+        Lecture des codes défaut + tests des composants pour trouver la cause
+        réelle (turbo, EGR, capteurs, etc.) avant toute réparation.
+      </p>
+      <div className="cta-actions">
+        <a
+          href="https://re-fap.fr/trouver_garage_partenaire/"
+          className="garage-button"
+          rel="noopener noreferrer"
+        >
+          Prendre RDV avec un garage 🔎
+        </a>
       </div>
-
-      <div className="cta-card">
-        <div className="cta-title">FAP déjà démonté ?</div>
-        <p className="cta-desc">
-          Dépose directe chez <strong>Carter-Cash</strong> pour nettoyage express
-          Re-FAP (retour rapide).
-        </p>
-        <div className="cta-actions">
-          <a
-            href="https://auto.re-fap.fr"
-            className="carter-button"
-            rel="noopener noreferrer"
-          >
-            Déposer chez Carter-Cash 🛠️
-          </a>
-        </div>
-      </div>
-    </>
+    </div>
   );
 }
+
 
 function CtaDefault({ highlight }) {
   return (
@@ -386,4 +367,5 @@ function InlineCTA({ type }) {
     </div>
   );
 }
+
 
