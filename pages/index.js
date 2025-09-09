@@ -75,33 +75,34 @@ export default function Home() {
       }
 
       const data = await res.json();
+      let reply = (data.reply || '').trim();
 
-let reply = (data.reply || '').trim();
+      // ——— ENFORCE: bloc "Question finale" FAP avec choix Oui/Non ———
+      if (data.nextAction?.type === 'FAP') {
+        const choicesLine =
+          '→ Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=cartercash) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage)';
 
-// ——— ENFORCE: bloc "Question finale" FAP avec choix Oui/Non ———
-if (data.nextAction?.type === 'FAP') {
-  const choicesLine =
-    '→ Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=cartercash) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage)';
+        const hasQuestion = /(\*\*|\*)?Question finale\s*:\s*/i.test(reply);
+        const hasChoices  = /→\s*Oui\s*:/i.test(reply);
 
-  const hasQuestion = /(\*\*|\*)?Question finale\s*:\s*/i.test(reply);
-  const hasChoices  = /→\s*Oui\s*:/i.test(reply);
+        if (!hasQuestion && !hasChoices) {
+          reply = `${reply}\n**Question finale :** Sais-tu démonter ton FAP toi-même ?\n${choicesLine}`.trim();
+        } else if (hasQuestion && !hasChoices) {
+          reply = reply.replace(
+            /(\*\*Question finale\s*:\*\*.*?)(\n|$)/i,
+            (_m, head, eol) => `${head}${eol}${choicesLine}\n`
+          ).trim();
+        }
+      }
+      // ————————————————————————————————————————————————
 
-  if (!hasQuestion && !hasChoices) {
-    // Rien du tout → on ajoute question + choix
-    reply = `${reply}\n**Question finale :** Sais-tu démonter ton FAP toi-même ?\n${choicesLine}`.trim();
-  } else if (hasQuestion && !hasChoices) {
-    // Question présente, choix absents → on insère la ligne juste après l’en-tête
-    reply = reply.replace(
-      /(\*\*Question finale\s*:\*\*.*?)(\n|$)/i,
-      (_m, head, eol) => `${head}${eol}${choicesLine}\n`
-    ).trim();
+      setMessages((msgs) => [...msgs, { from: 'bot', text: reply }]);
+      setNextAction(data.nextAction || { type: 'DIAG' });
+    } catch {
+      setLoading(false);
+      setMessages((msgs) => [...msgs, { from: 'bot', text: "Désolé, il y a eu une erreur réseau, merci d'actualiser la page :)." }]);
+    }
   }
-}
-// ——————————————————————————————————————————————————————————————
-
-setMessages((msgs) => [...msgs, { from: 'bot', text: reply }]);
-setNextAction(data.nextAction || { type: 'DIAG' });
-
 
   return (
     <>
@@ -199,7 +200,7 @@ function CtaForFAP({ highlight }) {
           ils proposent un <em>nettoyage “comme neuf”</em> à <strong>partir de 99€ TTC</strong>.
         </p>
         <div className="cta-actions">
-          <a href="https://auto.re-fap.fr" className="carter-button" rel="noopener noreferrer">
+          <a href="https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=cartercash" className="carter-button" rel="noopener noreferrer">
             Déposer chez Carter-Cash 🛠️
           </a>
         </div>
@@ -213,7 +214,7 @@ function CtaForFAP({ highlight }) {
           <strong> nettoyage Re-FAP</strong>, repose, réinitialisation).
         </p>
         <div className="cta-actions">
-          <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button" rel="noopener noreferrer">
+          <a href="https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage" className="garage-button" rel="noopener noreferrer">
             Prendre RDV avec un garage 🔧
           </a>
         </div>
@@ -231,7 +232,7 @@ function CtaForDiag({ highlight }) {
         (turbo, EGR, capteurs, AdBlue…) avant toute réparation.
       </p>
       <div className="cta-actions">
-        <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button" rel="noopener noreferrer">
+        <a href="https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage" className="garage-button" rel="noopener noreferrer">
           Prendre RDV avec un garage 🔎
         </a>
       </div>
@@ -250,7 +251,7 @@ function CtaDefault({ highlight }) {
           <strong> nettoyage Re-FAP</strong>, repose, réinitialisation.
         </p>
         <div className="cta-actions">
-          <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button" rel="noopener noreferrer">
+          <a href="https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage" className="garage-button" rel="noopener noreferrer">
             Trouver un garage partenaire 🔧
           </a>
         </div>
@@ -263,7 +264,7 @@ function CtaDefault({ highlight }) {
           <strong> à partir de 99€ TTC</strong>.
         </p>
         <div className="cta-actions">
-          <a href="https://auto.re-fap.fr" className="carter-button" rel="noopener noreferrer">
+          <a href="https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=cartercash" className="carter-button" rel="noopener noreferrer">
             Trouver un Carter-Cash 🛠️
           </a>
         </div>
@@ -280,7 +281,7 @@ function FapExplainer({ highlight }) {
       <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
         <div className="cta-title">Pourquoi le nettoyage FAP ?</div>
         <ul className="cta-desc">
-          <li><strong>Qualité/fiabilité :</strong> quand le FAP n’est pas endommagé, le nettoyage Re-FAP restaure les performances d’origine dans la grande majorité des cas.</li>
+          <li><strong>Qualité / fiabilité :</strong> si le FAP n’est pas endommagé, le nettoyage Re-FAP permet le <em>retour aux performances d’origine</em> dans la majorité des cas.</li>
           <li><strong>Économique :</strong> évite un remplacement coûteux ; chez Carter-Cash, à partir de <strong>99€ TTC</strong>.</li>
           <li><strong>Éco-responsable :</strong> on réutilise la pièce au lieu de la jeter.</li>
         </ul>
@@ -290,8 +291,8 @@ function FapExplainer({ highlight }) {
         <div className="cta-title">Quand ça ne suffit pas ?</div>
         <ul className="cta-desc">
           <li>FAP <strong>fissuré/fondu</strong> (choc thermique, régénération ratée).</li>
-          <li>Capteurs <strong>différentiel/température</strong> HS ou fuite turbo importante.</li>
-          <li>Calculateur bloqué en <strong>mode dégradé</strong> non levé.</li>
+          <li>Capteurs <strong>différentiel / température</strong> HS ou grosse fuite turbo.</li>
+          <li>Calculateur bloqué en <strong>mode dégradé</strong>.</li>
         </ul>
         <p className="cta-desc">Dans ces cas : diagnostic et prise en charge par un <strong>garage partenaire</strong>.</p>
       </div>
@@ -318,16 +319,15 @@ function InlineCTA({ type }) {
   if (type === 'FAP') {
     return (
       <div className="inline-cta">
-        <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">Prendre RDV 🔧</a>
-        <a href="https://auto.re-fap.fr" className="carter-button">Déposer chez Carter-Cash 🛠️</a>
+        <a href="https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage" className="garage-button">Prendre RDV 🔧</a>
+        <a href="https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=cartercash" className="carter-button">Déposer chez Carter-Cash 🛠️</a>
       </div>
     );
   }
   // DIAG (et tout le reste) → uniquement garage
   return (
     <div className="inline-cta">
-      <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">Prendre RDV diagnostic 🔎</a>
+      <a href="https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage" className="garage-button">Prendre RDV diagnostic 🔎</a>
     </div>
   );
 }
-
