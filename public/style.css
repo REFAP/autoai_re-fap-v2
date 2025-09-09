@@ -266,6 +266,30 @@ button:hover {
     padding: 0.7rem 1rem;
     font-size: 1rem;
   }
+.cta-card {
+  background: #ffffff0f;
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+}
+.cta-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.cta-desc {
+  font-size: 0.95rem;
+  line-height: 1.3rem;
+  margin: 0 0 10px 0;
+}
+.cta-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 
 
 
