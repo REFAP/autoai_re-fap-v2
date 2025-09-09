@@ -119,10 +119,9 @@ ${(historique || '').slice(0, 2000)}
 - **Pourquoi c’est important :** risques si on ignore.
 - **À faire maintenant :** 3–6 puces concrètes.
 - **Info / prochaine étape :** nettoyage Re-FAP vs remplacement.
-- **Question finale :** *Sais-tu démonter ton FAP toi-même ?*
-- **Ligne Oui/Non** (OBLIGATOIRE) :
-→ **Oui** : [Trouver un Carter-Cash](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_oui)
- • **Non** : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_non)
+- **Question finale — choisis une option :**
+  - ✅ **Oui, je peux démonter le FAP** → [Trouver un Carter-Cash près de chez toi](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=md_oui&utm_campaign=v2)
+  - 🔧 **Non, j’ai besoin d’un pro** → [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=md_non&utm_campaign=v2)
 `.trim();
 
   const blockDIAG = `
@@ -166,9 +165,9 @@ function fallbackAnswer(category, q) {
 **Info :** le **nettoyage Re-FAP** (≈99–149€) restaure souvent l’efficacité ; remplacement = >2000€.
 **Prochaine étape :** confirmer l’état actuel (code défauts/diagnostic récent ?).
 
-**Question finale :** Sais-tu démonter ton FAP toi-même ?
-→ **Oui** : [Trouver un Carter-Cash](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_oui)
- • **Non** : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_non)
+**Question finale — choisis une option :**
+- ✅ **Oui, je peux démonter le FAP** → [Trouver un Carter-Cash près de chez toi](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=fallback_oui&utm_campaign=v2)
+- 🔧 **Non, j’ai besoin d’un pro** → [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=fallback_non&utm_campaign=v2)
 `.trim();
   }
 
