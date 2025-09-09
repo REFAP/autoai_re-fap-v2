@@ -76,22 +76,32 @@ export default function Home() {
 
       const data = await res.json();
 
-      // Petite sécurité : injecter la question finale FAP si le LLM l'a omise
-      let reply = (data.reply || '').trim();
-      if (data.nextAction?.type === 'FAP' && /^→\s*Oui\s*:/m.test(reply) && !/Question finale\s*:/i.test(reply)) {
-        reply = reply.replace(
-          /^→\s*Oui\s*:.*/m,
-          () => `**Question finale :** Sais-tu démonter ton FAP toi-même ?\n→ Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`
-        );
-      }
+let reply = (data.reply || '').trim();
 
-      setMessages((msgs) => [...msgs, { from: 'bot', text: reply }]);
-      setNextAction(data.nextAction || { type: 'DIAG' });
-    } catch {
-      setLoading(false);
-      setMessages((msgs) => [...msgs, { from: 'bot', text: "Désolé, il y a eu une erreur réseau, merci d'actualiser la page :)." }]);
-    }
+// ——— ENFORCE: bloc "Question finale" FAP avec choix Oui/Non ———
+if (data.nextAction?.type === 'FAP') {
+  const choicesLine =
+    '→ Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=cartercash) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=garage)';
+
+  const hasQuestion = /(\*\*|\*)?Question finale\s*:\s*/i.test(reply);
+  const hasChoices  = /→\s*Oui\s*:/i.test(reply);
+
+  if (!hasQuestion && !hasChoices) {
+    // Rien du tout → on ajoute question + choix
+    reply = `${reply}\n**Question finale :** Sais-tu démonter ton FAP toi-même ?\n${choicesLine}`.trim();
+  } else if (hasQuestion && !hasChoices) {
+    // Question présente, choix absents → on insère la ligne juste après l’en-tête
+    reply = reply.replace(
+      /(\*\*Question finale\s*:\*\*.*?)(\n|$)/i,
+      (_m, head, eol) => `${head}${eol}${choicesLine}\n`
+    ).trim();
   }
+}
+// ——————————————————————————————————————————————————————————————
+
+setMessages((msgs) => [...msgs, { from: 'bot', text: reply }]);
+setNextAction(data.nextAction || { type: 'DIAG' });
+
 
   return (
     <>
@@ -320,3 +330,4 @@ function InlineCTA({ type }) {
     </div>
   );
 }
+
