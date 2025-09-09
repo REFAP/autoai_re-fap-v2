@@ -15,11 +15,20 @@ export default function Home() {
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState('');
   const [nextAction, setNextAction] = useState(null); // pilote l’affichage des CTA
+  const [showCoach, setShowCoach] = useState(false);  // coachmark “regarde à droite”
   const chatEndRef = useRef();
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Affiche le coachmark 6s à chaque nouvelle action détectée
+  useEffect(() => {
+    if (!nextAction) return;
+    setShowCoach(true);
+    const t = setTimeout(() => setShowCoach(false), 6000);
+    return () => clearTimeout(t);
+  }, [nextAction?.type]);
 
   function getHistoriqueText() {
     const lastMessages = messages.slice(-5);
@@ -31,7 +40,6 @@ export default function Home() {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    // Limite d'échanges utilisateur
     const userMessagesCount = messages.filter((m) => m.from === 'user').length;
     if (userMessagesCount >= 10) {
       setBlocked(true);
@@ -116,6 +124,14 @@ export default function Home() {
 
         <div className="chat-and-button">
           <div id="chat-window" className="chat-window">
+            {/* Hint minimal dans le chat quand une action est détectée */}
+            {nextAction && (
+              <div className="bot-msg chat-hint">
+                <strong>Astuce :</strong> la <em>solution recommandée</em> est à
+                droite 👉 (boutons verts/bleus).
+              </div>
+            )}
+
             {messages.map((m, i) => (
               <div key={i} className={m.from === 'user' ? 'user-msg' : 'bot-msg'}>
                 <strong>{m.from === 'user' ? 'Moi' : 'AutoAI'}:</strong>
@@ -136,14 +152,21 @@ export default function Home() {
               </div>
             )}
 
+            {/* Inline CTA : double l’action dans le chat */}
+            {nextAction && <InlineCTA type={nextAction.type} />}
+
             <div ref={chatEndRef} />
           </div>
 
           {/* COLONNE CTA — cartes + boutons design */}
           <div className="garage-button-container">
-            {nextAction?.type === 'FAP' && <CtaForFAP />}
-            {nextAction?.type === 'DIAG' && <CtaForDiag />}
-            {(!nextAction || nextAction.type === 'GEN') && <CtaDefault />}
+            {showCoach && nextAction && (
+              <Coachmark type={nextAction.type} onClose={() => setShowCoach(false)} />
+            )}
+
+            {nextAction?.type === 'FAP' && <CtaForFAP highlight={showCoach} />}
+            {nextAction?.type === 'DIAG' && <CtaForDiag highlight={showCoach} />}
+            {(!nextAction || nextAction.type === 'GEN') && <CtaDefault highlight={showCoach} />}
           </div>
         </div>
 
@@ -185,18 +208,16 @@ export default function Home() {
 
 /* ———————————————— CTA Components ———————————————— */
 
-function CtaForFAP() {
+function CtaForFAP({ highlight }) {
   return (
     <>
-      {/* OUI : je sais démonter mon FAP */}
-      <div className="cta-card">
+      <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
         <div className="cta-title">Tu sais démonter ton FAP toi-même ?</div>
         <p className="cta-desc">
           <strong>Solution idéale :</strong> dépose ton FAP directement dans un
           <strong> Carter-Cash</strong> près de chez toi. En partenariat avec
           Re-FAP, ils proposent un <em>nettoyage “comme neuf”</em> des filtres à
-          particules à des prix qui défient la concurrence <strong>(à partir de
-          99€ TTC)</strong>.
+          particules <strong>à partir de 99€ TTC</strong>.
         </p>
         <div className="cta-actions">
           <a
@@ -209,14 +230,13 @@ function CtaForFAP() {
         </div>
       </div>
 
-      {/* NON : je préfère un pro */}
-      <div className="cta-card">
+      <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
         <div className="cta-title">Tu ne veux/peux pas le démonter ?</div>
         <p className="cta-desc">
-          Dans ton cas, confie le véhicule à un <strong>garage partenaire Re-FAP</strong> :
-          il confirme le diagnostic et te fait un devis <strong>tout compris</strong> :
-          dépose du FAP, <strong>nettoyage Re-FAP</strong>, repose et{' '}
-          réinitialisation à la valise diagnostic — au meilleur prix.
+          Confie le véhicule à un <strong>garage partenaire Re-FAP</strong> :
+          confirmation du diagnostic et devis <strong>tout compris</strong> :
+          dépose du FAP, <strong>nettoyage Re-FAP</strong>, repose et réinitialisation
+          à la valise — au meilleur prix.
         </p>
         <div className="cta-actions">
           <a
@@ -232,10 +252,10 @@ function CtaForFAP() {
   );
 }
 
-function CtaForDiag() {
+function CtaForDiag({ highlight }) {
   return (
     <>
-      <div className="cta-card">
+      <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
         <div className="cta-title">Besoin d’un diagnostic électronique</div>
         <p className="cta-desc">
           Lecture des codes défaut + tests des composants pour être sûr du
@@ -273,10 +293,10 @@ function CtaForDiag() {
   );
 }
 
-function CtaDefault() {
+function CtaDefault({ highlight }) {
   return (
     <>
-      <div className="cta-card">
+      <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
         <div className="cta-title">Tu veux qu’un pro s’en charge ?</div>
         <p className="cta-desc">
           Réseau de <strong>garages partenaires Re-FAP</strong> : diagnostic, dépose,
@@ -310,5 +330,47 @@ function CtaDefault() {
         </div>
       </div>
     </>
+  );
+}
+
+/* ———————————————— UI helpers ———————————————— */
+
+// Bandeau indicatif à droite
+function Coachmark({ type, onClose }) {
+  const label = type === 'FAP'
+    ? "Recommandation FAP : choisis l’option qui te correspond 👉"
+    : type === 'DIAG'
+      ? "Besoin d’un diagnostic ? Clique ici 👉"
+      : "Solutions disponibles 👉";
+  return (
+    <div className="coachmark" role="status" aria-live="polite">
+      <span>{label}</span>
+      <button className="coachmark-close" onClick={onClose} aria-label="Fermer">×</button>
+    </div>
+  );
+}
+
+// Boutons d’action dans le chat (double les CTA)
+function InlineCTA({ type }) {
+  if (type === 'FAP') {
+    return (
+      <div className="inline-cta">
+        <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">Prendre RDV 🔧</a>
+        <a href="https://auto.re-fap.fr" className="carter-button">Déposer chez Carter-Cash 🛠️</a>
+      </div>
+    );
+  }
+  if (type === 'DIAG') {
+    return (
+      <div className="inline-cta">
+        <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">Prendre RDV diagnostic 🔎</a>
+      </div>
+    );
+  }
+  return (
+    <div className="inline-cta">
+      <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">Garage partenaire 🔧</a>
+      <a href="https://auto.re-fap.fr" className="carter-button">Carter-Cash 🛠️</a>
+    </div>
   );
 }
