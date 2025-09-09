@@ -208,3 +208,39 @@ h1{
 
 /* accessibility / selection */
 ::selection{ background:#204a75; color:#fff; }
+/* === HOTFIX: confort sur écrans larges === */
+.container{ max-width: 1280px; }
+
+.chat-and-button{
+  grid-template-columns: minmax(0, 1fr) 400px; /* rail droit un peu plus large */
+}
+
+.inline-ctas .garage-button,
+.inline-ctas .carter-button{
+  min-width: 280px; /* CTAs plus “présents” */
+}
+
+/* Step-up progressif de la taille texte + largeur page */
+@media (min-width: 1440px){
+  body{ font-size: 17px; }
+  .container{ max-width: 1320px; }
+}
+
+@media (min-width: 1680px){
+  body{ font-size: 18px; }
+  .container{ max-width: 1400px; }
+  .chat-and-button{ grid-template-columns: minmax(0, 1fr) 420px; }
+}
+
+@media (min-width: 1920px){
+  body{ font-size: 19px; }
+  .container{ max-width: 1500px; }
+  .chat-and-button{ grid-template-columns: minmax(0, 1fr) 440px; }
+  .right-rail{ gap: 16px; }
+}
+
+/* Bonus: évite que le chat paraisse tassé si la fenêtre est très haute */
+.chat-window{
+  max-height: calc(100vh - 220px);
+}
+
