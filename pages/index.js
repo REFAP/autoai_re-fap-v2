@@ -14,21 +14,21 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState('');
-  const [nextAction, setNextAction] = useState(null); // pilote l’affichage des CTA
-  const [showCoach, setShowCoach] = useState(false);  // coachmark “regarde à droite”
-  const chatEndRef = useRef();
+  const [nextAction, setNextAction] = useState(null);   // { type: 'FAP' | 'DIAG' | 'GEN' }
+  const [showCoach, setShowCoach] = useState(false);    // coachmark colonne droite
+  const chatEndRef = useRef(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Affiche le coachmark 6s à chaque nouvelle action détectée
+  // Affiche le coachmark 6s quand l’action change
   useEffect(() => {
     if (!nextAction) return;
     setShowCoach(true);
     const t = setTimeout(() => setShowCoach(false), 6000);
     return () => clearTimeout(t);
-  }, [nextAction?.type]);
+  }, [nextAction && nextAction.type]);
 
   function getHistoriqueText() {
     const lastMessages = messages.slice(-5);
@@ -52,8 +52,7 @@ export default function Home() {
     const trimmedInput = input.trim();
     if (!trimmedInput) return;
 
-    const userMsg = { from: 'user', text: trimmedInput };
-    setMessages((msgs) => [...msgs, userMsg]);
+    setMessages((msgs) => [...msgs, { from: 'user', text: trimmedInput }]);
     setInput('');
     setLoading(true);
     setError('');
@@ -73,44 +72,33 @@ export default function Home() {
       setLoading(false);
 
       if (!res.ok) {
-        if (res.status === 429) {
-          setMessages((msgs) => [
-            ...msgs,
-            {
-              from: 'bot',
-              text: '⚠️ Le service est temporairement saturé, merci de réessayer plus tard.',
-            },
-          ]);
-        } else {
-          setMessages((msgs) => [
-            ...msgs,
-            { from: 'bot', text: `Erreur serveur ${res.status}` },
-          ]);
-        }
+        setMessages((msgs) => [
+          ...msgs,
+          {
+            from: 'bot',
+            text:
+              res.status === 429
+                ? '⚠️ Le service est temporairement saturé, merci de réessayer plus tard.'
+                : `Erreur serveur ${res.status}`,
+          },
+        ]);
         return;
       }
 
       const data = await res.json();
-      let reply = (data.reply || "").trim();
 
-// Si la ligne "→ Oui :" est présente mais pas "Question finale", on insère la question avant.
-if (/^→\s*Oui\s*:/m.test(reply) && !/Question finale\s*:/i.test(reply)) {
-  reply = reply.replace(
-    /^→\s*Oui\s*:.*/m,
-    match => `**Question finale :** Sais-tu démonter ton FAP toi-même ?\n${match}`
-  );
-}
+      // Garde-fou : si la conclusion “→ Oui :” est là sans “Question finale”, on injecte la question
+      let reply = (data.reply || '').trim();
+      if (/^→\s*Oui\s*:/m.test(reply) && !/Question finale\s*:/i.test(reply)) {
+        reply = reply.replace(
+          /^→\s*Oui\s*:.*/m,
+          (match) =>
+            `**Question finale :** Sais-tu démonter ton FAP toi-même ?\n${match}`
+        );
+      }
 
-const botMsg = { from: 'bot', text: reply || "Désolé, réponse vide." };
-
-      const botMsg = {
-        from: 'bot',
-        text:
-          data.reply ||
-          "Désolé, le service a reçu trop de messages en même temps, merci de renvoyer votre message :).",
-      };
-      setMessages((msgs) => [...msgs, botMsg]);
-      setNextAction(data.nextAction || { type: 'GEN' }); // met à jour l’action suivante (FAP/DIAG/GEN)
+      setMessages((msgs) => [...msgs, { from: 'bot', text: reply }]);
+      setNextAction(data.nextAction || { type: 'GEN' });
     } catch {
       setLoading(false);
       setMessages((msgs) => [
@@ -136,7 +124,7 @@ const botMsg = { from: 'bot', text: reply || "Désolé, réponse vide." };
 
         <div className="chat-and-button">
           <div id="chat-window" className="chat-window">
-            {/* Hint minimal dans le chat quand une action est détectée */}
+            {/* Hint discret côté chat */}
             {nextAction && (
               <div className="bot-msg chat-hint">
                 <strong>Astuce :</strong> la <em>solution recommandée</em> est à
@@ -164,21 +152,25 @@ const botMsg = { from: 'bot', text: reply || "Désolé, réponse vide." };
               </div>
             )}
 
-            {/* Inline CTA : double l’action dans le chat */}
+            {/* Inline CTA (double l’action dans la zone chat) */}
             {nextAction && <InlineCTA type={nextAction.type} />}
 
             <div ref={chatEndRef} />
           </div>
 
-          {/* COLONNE CTA — cartes + boutons design */}
+          {/* Colonne CTA */}
           <div className="garage-button-container">
             {showCoach && nextAction && (
-              <Coachmark type={nextAction.type} onClose={() => setShowCoach(false)} />
+              <Coachmark
+                type={nextAction.type}
+                onClose={() => setShowCoach(false)}
+              />
             )}
-
             {nextAction?.type === 'FAP' && <CtaForFAP highlight={showCoach} />}
             {nextAction?.type === 'DIAG' && <CtaForDiag highlight={showCoach} />}
-            {(!nextAction || nextAction.type === 'GEN') && <CtaDefault highlight={showCoach} />}
+            {(!nextAction || nextAction.type === 'GEN') && (
+              <CtaDefault highlight={showCoach} />
+            )}
           </div>
         </div>
 
@@ -218,7 +210,7 @@ const botMsg = { from: 'bot', text: reply || "Désolé, réponse vide." };
   );
 }
 
-/* ———————————————— CTA Components ———————————————— */
+/* ===================== CTA Components ===================== */
 
 function CtaForFAP({ highlight }) {
   return (
@@ -285,7 +277,6 @@ function CtaForDiag({ highlight }) {
   );
 }
 
-
 function CtaDefault({ highlight }) {
   return (
     <>
@@ -326,46 +317,64 @@ function CtaDefault({ highlight }) {
   );
 }
 
-/* ———————————————— UI helpers ———————————————— */
+/* ===================== UI helpers ===================== */
 
-// Bandeau indicatif à droite
 function Coachmark({ type, onClose }) {
-  const label = type === 'FAP'
-    ? "Recommandation FAP : choisis l’option qui te correspond 👉"
-    : type === 'DIAG'
+  const label =
+    type === 'FAP'
+      ? "Recommandation FAP : choisis l’option qui te correspond 👉"
+      : type === 'DIAG'
       ? "Besoin d’un diagnostic ? Clique ici 👉"
       : "Solutions disponibles 👉";
   return (
     <div className="coachmark" role="status" aria-live="polite">
       <span>{label}</span>
-      <button className="coachmark-close" onClick={onClose} aria-label="Fermer">×</button>
+      <button className="coachmark-close" onClick={onClose} aria-label="Fermer">
+        ×
+      </button>
     </div>
   );
 }
 
-// Boutons d’action dans le chat (double les CTA)
 function InlineCTA({ type }) {
   if (type === 'FAP') {
     return (
       <div className="inline-cta">
-        <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">Prendre RDV 🔧</a>
-        <a href="https://auto.re-fap.fr" className="carter-button">Déposer chez Carter-Cash 🛠️</a>
+        <a
+          href="https://re-fap.fr/trouver_garage_partenaire/"
+          className="garage-button"
+        >
+          Prendre RDV 🔧
+        </a>
+        <a href="https://auto.re-fap.fr" className="carter-button">
+          Déposer chez Carter-Cash 🛠️
+        </a>
       </div>
     );
   }
   if (type === 'DIAG') {
     return (
       <div className="inline-cta">
-        <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">Prendre RDV diagnostic 🔎</a>
+        <a
+          href="https://re-fap.fr/trouver_garage_partenaire/"
+          className="garage-button"
+        >
+          Prendre RDV diagnostic 🔎
+        </a>
       </div>
     );
   }
   return (
     <div className="inline-cta">
-      <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">Garage partenaire 🔧</a>
-      <a href="https://auto.re-fap.fr" className="carter-button">Carter-Cash 🛠️</a>
+      <a
+        href="https://re-fap.fr/trouver_garage_partenaire/"
+        className="garage-button"
+      >
+        Garage partenaire 🔧
+      </a>
+      <a href="https://auto.re-fap.fr" className="carter-button">
+        Carter-Cash 🛠️
+      </a>
     </div>
   );
 }
-
-
