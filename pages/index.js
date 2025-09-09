@@ -76,10 +76,13 @@ export default function Home() {
 
       const data = await res.json();
 
-      // Fallback: n’ajouter la question FAP que si l’action est bien FAP
+      // Petite sécurité : injecter la question finale FAP si le LLM l'a omise
       let reply = (data.reply || '').trim();
       if (data.nextAction?.type === 'FAP' && /^→\s*Oui\s*:/m.test(reply) && !/Question finale\s*:/i.test(reply)) {
-        reply = reply.replace(/^→\s*Oui\s*:.*/m, (match) => `**Question finale :** Sais-tu démonter ton FAP toi-même ?\n${match}`);
+        reply = reply.replace(
+          /^→\s*Oui\s*:.*/m,
+          () => `**Question finale :** Sais-tu démonter ton FAP toi-même ?\n→ Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`
+        );
       }
 
       setMessages((msgs) => [...msgs, { from: 'bot', text: reply }]);
@@ -102,6 +105,7 @@ export default function Home() {
 
         <div className="chat-and-button">
           <div id="chat-window" className="chat-window">
+
             {nextAction && (
               <div className="bot-msg chat-hint">
                 <strong>Astuce :</strong> la <em>solution recommandée</em> est à droite 👉 (boutons verts/bleus).
@@ -132,7 +136,12 @@ export default function Home() {
               <Coachmark type={nextAction.type} onClose={() => setShowCoach(false)} />
             )}
 
-            {nextAction?.type === 'FAP' && <CtaForFAP highlight={showCoach} />}
+            {nextAction?.type === 'FAP' && (
+              <>
+                <FapExplainer highlight={showCoach} />
+                <CtaForFAP highlight={showCoach} />
+              </>
+            )}
             {nextAction?.type === 'DIAG' && <CtaForDiag highlight={showCoach} />}
             {!nextAction && <CtaDefault highlight={showCoach} />}
           </div>
@@ -220,7 +229,7 @@ function CtaForDiag({ highlight }) {
   );
 }
 
-// S’affiche sur la page d’accueil (avant 1ère réponse)
+// Accueil (avant 1ère réponse)
 function CtaDefault({ highlight }) {
   return (
     <>
@@ -253,7 +262,34 @@ function CtaDefault({ highlight }) {
   );
 }
 
-/* ===================== Helpers ===================== */
+/* ===================== FAP Explainer ===================== */
+
+function FapExplainer({ highlight }) {
+  return (
+    <>
+      <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
+        <div className="cta-title">Pourquoi le nettoyage FAP ?</div>
+        <ul className="cta-desc">
+          <li><strong>Qualité/fiabilité :</strong> quand le FAP n’est pas endommagé, le nettoyage Re-FAP restaure les performances d’origine dans la grande majorité des cas.</li>
+          <li><strong>Économique :</strong> évite un remplacement coûteux ; chez Carter-Cash, à partir de <strong>99€ TTC</strong>.</li>
+          <li><strong>Éco-responsable :</strong> on réutilise la pièce au lieu de la jeter.</li>
+        </ul>
+      </div>
+
+      <div className="cta-card">
+        <div className="cta-title">Quand ça ne suffit pas ?</div>
+        <ul className="cta-desc">
+          <li>FAP <strong>fissuré/fondu</strong> (choc thermique, régénération ratée).</li>
+          <li>Capteurs <strong>différentiel/température</strong> HS ou fuite turbo importante.</li>
+          <li>Calculateur bloqué en <strong>mode dégradé</strong> non levé.</li>
+        </ul>
+        <p className="cta-desc">Dans ces cas : diagnostic et prise en charge par un <strong>garage partenaire</strong>.</p>
+      </div>
+    </>
+  );
+}
+
+/* ===================== Helpers visuels ===================== */
 
 function Coachmark({ type, onClose }) {
   const label =
