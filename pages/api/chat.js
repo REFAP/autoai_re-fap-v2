@@ -1,7 +1,7 @@
 // pages/api/chat.js
-// AutoAI v2.5 — triage court, CTA direct (DIAG), Oui/Non (FAP), format propre
+// AutoAI v3.0 — reset propre, flux FAP en 2 temps, DIAG avec CTA direct, sorties compactes.
 
-const PROMPT_VERSION = '2.5-fast-triage-direct-cta';
+const PROMPT_VERSION = '3.0-reset-clean';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée.' });
@@ -11,14 +11,14 @@ export default async function handler(req, res) {
     const q = String(question || '').trim();
     if (!q) return res.status(400).json({ error: 'question manquante' });
 
-    const category   = detectCategory(q);                 // 'FAP' | 'DIAG'
+    const category   = detectCategory(q); // 'FAP' | 'DIAG'
     const needTriage = needsTriage(category, q, historique);
     const system     = buildSystemPrompt(category, historique, needTriage);
 
-    let reply;
     const apiKey = process.env.MISTRAL_API_KEY;
     const model  = process.env.MISTRAL_MODEL || 'mistral-large-latest';
 
+    let reply;
     if (apiKey) {
       try {
         const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
             ],
             temperature: 0.2,
             top_p: 0.6,
-            max_tokens: needTriage ? 220 : 360,
+            max_tokens: needTriage ? 220 : 340, // court et stable
           }),
         });
         if (!r.ok) throw new Error(`Mistral HTTP ${r.status}`);
@@ -45,28 +45,23 @@ export default async function handler(req, res) {
       reply = needTriage ? fallbackTriage(category) : fallbackAnswer(category);
     }
 
-    // ---------- durcisseurs de format ----------
-    reply = stripMarkers(reply);
-    reply = stripKeycapEmojis(reply);
-    reply = normalizeEnumerations(reply);
-    reply = fixColonBreaks(reply);
-    reply = collapseSoftBreaks(reply);
-    reply = normalizeBullets(reply);
-    reply = enforceSections(reply);
-    reply = capBullets(reply, 5);
-    reply = lengthCap(reply, 1300);
+    // ---------- Normalisation dure (anti dérives) ----------
+    reply = stripMarkers(reply);              // enlève <<<...>>> et <<>>
+    reply = banEmojisAndNumbers(reply);       // pas d’emojis ni 1) 2) …
+    reply = fixColonBreaks(reply);            // "Mot\n:" -> "Mot :"
+    reply = collapseSoftBreaks(reply);        // colle les phrases cassées
+    reply = enforceSections(reply);           // titres ### et ordre attendu
+    reply = normalizeBullets(reply);          // "- " et 1 ligne/puce
+    reply = capBullets(reply, 5);             // 5 puces max
+    reply = lengthCap(reply, 1200);           // limite dure
 
-    // ---------- CTA logique ----------
-    if (category !== 'FAP') {
-      // Jamais de Carter-Cash hors FAP
-      reply = sanitizeReplyNonFAP(reply);
-      // On enlève toute "Question finale" en DIAG et on pousse le CTA direct
-      reply = removeQuestionFinale(reply);
-      reply = ensureLeadSnippetWithLink(reply);
+    if (category === 'FAP') {
+      reply = ensureFapBenefits(reply);       // bloc bénéfices nettoyage Re-FAP
+      reply = ensureFapYesNo(reply);          // Oui/Non avec bons liens
     } else {
-      // En FAP : on garde la question Oui/Non
-      reply = ensureFinalQuestion(reply, 'Sais-tu démonter ton FAP toi-même ?');
-      // le contenu peut mentionner Carter-Cash en FAP
+      reply = removeQuestionFinale(reply);    // jamais de “Question finale” en DIAG
+      reply = ensureLeadGarage(reply);        // bloc lead (immat + CP → devis + RDV)
+      reply = sanitizeReplyNonFAP(reply);     // supprime Carter-Cash/nettoyage FAP si erreur du LLM
     }
 
     const nextAction = { type: needTriage ? (category === 'FAP' ? 'FAP_TRIAGE' : 'DIAG_TRIAGE') : category };
@@ -80,102 +75,138 @@ export default async function handler(req, res) {
 
 function detectCategory(text) {
   const t = (text || '').toLowerCase();
-  const fapTerms = ['fap','dpf','p2463','p2002','regeneration','régénération','suie','filtre à particules','filtre a particules','colmatage','voyant fap'];
-  if (fapTerms.some(w => t.includes(w))) return 'FAP';
-  const diagTerms = ['vibration','vibre','tremble','roulement','bruit','turbo','fumée','fumee','egr','capteur','injecteur','adblue','démarre pas','demarre pas','perte de puissance'];
-  if (diagTerms.some(w => t.includes(w))) return 'DIAG';
+  const F = ['fap','dpf','p2463','p2002','regeneration','régénération','suie','filtre à particules','filtre a particules','colmatage','voyant fap'];
+  if (F.some(w => t.includes(w))) return 'FAP';
+
+  const D = ['vibration','vibre','tremble','roulement','bruit','turbo','fumée','fumee','egr','capteur','injecteur','adblue','démarre pas','demarre pas','perte de puissance'];
+  if (D.some(w => t.includes(w))) return 'DIAG';
+
   return 'DIAG';
 }
 
 function needsTriage(category, q, historique) {
   const txt = (q + ' ' + (historique || '')).toLowerCase();
   const short = q.length < 20;
-  const hasDetail = /(p2463|p2002|voyant|code|diag|perte de puissance|fum[ée]e|r[ée]g[ée]n[ée]ration)/.test(txt);
-  if (category === 'FAP') return short || !hasDetail;
-  const vagueDiag = /(vibration|bruit|tremble)/.test(txt) && !/(accélération|freinage|90|100|110|120|130|roue|pneu|cardan|roulement)/.test(txt);
+  if (category === 'FAP') {
+    const hasDetail = /(p2463|p2002|voyant|code|diag|perte de puissance|fum[ée]e|r[ée]g[ée]n[ée]ration)/.test(txt);
+    return short || !hasDetail;
+  }
+  // DIAG : triage si entrée très vague (p.ex. "vibrations")
+  const vagueDiag = /(vibration|bruit|tremble)/.test(txt) && !/(accélération|freinage|100|110|120|130|roue|pneu|cardan|roulement|volant)/.test(txt);
   return short || vagueDiag;
 }
 
-/* ---------------------- Prompt ---------------------- */
+/* ---------------------- Prompt (simple & verrouillé) ---------------------- */
 
 function buildSystemPrompt(category, historique, needTriage) {
   const H = String(historique || '').slice(0, 800);
 
   const COMMON = `
-Tu es **AutoAI** (Re-FAP). Écris en **français**, **concis** et **actionnable**.
+Tu es **AutoAI** (Re-FAP). Réponds en **français**, **court** et **actionnable**.
 RÈGLES :
-- **Pas d’emojis**, **pas de listes numérotées** ; uniquement des puces "- ".
-- **Une seule ligne par puce** (pas de retour à la ligne dans une puce).
-- 3 à 5 puces maximum dans "À faire maintenant" (ou "Questions rapides").
-FORMAT :
-### En bref
-(deux phrases max)
-### Pourquoi c’est important
-(une phrase)
-### À faire maintenant
-- …
-### Prochaine étape
-(une phrase)
+- Résumé : **2 phrases max**
+- Liste d’actions : **3–5 puces**, **1 seule ligne/puce**, pas de listes numérotées, pas d’emojis.
+- Prochaine étape : **1 phrase**
 `.trim();
 
-  const FAP_TRIAGE = `
-TRIAGE FAP : si l’utilisateur tape juste "fap".
-- **Pose d’abord 3–4 questions fermées** (voyant, fumée noire, perte de puissance, dernier long trajet).
-- **N’expose pas** la conduite détaillée avant ces réponses.
-### Questions rapides
+  const TRIAGE_FAP = `
+TRIAGE FAP — si l’utilisateur a juste écrit “fap” (ou très peu d’infos) :
+- Pose **3–4 questions fermées** (voyant FAP, fumée noire, perte de puissance, dernier long trajet).
+- **N’expose pas** la solution complète avant ces réponses.
+Format attendu :
+### En bref
+(1 phrase)
+### Questions rapides (FAP)
 - Voyant FAP allumé ?
 - Fumée noire visible ?
-- Perte de puissance marquée ?
+- Perte de puissance nette ?
 - Dernier long trajet (30 min à 2500 tr/min) récent ?
+### Prochaine étape
+(1 phrase)
 `.trim();
 
-  const DIAG_TRIAGE = `
-TRIAGE DIAG : entrée vague "vibrations/bruit".
-- **Pose d’abord 3 questions** : vitesse d’apparition (~90/110/130 km/h ?), contexte (accélération / freinage / stabilisé ?), bruit associé (clac-clac ?).
+  const SOLUTION_FAP = `
+SOLUTION FAP — quand c’est clair que c’est le FAP :
+### En bref
+(2 phrases)
+### Pourquoi c’est important
+(1 phrase)
+### À faire maintenant
+- (3–5 puces, 1 ligne/puce)
+### Prochaine étape
+(1 phrase)
+### Question finale
+Sais-tu démonter ton FAP toi-même ?
 `.trim();
 
-  const DIAG_RULE = `
-En DIAG, **pas de "Question finale"** : termine par une **proposition directe** pour un garage de confiance.
+  const TRIAGE_DIAG = `
+TRIAGE DIAG — si “vibrations/bruit” restent vagues :
+- Pose **3 questions rapides** : vitesse d’apparition (~90/110/130 km/h ?), contexte (accélération/freinage/stabilisé ?), bruit associé (clac-clac ?).
+- Ensuite seulement, donne **3 actions prioritaires**.
+Format attendu :
+### En bref
+(1 phrase)
+### Questions rapides
+- Vitesse d’apparition ?
+- Contexte (accélération / freinage / stabilisé) ?
+- Bruit “clac-clac” entendu ?
+### À faire maintenant
+- (3 puces)
+### Prochaine étape
+(1 phrase)
 `.trim();
 
+  const SOLUTION_DIAG = `
+SOLUTION DIAG — réponse concise sans “Question finale”. Termine par un **CTA direct** (garage proche).
+### En bref
+(2 phrases)
+### Pourquoi c’est important
+(1 phrase)
+### À faire maintenant
+- (3–5 puces, 1 ligne/puce)
+### Prochaine étape
+(1 phrase)
+`.trim();
+
+  const parts = [COMMON];
   if (category === 'FAP') {
-    return [COMMON, needTriage ? FAP_TRIAGE : '', `Historique :\n${H}`].filter(Boolean).join('\n\n');
+    parts.push(needTriage ? TRIAGE_FAP : SOLUTION_FAP);
+    parts.push(`Historique:\n${H}`);
+  } else {
+    parts.push(needTriage ? TRIAGE_DIAG : SOLUTION_DIAG);
+    parts.push(`Historique:\n${H}`);
   }
-  return [COMMON, needTriage ? DIAG_TRIAGE : '', DIAG_RULE, `Historique :\n${H}`]
-    .filter(Boolean).join('\n\n');
+  return parts.join('\n\n');
 }
 
-/* ---------------------- Fallbacks courts ---------------------- */
+/* ---------------------- Fallbacks ultra-courts ---------------------- */
 
 function fallbackTriage(category) {
   if (category === 'FAP') {
     return `
 ### En bref
-On confirme d’abord si c’est bien le FAP et le niveau d’urgence.
-### Questions rapides
+On vérifie d’abord si c’est bien le FAP et l’urgence.
+### Questions rapides (FAP)
 - Voyant FAP allumé ?
 - Fumée noire visible ?
-- Perte de puissance ?
-- Dernier long trajet (30 min à 2500 tr/min) récent ?
-### À faire maintenant
-- Si **voyant + perte de puissance** → évite de rouler et consulte vite.
-- Note les codes défauts si possible (OBD).
+- Perte de puissance nette ?
+- Dernier long trajet récent ?
 ### Prochaine étape
-Dès tes réponses, je te donne la conduite précise.
+Dès tes réponses, je te dis quoi faire précisément.
 `.trim();
   }
   return `
 ### En bref
 On clarifie tes vibrations pour éviter un mauvais diagnostic.
 ### Questions rapides
-- À quelle vitesse (~90/110/130 km/h) ?
-- En **accélérant**, **freinant** ou **stabilisé** ?
-- Bruit "clac-clac" entendu ?
+- Vitesse d’apparition (~90/110/130 km/h) ?
+- En accélérant, en freinant ou stabilisé ?
+- Bruit “clac-clac” ?
 ### À faire maintenant
-- Vérifie la pression des pneus.
+- Vérifie la pression des pneus ; regonfle si basse.
 - Évite les tests à haute vitesse si ça vibre fort.
 ### Prochaine étape
-Selon tes réponses : piste la plus probable.
+Selon tes réponses, je cible la cause la plus probable.
 `.trim();
 }
 
@@ -183,15 +214,15 @@ function fallbackAnswer(category) {
   if (category === 'FAP') {
     return `
 ### En bref
-Voyant FAP = filtre saturé, à confirmer.
+Symptômes compatibles filtre à particules saturé.
 ### Pourquoi c’est important
-Forcer le moteur abîme turbo/EGR et augmente la facture.
+Rouler ainsi peut abîmer turbo/EGR et gonfler la facture.
 ### À faire maintenant
-- Évite les trajets courts ; observe fumée noire / pertes.
-- Si voyant + pertes → limite la conduite.
-- Note les codes (si OBD).
+- Évite les trajets courts ; observe fumée noire/perte de puissance.
+- Si voyant + perte de puissance → limite la conduite.
+- Note les codes défauts si possible (OBD).
 ### Prochaine étape
-On confirme : régénération, **nettoyage Re-FAP** ou garage partenaire.
+On confirme puis on oriente vers régénération/ nettoyage Re-FAP/ garage.
 ### Question finale
 Sais-tu démonter ton FAP toi-même ?
 `.trim();
@@ -200,68 +231,92 @@ Sais-tu démonter ton FAP toi-même ?
 ### En bref
 Vibrations : roues/jantes déséquilibrées (le plus fréquent) ou transmission.
 ### Pourquoi c’est important
-Ignorer use pneus/suspension et peut créer une casse.
+Ignorer use pneus/suspension et peut mener à une casse.
 ### À faire maintenant
 - Équilibrage roues ; contrôler usure/hernies.
-- Si ça n’apparaît qu’à 100–130 km/h : suspect roues/jantes.
-- Bruit "clac-clac" : contrôler cardan.
+- Si phénomène 100–130 km/h uniquement → suspect roues/jantes.
+- Bruit “clac-clac” : contrôler cardan.
 ### Prochaine étape
-Si ça persiste : diagnostic en garage.
+Si ça persiste après équilibrage : diagnostic en garage.
 `.trim();
 }
 
-/* ---------------------- Format guards ---------------------- */
+/* ---------------------- Normalisation / garde-fous ---------------------- */
 
-function stripMarkers(t){ return String(t||'').replace(/<{1,3}<?(start|end)>{1,3}/ig,'').replace(/<<+|>>+/g,''); }
-function stripKeycapEmojis(t){ return String(t||'').replace(/([0-9])\uFE0F?\u20E3/g,'$1. '); }
-function normalizeEnumerations(t){ return String(t||'').split('\n').map(l=>l.replace(/^\s*\d+[\.\)]\s+/, '- ')).join('\n'); }
+function stripMarkers(t){
+  return String(t||'')
+    .replace(/<{1,3}<?(start|end)>{1,3}/ig,'')
+    .replace(/<<+|>>+/g,'');
+}
+function banEmojisAndNumbers(t){
+  return String(t||'')
+    .replace(/([0-9])\uFE0F?\u20E3/g,'$1.')      // supprime 1️⃣ 2️⃣
+    .replace(/^\s*\d+[\.\)]\s+/gm,'- ');          // 1) ou 1. -> "- "
+}
 function fixColonBreaks(t){ return String(t||'').replace(/\n\s*:\s*/g,' : '); }
 function collapseSoftBreaks(t){
   return String(t||'')
-    .replace(/([^\n])\n(?!\n)(?!\s*(?:### |\-\s|•\s|\d+[\.\)]\s))/g,'$1 ')
+    .replace(/([^\n])\n(?!\n)(?!\s*(### |\-\s))/g,'$1 ')
     .replace(/\n{3,}/g,'\n\n');
+}
+function enforceSections(t){
+  return String(t||'')
+    .replace(/^en bref\s*:?/gim,'### En bref')
+    .replace(/^pourquoi c[’']est important\s*:?/gim,'### Pourquoi c’est important')
+    .replace(/^questions rapides\s*:?/gim,'### Questions rapides')
+    .replace(/^à faire maintenant\s*:?/gim,'### À faire maintenant')
+    .replace(/^prochaine étape\s*:?/gim,'### Prochaine étape')
+    .replace(/^question finale\s*:?/gim,'### Question finale');
 }
 function normalizeBullets(t){
   return String(t||'').split('\n').map(l=>{
     if (/^(\*|•|\-)\s*/.test(l)) {
       l = '- ' + l.replace(/^(\*|•|\-)\s*/, '');
-      l = l.replace(/\s+/g,' ').trim();
+      l = l.replace(/\s+/g,' ').trim(); // 1 ligne / puce
     }
     return l;
   }).join('\n');
 }
-function enforceSections(t){
-  let out = String(t||'');
-  out = out
-    .replace(/^en bref\s*:?/gim,'### En bref')
-    .replace(/^pourquoi c[’']est important\s*:?/gim,'### Pourquoi c’est important')
-    .replace(/^à faire maintenant\s*:?/gim,'### À faire maintenant')
-    .replace(/^prochaine étape\s*:?/gim,'### Prochaine étape')
-    .replace(/^question finale\s*:?/gim,'### Question finale')
-    .replace(/^questions rapides\s*:?/gim,'### Questions rapides');
-  return out;
-}
 function capBullets(t, max=5){
   const lines = String(t||'').split('\n');
-  let inList=false, count=0; const res=[];
+  let inList=false, count=0; const out=[];
   for (const line of lines){
     const isSection = /^### /.test(line);
-    if (isSection){ inList=/À faire maintenant|Questions rapides/i.test(line); count=0; res.push(line); continue; }
-    if (inList && /^\-\s/.test(line)){ if (count<max){ res.push(line); count++; } continue; }
-    res.push(line);
+    if (isSection){ inList=/À faire maintenant|Questions rapides/i.test(line); count=0; out.push(line); continue; }
+    if (inList && /^\-\s/.test(line)){ if (count<max){ out.push(line); count++; } continue; }
+    out.push(line);
     if (!line.trim()) inList=false;
   }
-  return res.join('\n').replace(/\n{3,}/g,'\n\n');
+  return out.join('\n').replace(/\n{3,}/g,'\n\n');
 }
-function lengthCap(t, max=1300){
+function lengthCap(t, max=1200){
   const s = String(t||''); if (s.length<=max) return s;
   return s.slice(0, max-20).replace(/\n+?[^#\n]*$/,'')+'\n…';
 }
 
-// Supprime toute section "### Question finale" (utilisé en DIAG)
+/* ----- Injecteurs logiques (bénéfices/CTAs garantis) ----- */
+
+function ensureFapBenefits(t){
+  if (/### (Info|Pourquoi) le nettoyage FAP/i.test(t)) return t;
+  const block =
+`### Pourquoi le nettoyage FAP (Re-FAP)
+- **Économique** : évite le remplacement (Carter-Cash dès **99€ TTC**).
+- **Éco-responsable** : on réutilise la pièce, moins de déchets.
+- **Résultat ≈ neuf** quand le FAP n’est pas endommagé (perfs restaurées).`;
+  return `${t.trim()}\n\n${block}`;
+}
+
+function ensureFapYesNo(t){
+  if (/### Question finale/i.test(t) && /\[Trouver un Carter-Cash\]|\[Trouver un garage partenaire Re-FAP\]/.test(t)) return t;
+  const yesNo =
+`→ **Oui** : [Trouver un Carter-Cash](https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=oui)
+ • **Non** : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=non)`;
+  if (/### Question finale/i.test(t)) return `${t.trim()}\n\n${yesNo}`;
+  return `${t.trim()}\n\n### Question finale\nSais-tu démonter ton FAP toi-même ?\n${yesNo}`;
+}
+
 function removeQuestionFinale(t){
-  const lines = String(t||'').split('\n');
-  const out=[]; let skip=false;
+  const lines = String(t||'').split('\n'); const out=[]; let skip=false;
   for (const line of lines){
     if (/^### Question finale/i.test(line)){ skip=true; continue; }
     if (skip && /^### /.test(line)){ skip=false; }
@@ -270,23 +325,15 @@ function removeQuestionFinale(t){
   return out.join('\n').replace(/\n{3,}/g,'\n\n');
 }
 
-// Ajoute/garantit le bloc lead + lien cliquable en DIAG
-function ensureLeadSnippetWithLink(t){
+function ensureLeadGarage(t){
   if (/### Trouver un garage proche/i.test(t)) return t;
   const lead =
-`### Trouver un garage proche (option rapide)
-- Garage de **confiance** près de chez toi : entre **immatriculation** et **code postal**, tu reçois un **devis de diagnostic au meilleur prix** et tu peux **prendre RDV rapidement**.
-- 👉 [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=lead_snippet)`;
+`### Trouver un garage proche (direct)
+- Garage de **confiance** près de chez toi : saisis **immatriculation** + **code postal**, reçois un **devis de diagnostic au meilleur prix** et **prends RDV rapidement**.
+- 👉 [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=lead)`;
   return `${t.trim()}\n\n${lead}`;
 }
 
-// En FAP : on garde une seule "Question finale"
-function ensureFinalQuestion(t, q){
-  if (/^### Question finale/im.test(t)) return t;
-  return `${t.trim()}\n\n### Question finale\n${q}`;
-}
-
-// Sanitize : jamais Carter-Cash / nettoyage FAP en DIAG
 function sanitizeReplyNonFAP(text){
   return String(text||'')
     .replace(/carter-?cash/gi,'garage')
