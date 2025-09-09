@@ -91,6 +91,18 @@ export default function Home() {
       }
 
       const data = await res.json();
+      let reply = (data.reply || "").trim();
+
+// Si la ligne "→ Oui :" est présente mais pas "Question finale", on insère la question avant.
+if (/^→\s*Oui\s*:/m.test(reply) && !/Question finale\s*:/i.test(reply)) {
+  reply = reply.replace(
+    /^→\s*Oui\s*:.*/m,
+    match => `**Question finale :** Sais-tu démonter ton FAP toi-même ?\n${match}`
+  );
+}
+
+const botMsg = { from: 'bot', text: reply || "Désolé, réponse vide." };
+
       const botMsg = {
         from: 'bot',
         text:
@@ -374,3 +386,4 @@ function InlineCTA({ type }) {
     </div>
   );
 }
+
