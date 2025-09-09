@@ -1,7 +1,9 @@
+// pages/index.js
 import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 import ReactMarkdown from 'react-markdown';
 
+/* -------- Cartes colonne droite -------- */
 function WhyCleanFAPCard() {
   return (
     <div className="cta-card">
@@ -14,7 +16,6 @@ function WhyCleanFAPCard() {
     </div>
   );
 }
-
 function WhenNotEnoughFAPCard() {
   return (
     <div className="cta-card">
@@ -28,13 +29,12 @@ function WhenNotEnoughFAPCard() {
     </div>
   );
 }
-
-function CarterCashCard({ highlight }) {
+function CarterCashCard() {
   return (
-    <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
+    <div className="cta-card">
       <div className="cta-title">Tu sais démonter ton FAP toi-même ?</div>
       <div className="cta-desc">
-        <p><strong>Solution idéale :</strong> dépose ton FAP directement dans un Carter-Cash près de chez toi. En partenariat avec Re-FAP, ils proposent un <strong>nettoyage “comme neuf”</strong> à partir de <strong>99€ TTC</strong>.</p>
+        <p><strong>Solution idéale :</strong> dépose ton FAP dans un Carter-Cash près de chez toi. En partenariat avec Re-FAP, ils proposent un <strong>nettoyage “comme neuf”</strong> à partir de <strong>99€ TTC</strong>.</p>
       </div>
       <div className="cta-actions">
         <a
@@ -48,10 +48,9 @@ function CarterCashCard({ highlight }) {
     </div>
   );
 }
-
-function GarageFAPCard({ highlight }) {
+function GarageFAPCard() {
   return (
-    <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
+    <div className="cta-card">
       <div className="cta-title">Tu ne veux/peux pas le démonter ?</div>
       <div className="cta-desc">
         <p>Confie le véhicule à un <strong>garage partenaire Re-FAP</strong> : diagnostic confirmé + devis <strong>tout compris</strong> (dépose FAP, nettoyage Re-FAP, repose, réinitialisation).</p>
@@ -68,10 +67,9 @@ function GarageFAPCard({ highlight }) {
     </div>
   );
 }
-
-function CtaForDiag({ highlight }) {
+function CtaForDiag() {
   return (
-    <div className={`cta-card ${highlight ? 'pulse-card' : ''}`}>
+    <div className="cta-card">
       <div className="cta-title">Besoin d’un diagnostic électronique ?</div>
       <ul className="cta-desc">
         <li>On te met en relation avec un <strong>garage partenaire de confiance</strong>.</li>
@@ -91,6 +89,7 @@ function CtaForDiag({ highlight }) {
   );
 }
 
+/* -------- CTAs inline (sous la bulle) -------- */
 function InlineCTAs({ mode }) {
   if (mode === 'FAP') {
     return (
@@ -112,7 +111,6 @@ function InlineCTAs({ mode }) {
       </div>
     );
   }
-  // DIAG
   return (
     <div className="inline-ctas">
       <a
@@ -126,6 +124,7 @@ function InlineCTAs({ mode }) {
   );
 }
 
+/* ------------------------ Page ------------------------ */
 export default function Home() {
   const [messages, setMessages] = useState([
     {
@@ -154,19 +153,16 @@ export default function Home() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-
     const userMessagesCount = messages.filter(m => m.from === 'user').length;
     if (userMessagesCount >= 10) {
       setBlocked(true);
       setError("🔧 Tu as déjà échangé 10 messages avec moi sur ce sujet. Tu peux relancer une nouvelle session à tout moment 🚀.");
       return;
     }
-
     const trimmedInput = input.trim();
     if (!trimmedInput) return;
 
-    const userMsg = { from: 'user', text: trimmedInput };
-    setMessages((msgs) => [...msgs, userMsg]);
+    setMessages((msgs) => [...msgs, { from: 'user', text: trimmedInput }]);
     setInput('');
     setLoading(true);
     setError('');
@@ -174,42 +170,31 @@ export default function Home() {
     const historiqueText = getHistoriqueText() + `\nMoi: ${trimmedInput}`;
 
     try {
-      const res = await fetch('/api/chat', {
+      const r = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: trimmedInput,
-          historique: historiqueText,
-        }),
+        body: JSON.stringify({ question: trimmedInput, historique: historiqueText }),
       });
 
       setLoading(false);
 
-      if (!res.ok) {
-        if (res.status === 429) {
-          setMessages((msgs) => [
-            ...msgs,
-            { from: 'bot', text: "⚠️ Le service est temporairement saturé, merci de réessayer plus tard." },
-          ]);
-        } else {
-          setMessages((msgs) => [
-            ...msgs,
-            { from: 'bot', text: `Erreur serveur ${res.status}` },
-          ]);
-        }
+      if (!r.ok) {
+        setMessages((msgs) => [
+          ...msgs,
+          { from: 'bot', text: r.status === 429
+              ? "⚠️ Le service est temporairement saturé, merci de réessayer plus tard."
+              : `Erreur serveur ${r.status}` }
+        ]);
         return;
       }
 
-      const data = await res.json();
-      const botMsg = {
-        from: 'bot',
-        text: data.reply || "Désolé, j’ai eu un souci. Renvoie ta question 🙂.",
-      };
-      // Aligne la colonne droite (FAP / DIAG) sur la dernière réponse
+      const data = await r.json();
+      const text = data.reply || "Désolé, j’ai eu un souci. Renvoie ta question 🙂.";
+      setMessages((msgs) => [...msgs, { from: 'bot', text }]);
+
       if (data.nextAction?.type === 'FAP' || data.nextAction?.type === 'DIAG') {
         setTopic(data.nextAction.type);
       }
-      setMessages((msgs) => [...msgs, botMsg]);
     } catch {
       setLoading(false);
       setMessages((msgs) => [
@@ -230,27 +215,32 @@ export default function Home() {
         <h1>AutoAI par Re-FAP</h1>
 
         <div className="chat-and-button">
-          {/* Colonne gauche : chat */}
-          <div id="chat-window" className="chat-window">
-            {messages.map((m, i) => (
-              <div key={i} className={m.from === 'user' ? 'user-msg' : 'bot-msg'}>
-                <strong>{m.from === 'user' ? 'Moi' : 'AutoAI'}:</strong>
-                <ReactMarkdown skipHtml>
-                  {m.text.replace(/\n{2,}/g, '\n')}
-                </ReactMarkdown>
-              </div>
-            ))}
+          {/* COLONNE GAUCHE : chat + CTAs collés */}
+          <div className="left-rail">
+            <div id="chat-window" className="chat-window">
+              {messages.map((m, i) => (
+                <div key={i} className={m.from === 'user' ? 'user-msg' : 'bot-msg'}>
+                  <strong>{m.from === 'user' ? 'Moi' : 'AutoAI'}:</strong>
+                  <ReactMarkdown skipHtml>
+                    {m.text.replace(/\n{2,}/g, '\n')}
+                  </ReactMarkdown>
+                </div>
+              ))}
 
-            {loading && (
-              <div className="bot-msg typing-indicator">
-                <strong>AutoAI:</strong>
-                <span className="dots"><span>.</span><span>.</span><span>.</span></span>
-              </div>
-            )}
-            <div ref={chatEndRef} />
+              {loading && (
+                <div className="bot-msg typing-indicator">
+                  <strong>AutoAI:</strong>
+                  <span className="dots"><span>.</span><span>.</span><span>.</span></span>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* CTAs sous la bulle, centrés et proches */}
+            <InlineCTAs mode={topic} />
           </div>
 
-          {/* Colonne droite : cartes contextuelles */}
+          {/* COLONNE DROITE */}
           <aside className="right-rail">
             {topic === 'FAP' ? (
               <>
@@ -265,9 +255,7 @@ export default function Home() {
           </aside>
         </div>
 
-        {/* CTAs inline sous la bulle */}
-        <InlineCTAs mode={topic} />
-
+        {/* Formulaire d’envoi */}
         <form onSubmit={handleSubmit} className="chat-form">
           <input
             type="text"
