@@ -16,19 +16,7 @@ function WhyCleanFAPCard() {
     </div>
   );
 }
-function WhenNotEnoughFAPCard() {
-  return (
-    <div className="cta-card">
-      <div className="cta-title">Quand ça ne suffit pas ?</div>
-      <ul className="cta-desc">
-        <li>FAP <strong>fissuré / fondu</strong> (choc thermique, régénération ratée).</li>
-        <li>Capteurs <strong>différentiel / température</strong> HS ou fuite turbo importante.</li>
-        <li>Calculateur bloqué en <strong>mode dégradé</strong> non levé.</li>
-      </ul>
-      <div className="cta-note">Dans ces cas : diagnostic et prise en charge par un <strong>garage partenaire</strong>.</div>
-    </div>
-  );
-}
+
 function CarterCashCard() {
   return (
     <div className="cta-card">
@@ -48,6 +36,7 @@ function CarterCashCard() {
     </div>
   );
 }
+
 function GarageFAPCard() {
   return (
     <div className="cta-card">
@@ -67,6 +56,7 @@ function GarageFAPCard() {
     </div>
   );
 }
+
 function CtaForDiag() {
   return (
     <div className="cta-card">
@@ -245,7 +235,6 @@ export default function Home() {
             {topic === 'FAP' ? (
               <>
                 <WhyCleanFAPCard />
-                <WhenNotEnoughFAPCard />
                 <CarterCashCard />
                 <GarageFAPCard />
               </>
