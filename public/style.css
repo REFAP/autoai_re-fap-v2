@@ -250,3 +250,28 @@ h1{
 
 /* accessibilité */
 ::selection{ background:#204a75; color:#fff; }
+/* bulles = utilisent bien la largeur, pas de wrap bizarre */
+.user-msg, .bot-msg{
+  background:#122238;
+  border:1px solid #20324d;
+  border-radius:14px;
+  padding:12px 14px;
+  margin:10px 6px;
+  line-height:1.36;
+  white-space: normal;           /* <-- important */
+  word-break: normal;            /* ne casse pas trop tôt */
+  overflow-wrap: break-word;     /* casse proprement si besoin */
+}
+
+/* paragraphes/listes compacts et lisibles */
+.chat-window p{ margin:6px 0; }
+.chat-window ul{ margin:6px 0 8px 18px; padding:0; }
+.chat-window li{ margin:4px 0; }
+
+/* CTA inline sous la bulle, centrés */
+.inline-ctas{
+  display:flex; gap:12px; justify-content:center; flex-wrap:wrap;
+  margin:8px 0 0;
+}
+.inline-ctas .garage-button, .inline-ctas .carter-button{ min-width:240px; }
+
