@@ -176,7 +176,10 @@ h1{
 .cta-title{ font-weight:800; margin-bottom:6px; }
 .cta-desc{ color:var(--text-dim); margin:0 0 10px; line-height:1.32; }
 .cta-actions{ display:flex; gap:10px; flex-wrap:wrap; }
-
+/* CTA list styling */
+.cta-card .cta-desc { margin: 4px 0 12px; }
+.cta-card .cta-desc ul { margin: 8px 0 0 18px; padding: 0; }
+.cta-card .cta-desc li { margin: 4px 0; line-height: 1.35; }
 /* Rendre toute la carte cliquable si on enveloppe dans <a class="cta-link">… */
 .cta-link{ display:block; color:inherit; text-decoration:none; }
 .cta-link:hover .cta-card{ border-color:#89b9ff; }
@@ -298,3 +301,4 @@ h1{
   .container{ padding:0 12px; }
   .garage-button, .carter-button{ padding:12px; }
 }
+
