@@ -294,4 +294,10 @@ h1{
   border-style: dashed;
   opacity: .95;
 }
+/* --- Chat compact --- */
+.user-msg, .bot-msg { line-height: 1.28; }      /* + dense qu’avant */
+.chat-window p      { margin: 2px 0; }           /* moins d'espace entre phrases */
+.chat-window ul     { margin: 4px 0 4px 18px; }  /* listes plus serrées */
+.chat-window li     { margin: 2px 0; }
+
 
