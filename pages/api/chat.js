@@ -5,7 +5,8 @@ import path from 'path';
 const STOPWORDS_FR = new Set([
   'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a',"d'","l'",
   'pour','avec','sur','est',"c'est",'il','elle','on','tu','te','ton','ta','tes','vos','votre',
-  'mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet','cette','ses','son','leurs'
+  'mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet','cette','ses','son'
+  ,'leurs'
 ]);
 
 function normalize(s='') {
@@ -52,23 +53,24 @@ function detectCategory(text='') {
   if (/entretien|revision|vidange|controle technique|vibration|roue|pneu|amortisseur|equilibrage|parallell?isme/.test(t)) return 'GEN';
   return 'AUTRE';
 }
+const expertiseLabel = (cat) =>
+  (['GEN', 'AUTRE'].includes(cat) ? 'proche' : `expert ${cat.toLowerCase()}`);
 
 /* ---------- Sanitize: jamais de Carter-Cash hors FAP ---------- */
-function sanitizeReplyNonFAP(text, category) {
-  let out = text;
+-function sanitizeReplyNonFAP(text, category) {
++function sanitizeReplyNonFAP(text, category) {
+   let out = text;
 
-  // Supprimer toute ligne avec Carter(-)Cash
-  out = out.replace(/^.*carter[\-\s]?cash.*$/gim, '');
+   // … (purge Carter-Cash & Oui/Non inchangée)
 
-  // Supprimer les choix Oui/Non
-  out = out.replace(/^\s*→\s*Oui\s*:.*$/gim, '');
-  out = out.replace(/^\s*(•\s*)?Non\s*:.*$/gim, '');
+   out = out.replace(/\n{3,}/g, '\n\n').trim();
 
-  // Nettoyer lignes vides multiples
-  out = out.replace(/\n{3,}/g, '\n\n').trim();
+-  const qLine = `**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${category==='AUTRE' ? 'proche' : 'expert ' + category.toLowerCase()} ?`;
++  const qLine = `**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${expertiseLabel(category)} ?`;
+   const ctaLine = `→ Prendre RDV : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`;
+   …
+}
 
-  const qLine = `**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${category==='AUTRE' ? 'proche' : 'expert ' + category.toLowerCase()} ?`;
-  const ctaLine = `→ Prendre RDV : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`;
 
   // S'il n'y a pas déjà "Question finale", on l'ajoute à la fin
   if (!/Question finale\s*:/i.test(out)) {
@@ -195,4 +197,5 @@ ${preNextType === 'FAP' ? tailForFAP : tailForDiag}
     return res.status(200).json({ reply: backup, nextAction: { type: preNextType } });
   }
 }
+
 
