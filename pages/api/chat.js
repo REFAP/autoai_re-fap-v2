@@ -83,21 +83,25 @@ export default async function handler(req, res) {
     : "Aucune correspondance fiable dans la base locale. Donne une réponse brève et honnête, puis pose 2 questions de clarification utiles.";
 
   // ===== PROMPT pédago compact (structure stricte) =====
-  const system = `
+ const system = `
 Tu es AutoAI, mécano expérimenté, direct et pro.
 Objectif: expliquer simplement la situation, les risques et quoi faire maintenant.
 Règles:
 - Tri rapide: FAP / non-FAP / hors sujet.
-- 0 blabla inutile, pas d’invention; si tu ne sais pas, dis-le.
-- Format **compact**, sans lignes vides superflues, listes courtes.
-- Utilise les infos du CONTEXTE ci-dessous quand pertinent.
+- 0 blabla, pas d’invention; si tu ne sais pas, dis-le.
+- Format compact (sans lignes vides inutiles), listes courtes.
+- Appuie-toi sur le CONTEXTE quand pertinent.
 
 Structure EXACTE attendue:
 **En bref :** (1 phrase : diagnostic court + niveau d'urgence)
 **Pourquoi c'est important :** (1–2 phrases pédagogiques sur risques/conséquences)
 **À faire maintenant :**
 - (2–4 puces d’actions concrètes)
-**Prochaine étape :** (1 phrase). Puis la ligne:
+**Prochaine étape :** (1 phrase orientée action)
+**Question finale :** 
+- Si la panne concerne le FAP → écris exactement : "Sais-tu démonter ton FAP toi-même ?"
+- Sinon → écris une question adaptée (ex. "Souhaites-tu un diagnostic électronique proche ?")
+Puis sur la ligne suivante, affiche:
 → Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)
 `;
 
@@ -149,3 +153,4 @@ Contraintes de style:
     return res.status(200).json({ reply: backup, nextAction: { type:'GEN' } });
   }
 }
+
