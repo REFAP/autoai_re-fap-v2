@@ -7,13 +7,14 @@ export default function Home() {
     {
       from: 'bot',
       text:
-        "Bonjour 👋! Je suis **AutoAI**, une intelligence artificielle conçue par les développeurs Re-Fap pour t'aider à diagnostiquer gratuitement des éventuels problèmes sur ton filtre à particules ou ta voiture, et à trouver des solutions. As-tu des questions ?😄"
+        "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Je t’aide à comprendre un voyant, un souci de **FAP/DPF** ou autre panne, et je t’oriente vers la bonne solution. Pose ta question 😄"
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState('');
+  const [nextAction, setNextAction] = useState(null); // ← pilote les CTA
   const chatEndRef = useRef();
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export default function Home() {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    // Vérifier limite de messages utilisateur
+    // Limite d'échanges utilisateur
     const userMessagesCount = messages.filter(m => m.from === 'user').length;
     if (userMessagesCount >= 10) {
       setBlocked(true);
@@ -82,6 +83,7 @@ export default function Home() {
         text: data.reply || "Désolé, le service a reçu trop de messages en même temps, merci de renvoyer votre message :).",
       };
       setMessages((msgs) => [...msgs, botMsg]);
+      setNextAction(data.nextAction || { type: 'GEN' }); // ← met à jour l’action suivante (FAP/DIAG/GEN)
 
     } catch {
       setLoading(false);
@@ -100,7 +102,7 @@ export default function Home() {
       </Head>
 
       <main className="container">
-        <h1>AutoAI par Re-Fap</h1>
+        <h1>AutoAI par Re-FAP</h1>
 
         <div className="chat-and-button">
           <div id="chat-window" className="chat-window">
@@ -121,13 +123,35 @@ export default function Home() {
             <div ref={chatEndRef} />
           </div>
 
+          {/* CTA dynamiques selon la classification */}
           <div className="garage-button-container">
-            <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
-              Trouver un garage<br />partenaire Re-Fap🔧
-            </a>
-            <a href="https://auto.re-fap.fr" className="carter-button">
-              Trouver un <br/>Carter Cash 🛠️
-            </a>
+            {nextAction?.type === 'FAP' && (
+              <>
+                <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
+                  FAP monté ? Prendre RDV 🔧
+                </a>
+                <a href="https://auto.re-fap.fr" className="carter-button">
+                  FAP démonté ? Dépose Carter-Cash 🛠️
+                </a>
+              </>
+            )}
+
+            {nextAction?.type === 'DIAG' && (
+              <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
+                Diagnostic électronique proche de chez toi 🔎
+              </a>
+            )}
+
+            {(!nextAction || nextAction.type === 'GEN') && (
+              <>
+                <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
+                  Trouver un garage partenaire 🔧
+                </a>
+                <a href="https://auto.re-fap.fr" className="carter-button">
+                  Trouver un Carter-Cash 🛠️
+                </a>
+              </>
+            )}
           </div>
         </div>
 
@@ -145,8 +169,8 @@ export default function Home() {
             id="user-input"
             disabled={blocked}
           />
-          <button type="submit" disabled={blocked || input.length > 600}>
-            Envoyer
+          <button type="submit" disabled={blocked || input.length > 600 || loading}>
+            {loading ? 'Envoi…' : 'Envoyer'}
           </button>
         </form>
 
@@ -154,10 +178,8 @@ export default function Home() {
       </main>
 
       <footer className="footer">
-        <p>⚠️ AutoAI peut faire des erreurs, envisagez de vérifier les informations importantes.</p>
+        <p>⚠️ AutoAI peut faire des erreurs, envisage de vérifier les informations importantes.</p>
       </footer>
     </>
   );
 }
-
-
