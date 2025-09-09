@@ -114,12 +114,18 @@ export default async function handler(req, res) {
 **Prochaine étape :** (1 phrase orientée action)
 **Question finale :** Sais-tu démonter ton FAP toi-même ?
 → Oui : [Trouver un Carter-Cash](https://auto.re-fap.fr) • Non : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`.trim();
+const expertiseLabel = (cat) =>
+  (['GEN', 'AUTRE'].includes(cat) ? 'proche' : `expert ${cat.toLowerCase()}`);
 
+// puis remplace tailForDiag par :
+const tailForDiag = `
+**Prochaine étape :** (1 phrase orientée action)
+**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${expertiseLabel(category)} ?
+→ Prendre RDV : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`.trim();
   const tailForDiag = `
 **Prochaine étape :** (1 phrase orientée action)
-**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${category==='AUTRE' ? 'proche' : 'expert ' + category.toLowerCase()} ?
+**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${expertiseLabel(category)} ?
 → Prendre RDV : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`.trim();
-
   const system = `
 Tu es AutoAI, mécano expérimenté, direct et pro.
 Objectif: expliquer simplement la situation, les risques et quoi faire maintenant.
@@ -189,3 +195,4 @@ ${preNextType === 'FAP' ? tailForFAP : tailForDiag}
     return res.status(200).json({ reply: backup, nextAction: { type: preNextType } });
   }
 }
+
