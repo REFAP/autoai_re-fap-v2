@@ -2,31 +2,25 @@
 import fs from 'fs';
 import path from 'path';
 
-// --- utils ----------------------------------------------------
 const STOPWORDS_FR = new Set([
   'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a',"d'","l'",
   'pour','avec','sur','est',"c'est",'il','elle','on','tu','te','ton','ta','tes','vos','votre',
   'mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet','cette','ses','son','leurs'
 ]);
 
-function normalize(s = '') {
-  return s
-    .toLowerCase()
+function normalize(s='') {
+  return s.toLowerCase()
     .normalize('NFD').replace(/\p{Diacritic}+/gu,'')
     .replace(/[^\p{L}\p{N}\s\-]/gu,' ')
     .replace(/\s+/g,' ')
     .trim();
 }
 function tokenize(s) {
-  return normalize(s).split(' ').filter(t => t && t.length > 2 && !STOPWORDS_FR.has(t));
+  return normalize(s).split(' ').filter(t => t && t.length>2 && !STOPWORDS_FR.has(t));
 }
 
-// --- RAG parsing & scoring -----------------------------------
+/* ---------- RAG parsing & scoring ---------- */
 function parseBlocks(raw) {
-  // Format attendu dans data.txt:
-  // [Titre]
-  // Synonymes: a, b, c   (optionnel)
-  // ...contenu...
   const parts = raw.split(/\n(?=\[[^\]]*\]\s*)/g);
   return parts.map(p => {
     const m = p.match(/^\[([^\]]*)\]\s*([\s\S]*)$/);
@@ -38,64 +32,76 @@ function parseBlocks(raw) {
     return { title, body, synonyms };
   }).filter(Boolean);
 }
-
 function scoreBlock(block, queryTokens) {
-  const bag = tokenize(block.title + ' ' + block.body + ' ' + (block.synonyms || []).join(' '));
+  const bag = tokenize(block.title + ' ' + block.body + ' ' + (block.synonyms||[]).join(' '));
   if (!bag.length) return 0;
   let hits = 0;
   for (const t of queryTokens) if (bag.includes(t)) hits++;
-  const titleHits = tokenize(block.title).filter(t => queryTokens.includes(t)).length;
-  const synHits   = tokenize((block.synonyms || []).join(' ')).filter(t => queryTokens.includes(t)).length;
-  return hits + 1.5 * titleHits + 1.2 * synHits;
+  const titleHits = tokenize(block.title).filter(t=>queryTokens.includes(t)).length;
+  const synHits   = tokenize((block.synonyms||[]).join(' ')).filter(t=>queryTokens.includes(t)).length;
+  return hits + 1.5*titleHits + 1.2*synHits;
 }
 
-// --- Catégorisation (source de vérité pour CTA) ---------------
-function detectCategory(text = '') {
+/* ---------- Détection catégorie (CTA source de vérité) ---------- */
+function detectCategory(text='') {
   const t = normalize(text);
-
-  // FAP (synonymes + codes typiques)
   if (/\bfap\b|\bdpf\b|filtre a particules|p2002\b|p2463\b|p242f\b|p244[a-b]\b/.test(t)) return 'FAP';
-
-  // TURBO
-  if (/\bturbo\b|wastegate|surpression|siffle|p0234\b|p0299\b/.test(t)) return 'TURBO';
-
-  // EGR
-  if (/\begr\b|vanne egr|p040[0-3]\b/.test(t)) return 'EGR';
-
-  // ADBLUE / SCR
-  if (/adblue|uree|scr|compte a rebours|anti.?demarrage|p20ee\b|p2bae\b/.test(t)) return 'ADBLUE';
-
-  // Entretien / générique (pas urgent) → on dirigera vers DIAG
-  if (/entretien|revision|vidange|controle technique/.test(t)) return 'GEN';
-
-  // Par défaut
+  if (/\bturbo\b|wastegate|surpression|siffle|p0234\b|p0299\b|p2263\b|geometrie variable/.test(t)) return 'TURBO';
+  if (/\begr\b|vanne egr|p040[0-3]\b|p040[5-6]\b/.test(t)) return 'EGR';
+  if (/adblue|uree|scr|compte a rebours|anti.?demarrage|p20ee\b|p2bae\b|p204f\b/.test(t)) return 'ADBLUE';
+  if (/entretien|revision|vidange|controle technique|vibration|roue|pneu|amortisseur|equilibrage|parallell?isme/.test(t)) return 'GEN';
   return 'AUTRE';
 }
 
+/* ---------- Sanitize: jamais de Carter-Cash hors FAP ---------- */
+function sanitizeReplyNonFAP(text, category) {
+  let out = text;
+
+  // Supprimer toute ligne avec Carter(-)Cash
+  out = out.replace(/^.*carter[\-\s]?cash.*$/gim, '');
+
+  // Supprimer les choix Oui/Non
+  out = out.replace(/^\s*→\s*Oui\s*:.*$/gim, '');
+  out = out.replace(/^\s*(•\s*)?Non\s*:.*$/gim, '');
+
+  // Nettoyer lignes vides multiples
+  out = out.replace(/\n{3,}/g, '\n\n').trim();
+
+  const qLine = `**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${category==='AUTRE' ? 'proche' : 'expert ' + category.toLowerCase()} ?`;
+  const ctaLine = `→ Prendre RDV : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`;
+
+  // S'il n'y a pas déjà "Question finale", on l'ajoute à la fin
+  if (!/Question finale\s*:/i.test(out)) {
+    out = `${out}\n${qLine}\n${ctaLine}`;
+  } else {
+    // Remplacer tout ce qui suit "Question finale :" par notre question + CTA
+    out = out.replace(/(\*\*Question finale\s*:\*\*[\s\S]*?)(?=\n\*\*|$)/i, `**Question finale :** ${qLine.replace(/\*\*Question finale :\*\* /,'')}\n${ctaLine}\n`);
+  }
+
+  return out.trim();
+}
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
-  if (!process.env.MISTRAL_API_KEY) return res.status(500).json({ error: 'MISTRAL_API_KEY manquante' });
+  if (req.method !== 'POST') return res.status(405).json({ error:'Méthode non autorisée' });
+  if (!process.env.MISTRAL_API_KEY) return res.status(500).json({ error:'MISTRAL_API_KEY manquante' });
 
   const { question, historique } = req.body || {};
-  if (!question || typeof question !== 'string') return res.status(400).json({ error: 'Question invalide' });
+  if (!question || typeof question !== 'string') return res.status(400).json({ error:'Question invalide' });
 
-  // 1) Catégorie basée UNIQUEMENT sur la question courante (ne pas polluer avec l’historique)
+  // 1) Catégorie sur la question SEULE
   const category = detectCategory(question);
-  // Politique CTA: Carter-Cash uniquement si catégorie = FAP, sinon DIAG
   const preNextType = category === 'FAP' ? 'FAP' : 'DIAG';
 
-  // 2) RAG local
-  let raw = '';
-  try {
-    raw = fs.readFileSync(path.join(process.cwd(), 'data', 'data.txt'), 'utf-8');
-  } catch {
-    return res.status(500).json({ error: 'Erreur de lecture des données' });
-  }
+  // 2) RAG
+  let raw;
+  try { raw = fs.readFileSync(path.join(process.cwd(),'data','data.txt'),'utf-8'); }
+  catch { return res.status(500).json({ error:'Erreur de lecture des données' }); }
+
   const blocks = parseBlocks(raw);
   const queryTokens = tokenize(`${historique || ''} ${question}`);
   const ranked = blocks
     .map(b => ({ b, s: scoreBlock(b, queryTokens) }))
-    .sort((a, b) => b.s - a.s)
+    .sort((a,b) => b.s - a.s)
     .slice(0, 3)
     .map(x => x.b);
 
@@ -103,7 +109,7 @@ export default async function handler(req, res) {
     ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
     : "Aucune correspondance fiable dans la base locale. Donne une réponse brève, honnête, puis pose 2 questions utiles pour préciser.";
 
-  // 3) Prompt – structure pédagogique + queue conditionnelle
+  // 3) Prompt
   const tailForFAP = `
 **Prochaine étape :** (1 phrase orientée action)
 **Question finale :** Sais-tu démonter ton FAP toi-même ?
@@ -111,16 +117,17 @@ export default async function handler(req, res) {
 
   const tailForDiag = `
 **Prochaine étape :** (1 phrase orientée action)
-**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${category === 'AUTRE' ? 'proche' : 'expert ' + category.toLowerCase()} ?
+**Question finale :** Souhaites-tu qu’on te mette en relation avec un garage ${category==='AUTRE' ? 'proche' : 'expert ' + category.toLowerCase()} ?
 → Prendre RDV : [Trouver un garage partenaire Re-FAP](https://re-fap.fr/trouver_garage_partenaire/)`.trim();
 
   const system = `
 Tu es AutoAI, mécano expérimenté, direct et pro.
 Objectif: expliquer simplement la situation, les risques et quoi faire maintenant.
 Règles:
-- 0 blabla, pas d'invention; si tu ne sais pas, dis-le.
-- Format COMPACT (≤110 mots), pas de lignes vides superflues.
+- 0 blabla; pas d’invention; si tu ne sais pas, dis-le.
+- Format COMPACT (≤110 mots), pas de lignes vides inutiles.
 - Utilise le CONTEXTE quand pertinent.
+- **Interdiction absolue**: si CATEGORY ≠ FAP, ne mentionne jamais "Carter-Cash" et ne propose pas d'option "Oui / Non".
 `.trim();
 
   const userContent = `
@@ -131,7 +138,7 @@ Question: ${question}
 === CONTEXTE STRUCTURÉ ===
 ${contextText}
 
-Structure attendue (respecte les titres EXACTS):
+Structure attendue (titres EXACTS) :
 **En bref :** (1 phrase : diagnostic court + niveau d'urgence)
 **Pourquoi c'est important :** (1–2 phrases pédagogiques)
 **À faire maintenant :**
@@ -140,22 +147,22 @@ ${preNextType === 'FAP' ? tailForFAP : tailForDiag}
 `.trim();
 
   try {
-    const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
+    const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
-        'Content-Type': 'application/json',
+        "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: 'mistral-medium-latest',
+        model: "mistral-medium-latest",
         temperature: 0.2,
         top_p: 0.9,
         max_tokens: 600,
         messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userContent },
-        ],
-      }),
+          { role: "system", content: system },
+          { role: "user", content: userContent }
+        ]
+      })
     });
 
     if (!r.ok) {
@@ -166,12 +173,15 @@ ${preNextType === 'FAP' ? tailForFAP : tailForDiag}
     }
 
     const data = await r.json();
-    const reply = (data.choices?.[0]?.message?.content || '').trim() || 'Réponse indisponible pour le moment.';
+    let reply = (data.choices?.[0]?.message?.content || '').trim() || "Réponse indisponible pour le moment.";
 
-    // Sortie stricte: si ce n'est pas FAP, on reste DIAG (pas de Carter-Cash possible)
-    const finalType = preNextType;
+    // 4) Purge anti-CarterCash pour non-FAP
+    if (preNextType !== 'FAP') {
+      reply = sanitizeReplyNonFAP(reply, category);
+    }
 
-    return res.status(200).json({ reply, nextAction: { type: finalType } });
+    return res.status(200).json({ reply, nextAction: { type: preNextType } });
+
   } catch {
     const backup = preNextType === 'FAP'
       ? `Problème technique. Voyant FAP ? perte de puissance ? On oriente ensuite (Carter-Cash si FAP démonté, sinon garage partenaire).`
