@@ -52,7 +52,9 @@ LOGIQUE TRIAGE (oui/non):
 5) Dernier trajet >20 min à >2500 tr/min ? (OUI = favorable, NON = suspect)
 
 Heuristique: score_fap = (Q1 oui)+(Q2 oui)+(Q3 oui)+(Q4 oui)+(Q5 non). score_fap >= 2 => "FAP" dans suspected.
-
+Règle finale BLOQUANTE:
+- Si tu ajoutes un seul caractère hors des accolades JSON { ... }, la réponse est invalide.
+- Ne génère PAS de paragraphes ni d'emoji. Tu dois renvoyer 1 objet JSON conforme au schéma fourni.`;
 CTA:
 - FAP déjà démonté -> https://www.re-fap.fr
 - FAP monté (diag + démontage) -> https://re-fap.fr/trouver_garage_partenaire/
