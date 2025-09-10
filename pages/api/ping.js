@@ -1,4 +1,4 @@
-﻿// pages/api/ping.js
+ï»¿// pages/api/ping.js
 export default function handler(req, res) {
   res.status(200).json({
     up: true,
@@ -6,3 +6,4 @@ export default function handler(req, res) {
     model: process.env.MISTRAL_MODEL || null
   });
 }
+

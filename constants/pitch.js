@@ -5,11 +5,12 @@ export const LINKS = {
 };
 
 export const FAP_BENEFITS = [
-  '**Économique** : évite le remplacement (dès **99€ TTC** en Carter-Cash).',
-  '**Éco-responsable** : on réutilise la pièce, moins de déchets.',
-  '**Résultat ≈ neuf** si le FAP n’est pas endommagé (performances restaurées).'
+  '**Ã‰conomique** : Ã©vite le remplacement (dÃ¨s **99â‚¬ TTC** en Carter-Cash).',
+  '**Ã‰co-responsable** : on rÃ©utilise la piÃ¨ce, moins de dÃ©chets.',
+  '**RÃ©sultat â‰ˆ neuf** si le FAP nâ€™est pas endommagÃ© (performances restaurÃ©es).'
 ];
 
 export const LEAD_GARAGE_SNIPPET =
-  'Garage de **confiance** près de chez toi : saisis **immatriculation** + **code postal**, ' +
-  'reçois un **devis de diagnostic au meilleur prix** et **prends RDV rapidement**.';
+  'Garage de **confiance** prÃ¨s de chez toi : saisis **immatriculation** + **code postal**, ' +
+  'reÃ§ois un **devis de diagnostic au meilleur prix** et **prends RDV rapidement**.';
+

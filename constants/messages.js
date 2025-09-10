@@ -1,15 +1,16 @@
 // constants/messages.js
-// Un seul endroit pour la copie (pitchs, bénéfices, etc.).
+// Un seul endroit pour la copie (pitchs, bÃ©nÃ©fices, etc.).
 
 export const DIAG_GARAGE_PITCH = `
-**Besoin d’aide ?** On te met en relation avec un **garage de confiance** près de chez toi :
+**Besoin dâ€™aide ?** On te met en relation avec un **garage de confiance** prÃ¨s de chez toi :
 - Tu indiques **immatriculation + code postal**
-- Tu reçois un **devis de diagnostic au meilleur prix**
+- Tu reÃ§ois un **devis de diagnostic au meilleur prix**
 - Tu peux **prendre RDV rapidement**
 `.trim();
 
 export const FAP_BENEFITS = `
-- **Économique** : évite le remplacement ; chez Carter-Cash dès **99€ TTC**.
-- **Éco-responsable** : on réutilise la pièce.
-- **Résultat ≈ neuf** quand le FAP n’est pas fissuré/fondu.
+- **Ã‰conomique** : Ã©vite le remplacement ; chez Carter-Cash dÃ¨s **99â‚¬ TTC**.
+- **Ã‰co-responsable** : on rÃ©utilise la piÃ¨ce.
+- **RÃ©sultat â‰ˆ neuf** quand le FAP nâ€™est pas fissurÃ©/fondu.
 `.trim();
+

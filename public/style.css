@@ -1,5 +1,5 @@
 /* ===========================
-   AutoAI – UI polish (v2)
+   AutoAI â€“ UI polish (v2)
    =========================== */
 
 :root{
@@ -61,7 +61,7 @@ h1{
 .left-rail{
   display:flex;
   flex-direction:column;
-  gap: 12px; /* rapproche les éléments (chat / inline-ctas / form) */
+  gap: 12px; /* rapproche les Ã©lÃ©ments (chat / inline-ctas / form) */
 }
 
 .chat-window{
@@ -93,7 +93,7 @@ h1{
   margin-bottom:4px;
 }
 
-/* markdown – compact */
+/* markdown â€“ compact */
 .chat-window p{ margin: 4px 0; }
 .chat-window ul{ margin: 6px 0 6px 18px; padding:0; }
 .chat-window li{ margin: 3px 0; }
@@ -161,14 +161,14 @@ h1{
 .garage-button:hover, .carter-button:hover{ filter:brightness(1.06); transform: translateY(-1px); }
 .garage-button:active, .carter-button:active{ transform: translateY(0); }
 
-/* inline CTAs (sous la bulle, centrés et proches) */
+/* inline CTAs (sous la bulle, centrÃ©s et proches) */
 .inline-ctas{
   display:flex;
   justify-content:center;
   align-items:center;
   gap:12px;
-  margin-top: 6px;      /* collé au chat */
-  align-self:center;    /* reste centré dans la colonne */
+  margin-top: 6px;      /* collÃ© au chat */
+  align-self:center;    /* reste centrÃ© dans la colonne */
 }
 .inline-ctas .garage-button,
 .inline-ctas .carter-button{
@@ -231,7 +231,7 @@ h1{
   .pulse-card{ animation:none; }
 }
 
-/* === HOTFIX: confort sur écrans larges === */
+/* === HOTFIX: confort sur Ã©crans larges === */
 @media (min-width: 1440px){
   body{ font-size: 17px; }
   .container{ max-width: 1320px; }
@@ -248,7 +248,7 @@ h1{
   .right-rail{ gap: 16px; }
 }
 
-/* accessibilité */
+/* accessibilitÃ© */
 ::selection{ background:#204a75; color:#fff; }
 /* bulles = utilisent bien la largeur, pas de wrap bizarre */
 .user-msg, .bot-msg{
@@ -259,7 +259,7 @@ h1{
   margin:10px 6px;
   line-height:1.36;
   white-space: normal;           /* <-- important */
-  word-break: normal;            /* ne casse pas trop tôt */
+  word-break: normal;            /* ne casse pas trop tÃ´t */
   overflow-wrap: break-word;     /* casse proprement si besoin */
 }
 
@@ -268,10 +268,11 @@ h1{
 .chat-window ul{ margin:6px 0 8px 18px; padding:0; }
 .chat-window li{ margin:4px 0; }
 
-/* CTA inline sous la bulle, centrés */
+/* CTA inline sous la bulle, centrÃ©s */
 .inline-ctas{
   display:flex; gap:12px; justify-content:center; flex-wrap:wrap;
   margin:8px 0 0;
 }
 .inline-ctas .garage-button, .inline-ctas .carter-button{ min-width:240px; }
+
 

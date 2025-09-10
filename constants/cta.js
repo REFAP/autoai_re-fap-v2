@@ -1,14 +1,14 @@
 // constants/cta.js
 export const CTA = {
-  FAP_MONTÉ: {
-    label: "Prendre un diag + démontage (garage partenaire)",
+  FAP_MONTÃ‰: {
+    label: "Prendre un diag + dÃ©montage (garage partenaire)",
     url: "https://re-fap.fr/trouver_garage_partenaire/",
-    reason: "Valider la panne et éviter le mode dégradé."
+    reason: "Valider la panne et Ã©viter le mode dÃ©gradÃ©."
   },
-  FAP_DÉMONTÉ: {
-    label: "FAP déjà démonté ? Envoyer chez Re-FAP",
+  FAP_DÃ‰MONTÃ‰: {
+    label: "FAP dÃ©jÃ  dÃ©montÃ© ? Envoyer chez Re-FAP",
     url: "https://www.re-fap.fr",
-    reason: "Nettoyage direct si FAP déposé."
+    reason: "Nettoyage direct si FAP dÃ©posÃ©."
   },
   HORS_FAP: {
     label: "Confirmer la panne (garage partenaire)",
@@ -16,8 +16,9 @@ export const CTA = {
     reason: "Diagnostic complet hors FAP."
   },
   CONTACT: {
-    label: "Être rappelé par Re-FAP",
+    label: "ÃŠtre rappelÃ© par Re-FAP",
     url: "https://www.re-fap.fr",
     reason: "On te guide et on planifie."
   }
 };
+

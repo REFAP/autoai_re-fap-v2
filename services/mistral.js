@@ -1,4 +1,4 @@
-﻿// services/mistral.js — Mistral dynamic import + JSON enforcement + guardrails (accent-proof)
+ï»¿// services/mistral.js â€” Mistral dynamic import + JSON enforcement + guardrails (accent-proof)
 import { RF_SCHEMA, SYSTEM_PROMPT } from "../constants/contract.js";
 import { extractBotPayload } from "../lib/fallbacks.js";
 
@@ -20,7 +20,7 @@ async function getMistralClient() {
 // ---------- Utils ----------
 function safeParse(str){try{return typeof str==="object"?str:JSON.parse(str);}catch{return null;}}
 function isValidPayload(o){return o&&typeof o==="object"&&o.stage&&o.title&&o.summary&&o.risk&&o.cta&&o.cta.url;}
-function strip(s){ return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,""); } // enlève accents
+function strip(s){ return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,""); } // enlÃ¨ve accents
 
 // Heuristiques signaux (accent-proof)
 function signalsFrom(text){
@@ -39,45 +39,45 @@ function isGeneric(text){
   return false;
 }
 
-// Triages/diagnostics standardisés
+// Triages/diagnostics standardisÃ©s
 function makeTriagePayload(){
   return {
     stage:"triage",
     title:"Diagnostic rapide FAP",
-    summary:"Je vérifie en 5 questions oui/non pour trier vite et bien.",
+    summary:"Je vÃ©rifie en 5 questions oui/non pour trier vite et bien.",
     questions:[
-      {id:"q1",q:"Voyant moteur/FAP allumé ?"},
-      {id:"q2",q:"Fumée noire à l’accélération ?"},
-      {id:"q3",q:"Perte de puissance / mode dégradé ?"},
-      {id:"q4",q:"Trajets courts répétés récemment ?"},
-      {id:"q5",q:"Dernier trajet >20 min à >2500 tr/min ?"}
+      {id:"q1",q:"Voyant moteur/FAP allumÃ© ?"},
+      {id:"q2",q:"FumÃ©e noire Ã  lâ€™accÃ©lÃ©ration ?"},
+      {id:"q3",q:"Perte de puissance / mode dÃ©gradÃ© ?"},
+      {id:"q4",q:"Trajets courts rÃ©pÃ©tÃ©s rÃ©cemment ?"},
+      {id:"q5",q:"Dernier trajet >20 min Ã  >2500 tr/min ?"}
     ],
     suspected:[],
     risk:"low",
     actions:[],
-    cta:{label:"Voir un garage partenaire",url:"https://re-fap.fr/trouver_garage_partenaire/",reason:"Utile si voyant/puissance/fumée"},
+    cta:{label:"Voir un garage partenaire",url:"https://re-fap.fr/trouver_garage_partenaire/",reason:"Utile si voyant/puissance/fumÃ©e"},
     alt_cta:[],
-    follow_up:["Réponds: 1.oui 2.non 3.oui 4.non 5.non"],
-    legal:"Pas de suppression du FAP (illégal)."
+    follow_up:["RÃ©ponds: 1.oui 2.non 3.oui 4.non 5.non"],
+    legal:"Pas de suppression du FAP (illÃ©gal)."
   };
 }
 function makeFapDiagnosis(){
   return {
     stage:"diagnosis",
-    title:"FAP possiblement encrassé (régénération bloquée)",
-    summary:"Fumée noire +/ou perte de puissance → filtre saturé ou capteur diff. à contrôler.",
+    title:"FAP possiblement encrassÃ© (rÃ©gÃ©nÃ©ration bloquÃ©e)",
+    summary:"FumÃ©e noire +/ou perte de puissance â†’ filtre saturÃ© ou capteur diff. Ã  contrÃ´ler.",
     questions:[],
     suspected:["FAP"],
     risk:"moderate",
     actions:[
-      "Rouler 20–30 min à 2500–3000 tr/min (voie rapide) pour tenter une régénération.",
-      "Contrôler capteur pression différentielle + admissions (fuites).",
-      "Si aucun effet → passer au garage partenaire."
+      "Rouler 20â€“30 min Ã  2500â€“3000 tr/min (voie rapide) pour tenter une rÃ©gÃ©nÃ©ration.",
+      "ContrÃ´ler capteur pression diffÃ©rentielle + admissions (fuites).",
+      "Si aucun effet â†’ passer au garage partenaire."
     ],
-    cta:{label:"Prendre un diag + démontage (garage partenaire)",url:"https://re-fap.fr/trouver_garage_partenaire/",reason:"Valider FAP et éviter le mode dégradé."},
-    alt_cta:[{label:"FAP déjà démonté ? Envoyer chez Re-FAP",url:"https://www.re-fap.fr",reason:"Nettoyage direct si FAP déposé."}],
-    follow_up:["Odeur de brûlé ou bruit métallique ? (oui/non)"],
-    legal:"Pas de suppression FAP (illégal). Arrêt immédiat si odeur de brûlé."
+    cta:{label:"Prendre un diag + dÃ©montage (garage partenaire)",url:"https://re-fap.fr/trouver_garage_partenaire/",reason:"Valider FAP et Ã©viter le mode dÃ©gradÃ©."},
+    alt_cta:[{label:"FAP dÃ©jÃ  dÃ©montÃ© ? Envoyer chez Re-FAP",url:"https://www.re-fap.fr",reason:"Nettoyage direct si FAP dÃ©posÃ©."}],
+    follow_up:["Odeur de brÃ»lÃ© ou bruit mÃ©tallique ? (oui/non)"],
+    legal:"Pas de suppression FAP (illÃ©gal). ArrÃªt immÃ©diat si odeur de brÃ»lÃ©."
   };
 }
 
@@ -88,14 +88,14 @@ async function forceJsonFromDraft(draft){
   const resp = await client.chat.complete({
     model: MODEL, temperature: 0, maxTokens: 700,
     messages: [
-      { role:"system", content:"Validateur JSON strict. Réponds UNIQUEMENT par un objet JSON conforme au schéma. Aucun texte hors JSON." },
-      { role:"user", content:"Schéma:\n"+schemaText+"\n\nConvertis ce brouillon en JSON strict:\n"+String(draft) }
+      { role:"system", content:"Validateur JSON strict. RÃ©ponds UNIQUEMENT par un objet JSON conforme au schÃ©ma. Aucun texte hors JSON." },
+      { role:"user", content:"SchÃ©ma:\n"+schemaText+"\n\nConvertis ce brouillon en JSON strict:\n"+String(draft) }
     ]
   });
   return resp?.choices?.[0]?.message?.content ?? "";
 }
 
-// ---------- Guardrails post-modèle ----------
+// ---------- Guardrails post-modÃ¨le ----------
 function enforceGuardrails(messages, payload){
   const last = [...messages].reverse().find(m=>m.role==="user")?.content || "";
   const sig = signalsFrom(last);
@@ -105,13 +105,13 @@ function enforceGuardrails(messages, payload){
   // trace dev (visible dans npm run dev)
   console.log("[guard]", JSON.stringify({ last, generic, score, saysFap, stage: payload?.stage }));
 
-  // 1) Entrée générique → TRIAGE
+  // 1) EntrÃ©e gÃ©nÃ©rique â†’ TRIAGE
   if (generic) return makeTriagePayload();
 
-  // 2) ≥2 signaux → DIAG FAP si pas déjà FAP
+  // 2) â‰¥2 signaux â†’ DIAG FAP si pas dÃ©jÃ  FAP
   if (score>=2 && !saysFap) return makeFapDiagnosis();
 
-  // 3) payload invalide → TRIAGE
+  // 3) payload invalide â†’ TRIAGE
   if (!isValidPayload(payload)) return makeTriagePayload();
 
   // 4) sinon on garde tel quel
@@ -126,12 +126,12 @@ export async function askModel(messages = []){
   const sys = {
     role:"system",
     content: SYSTEM_PROMPT +
-      "\n\nIMPORTANT: Réponds STRICTEMENT en JSON valide (un seul objet). Aucun texte hors JSON. " +
-      "Respecte ce schéma:\n" + schemaText
+      "\n\nIMPORTANT: RÃ©ponds STRICTEMENT en JSON valide (un seul objet). Aucun texte hors JSON. " +
+      "Respecte ce schÃ©ma:\n" + schemaText
   };
 
   try{
-    // Pass 1 — demande JSON direct
+    // Pass 1 â€” demande JSON direct
     const r1 = await client.chat.complete({
       model: MODEL, temperature: 0.0, maxTokens: 800,
       messages: [sys, ...messages]
@@ -149,7 +149,8 @@ export async function askModel(messages = []){
     return enforceGuardrails(messages, payload);
   }catch(e){
     console.error("[Mistral] askModel error:", e);
-    // fallback: au pire, applique la même logique métier
+    // fallback: au pire, applique la mÃªme logique mÃ©tier
     return enforceGuardrails(messages, null);
   }
 }
+
