@@ -198,8 +198,7 @@ export default function Home() {
     <>
       <Head>
         <title>Auto AI</title>
-        <link rel="stylesheet" href="/style.css" />
-      </Head>
+         </Head>
 
       <main className="container">
         <h1>AutoAI par Re-FAP</h1>
@@ -273,3 +272,4 @@ export default function Home() {
     </>
   );
 }
+
