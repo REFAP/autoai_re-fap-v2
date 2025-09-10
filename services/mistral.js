@@ -1,32 +1,31 @@
 // services/mistral.js
-// Appel Mistral ; si pas de clé => throw pour activer les fallbacks.
+import OpenAI from "openai";
+import { RF_SCHEMA, SYSTEM_PROMPT } from "../constants/contract.js";
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export async function chatCompletion(messages, options = {}) {
-  const apiKey = process.env.MISTRAL_API_KEY;
-  const model = process.env.MISTRAL_MODEL || 'mistral-large-latest';
+export async function askModel(messages) {
+  // messages = [{role:'user'|'system'|'assistant', content:'...'}]
+  const sys = { role: "system", content: SYSTEM_PROMPT };
+  try {
+    const resp = await openai.responses.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      input: [sys, ...messages],
+      response_format: { type: "json_schema", json_schema: RF_SCHEMA },
+      max_output_tokens: 700
+    });
 
-  if (!apiKey) {
-    // pas de clé : on laisse l’engine basculer vers les fallbacks
-    throw new Error('Mistral API key missing');
+    // Selon SDK, la sortie peut être parsée déjà ou sous .text
+    const c = resp.output?.[0]?.content?.[0];
+    const parsed = resp.output_parsed ?? (c?.type === "output_text" ? JSON.parse(c.text) : null);
+    return parsed ?? c; // laisser le front tolérer via extractBotPayload
+  } catch (e) {
+    // Fallback: relancer en "force JSON" simple
+    const force = await openai.responses.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      input: [sys, ...messages, {role:"system", content:"Réponds STRICTEMENT en JSON valide conforme au schéma."}],
+      max_output_tokens: 700
+    });
+    const c2 = force.output?.[0]?.content?.[0];
+    return c2?.text ?? c2 ?? { stage:"triage", title:"Erreur", summary:"Réessaie" };
   }
-
-  const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: options.temperature ?? 0.2,
-      top_p: options.top_p ?? 0.6,
-      max_tokens: options.max_tokens ?? 320,
-    }),
-  });
-
-  if (!r.ok) throw new Error(`Mistral HTTP ${r.status}`);
-  const data = await r.json();
-  const text = data?.choices?.[0]?.message?.content ?? '';
-  return String(text || '').trim();
 }
