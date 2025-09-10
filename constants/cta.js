@@ -1,29 +1,23 @@
 // constants/cta.js
-// CTAs centralisés. On peut changer libellés/liens ici sans toucher le moteur.
-
-export const CTAS = {
-  FAP: [
-    {
-      label: 'Trouver un Carter-Cash',
-      href: 'https://auto.re-fap.fr/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_oui',
-      variant: 'primary'
-    },
-    {
-      label: 'Trouver un garage partenaire Re-FAP',
-      href: 'https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=inline_non',
-      variant: 'secondary'
-    }
-  ],
-  DIAG: [
-    {
-      label: 'Trouver un garage partenaire Re-FAP',
-      href: 'https://re-fap.fr/trouver_garage_partenaire/?utm_source=autoai&utm_medium=cta&utm_campaign=v2&utm_content=diag_inline',
-      variant: 'primary'
-    }
-  ]
+export const CTA = {
+  FAP_MONTÉ: {
+    label: "Prendre un diag + démontage (garage partenaire)",
+    url: "https://re-fap.fr/trouver_garage_partenaire/",
+    reason: "Valider la panne et éviter le mode dégradé."
+  },
+  FAP_DÉMONTÉ: {
+    label: "FAP déjà démonté ? Envoyer chez Re-FAP",
+    url: "https://www.re-fap.fr",
+    reason: "Nettoyage direct si FAP déposé."
+  },
+  HORS_FAP: {
+    label: "Confirmer la panne (garage partenaire)",
+    url: "https://www.idgarages.com/fr-fr/prestations/diagnostic-electronique?utm_source=re-fap&utm_medium=partenariat&utm_campaign=diagnostic-electronique&ept-publisher=re-fap&ept-name=re-fap-diagnostic-electronique",
+    reason: "Diagnostic complet hors FAP."
+  },
+  CONTACT: {
+    label: "Être rappelé par Re-FAP",
+    url: "https://www.re-fap.fr",
+    reason: "On te guide et on planifie."
+  }
 };
-
-export function getCTAs(category, triage) {
-  if (triage) return [];            // jamais de CTA en phase questions
-  return CTAS[category] || [];
-}
