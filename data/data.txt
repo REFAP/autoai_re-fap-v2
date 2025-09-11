@@ -1,134 +1,91 @@
-[]
-Le nettoyage FAP proposé par Re-Fap coûte entre 99€ et 149€. Il évite un remplacement complet (2000€) et restaure les performances.
-Pour prendre rdv dans un garage partenaire, il faut juste cliquer sur le bouton associé à coté de la fenetre de dialogue.
-
 [Voyant moteur allumé]
-Un voyant moteur peut être lié à la vanne EGR, au FAP ou à un problème de combustion. 
-
-> Questions à poser :
-1. Le voyant moteur est-il fixe ou clignotant ?
-   - Fixe → Souvent lié à un encrassement (FAP ou EGR). → Étape suivante.
-   - Clignotant → Risque de ratés moteur graves. → Arrêt immédiat + RDV. 
-
-2. Le voyant FAP est-il aussi allumé ?
-   - Oui → Probable saturation du FAP → Conseiller nettoyage.
-   - Non → Vérifier symptômes (perte de puissance, fumée noire, consommation élevée).
-       - Oui → Probable vanne EGR encrassée. → RDV conseillé.
-       - Non → Cause incertaine → Diagnostic électronique.
-
-👉 CONCLUSION APRES AVOIR REP AUX QUESTIONS :
-SI PB FAP, demander si l'utilisateur sait demonter son fap. 
-SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
-SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
-
+Synonymes: check engine, voyant orange, MIL, voyant moteur, défaut moteur, témoin moteur
+Un voyant moteur peut venir du FAP, de l’EGR ou d’un problème de combustion/sensor.
+> Questions:
+1) Voyant fixe ou clignotant ?
+   - Fixe → souvent encrassement (FAP/EGR) → triage.
+   - Clignotant → risque de ratés graves → arrêt immédiat + RDV garage partenaire.
+2) Voyant FAP aussi allumé ?
+   - Oui → FAP probablement saturé → voir bloc “Voyant FAP”.
+   - Non → chercher perte de puissance, fumée noire, surconso.
+> Orientation:
+- Si clignote / fumée très épaisse / odeur de brûlé / bruits métalliques → sécurité + handoff garage partenaire.
+- Sinon → diagnostic en garage partenaire (lecture codes + essai route).
+- Carter-Cash uniquement si cas FAP et FAP DÉPOSÉ par l’utilisateur.
 
 [Voyant FAP]
-Quand le voyant FAP s’allume, cela indique une saturation du filtre. Un nettoyage est souvent suffisant.
-
-> Questions à poser :
-1. Le voyant vient-il de s’allumer ?
-   - Oui → Possible de rouler un peu, mais nettoyage conseillé rapidement.
-   - Non (voyant présent depuis plusieurs trajets) → Risque d’endommager le moteur → Nettoyage urgent.
-
-2. Y a-t-il perte de puissance ?
-   - Oui → Saturation avancée → RDV nécessaire.
-   - Non → Nettoyage recommandé pour éviter aggravation.
-
-👉 CONCLUSION APRES AVOIR REP AUX QUESTIONS :
-👉 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
-SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
-SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
-
+Synonymes: FAP, DPF, filtre à particules, voyant FAP, antipollution
+Quand le voyant FAP s’allume, le filtre est probablement saturé.
+> Questions:
+1) Le voyant vient-il de s’allumer ? (oui/non)
+   - Oui → possible de rouler un peu mais nettoyage conseillé rapidement.
+   - Non (plusieurs trajets) → risque d’endommager turbo/sondes → RDV urgent.
+2) Perte de puissance ? (oui/non)
+   - Oui → saturation avancée → RDV nécessaire.
+   - Non → nettoyage recommandé pour éviter aggravation.
+> Pédagogie:
+- Nettoyage Re-FAP = 99–149 € (≈10× moins qu’un remplacement > 1000 €). Garantie 1 an.
+> Orientation:
+- Demander si l’utilisateur sait déposer le FAP.
+  - Oui → Carter-Cash (apport du FAP démonté) pour un nettoyage Re-FAP.
+  - Non / doute → RDV garage partenaire et EXIGER un nettoyage Re-FAP (pas de suppression/neutralisation).
 
 [EGR encrassée]
-Une vanne EGR encrassée peut provoquer des ratés moteur, une perte de puissance et une surconsommation. 
-
-> Questions à poser :
-1. Voyez-vous de la fumée noire ?
-   - Oui → Encrassement confirmé → RDV conseillé.
-   - Non → Peut venir du FAP ou d’un capteur → Diagnostic recommandé.
-
-2. Le voyant moteur est-il aussi allumé ?
-   - Oui → Diagnostic obligatoire.
-   - Non → Si perte de puissance → Nettoyage conseillé.
-
-👉 CONCLUSION APRES AVOIR REP AUX QUESTIONS :
-SI PB FAP, demander si l'utilisateur sait demonter son fap. 
-SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
-SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
-
+Synonymes: vanne EGR, clapet EGR, fumée noire, pertes puissance, encrassement admission
+Une EGR encrassée cause ratés, perte de puissance et surconsommation.
+> Questions:
+1) Fumée noire à l’accélération ? (oui/non)
+2) Voyant moteur aussi allumé ? (oui/non)
+> Orientation:
+- Si oui à l’un des points → diagnostic en garage partenaire (lecture codes, admission, EGR).
+- Si FAP aussi suspect → suivre l’itinéraire FAP.
+- Carter-Cash NON pertinent si pas de FAP déposé.
 
 [AdBlue]
-Le système AdBlue réduit les NOx. S’il est vide, un message d’alerte apparaît et le véhicule peut refuser de démarrer.
+Synonymes: SCR, urée, impossible de redémarrer, niveau AdBlue bas, NOx
+Le système AdBlue réduit les NOx ; à sec, le véhicule peut refuser de redémarrer.
+> Questions:
+1) Message “Niveau AdBlue bas / impossible de redémarrer bientôt” ? (oui/non)
+2) Le véhicule refuse-t-il de démarrer ? (oui/non)
+> Orientation:
+- Faire l’appoint AdBlue immédiatement si nécessaire.
+- Si voyant moteur aussi allumé → diagnostic en garage partenaire.
+- Carter-Cash sans objet (hors FAP).
 
-> Questions à poser :
-1. Avez-vous vu un message "Niveau AdBlue bas" ou "impossible de redémarrer bientôt" ?
-   - Oui → Remplir le réservoir AdBlue dès que possible.
-   - Non → Vérifier si le voyant moteur est aussi allumé.
-       - Si oui → Autre cause possible (EGR/FAP).
+[Nettoyage FAP Re-FAP]
+Synonymes: nettoyage FAP, décrassage FAP, décapage FAP, service Re-FAP, prix FAP
+Le nettoyage Re-FAP (atelier) restaure le débit du filtre.
+- Prix indicatif: 99–149 € (≈10× moins qu’un remplacement > 1000 €). Garantie 1 an.
+- Avantage: performances rétablies, long terme meilleur qu’un simple “forçage route”.
+> Orientation:
+- FAP suspect/confirmé: RDV garage partenaire et demander un nettoyage Re-FAP.
+- Si l’utilisateur sait déposer: apport en Carter-Cash du FAP DÉPOSÉ (sinon, passer par le garage).
 
-2. Le véhicule refuse-t-il de démarrer ?
-   - Oui → Réservoir vide → Faire un appoint immédiatement.
-   - Non → Simple alerte → Prévoir appoint avant blocage.
+[Fonctionnement Re-FAP]
+Synonymes: process Re-FAP, étapes Re-FAP, comment ça marche
+Étape 1: RDV dans un garage partenaire Re-FAP → dépose du FAP → envoi à l’atelier.
+Étape 2: Nettoyage exclusif Re-FAP (retire suies/cendres, contrôle) en 48 h env.
+Étape 3: Repose du FAP + réinitialisation calculateur → Garantie 1 an.
+Résultat: proche d’un FAP neuf, à une fraction du prix.
 
-👉 CONCLUSION APRES AVOIR REP AUX QUESTIONS :
-si le problème persiste après appoint → 👉 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
-SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
-SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
+[Prendre rendez-vous (garage partenaire)]
+Synonymes: rdv, rendez-vous, rendez vous, prendre rdv, trouver garage, diagnostic, atelier
+Pour un diagnostic fiable et une solution adaptée, utilisez le bouton “Prendre RDV avec un garage partenaire” à côté de la fenêtre de dialogue (mise en relation partout en France).
 
+[Vibrations en roulant (hors périmètre)]
+Synonymes: vibration, tremblement, volant qui vibre, jante voilée, pneu déséquilibré, disque voilé, cardan, rotule, amortisseur
+Les vibrations viennent surtout des roues/freins/train roulant (hors FAP).
+> Vérifs simples:
+- Pression/usure pneus à froid; chercher hernie/plat.
+- Équilibrage récent; masses d’équilibrage présentes.
+- Si au freinage: disques/étriers à contrôler.
+> Orientation:
+- Cas hors périmètre prioritaire FAP → RDV garage partenaire pour diagnostic mécanique.
+- Éviter vitesses élevées jusqu’au contrôle. Carter-Cash non pertinent ici.
 
-[Nettoyage Re-Fap]
-Le nettoyage FAP proposé par Re-Fap coûte entre 99€ et 149€.  
-Il évite un remplacement complet (2000€) et restaure les performances.
-
-> Questions à poser :
-1. Votre voyant FAP est-il allumé ?
-   - Oui → Nettoyage conseillé.
-   - Non → Nettoyage possible en prévention pour prolonger la durée de vie.
-
-2. Avez-vous déjà remplacé un FAP auparavant ?
-   - Oui → Indiquer que le nettoyage est 10x moins cher qu’un remplacement.
-   - Non → Souligner l’économie et l’efficacité.
-
-👉 CONCLUSION APRES AVOIR REP AUX QUESTIONS :
-👉 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
-SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
-SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
-
-[INFOS FONCTIONNEMENT RE FAP]
-Résumé du fonctionnement Re-Fap :
-
-Étape 1 : RDV dans un garage partenaire Re-Fap  
-→ Dépose du FAP  
-→ Envoi dans notre atelier  
-
-Étape 2 : Nettoyage exclusif Re-Fap en 48h  
-→ Élimine 100 % des suies  
-→ Restaure performances d’origine  
-
-Étape 3 : Repose du FAP + réinitialisation calculateur moteur  
-→ Garantie 1 an  
-→ Résultat équivalent à un FAP neuf, mais jusqu’à 10 fois moins cher  
-
-👉 CONCLUSION APRES AVOIR REP AUX QUESTIONS :
-👉 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
-SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
-SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
-
-
-[PRENDRE RENDEZ VOUS GARAGE PARTENAIRE RDV RENDEZ-VOUS]
-👉 Inviter l’utilisateur à appuyer sur le bouton **"Trouver un garage partenaire"** à côté de la fenêtre de dialogue.  
-Cela le redirigera directement vers la prise de rendez-vous.
-
-
-
-
-
-
-
+[Diagnostic électronique]
+Synonymes: valise OBD, codes défaut, lecture défauts, diag électronique
+Avant d’intervenir, lire les codes défauts (OBD) pour éviter les remplacements inutiles.
+> Orientation:
+- RDV garage partenaire pour lecture des défauts et essai routier.
+- Si la lecture confirme FAP → suivre bloc “Voyant FAP”.
