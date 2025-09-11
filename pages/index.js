@@ -2,6 +2,57 @@ import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 import ReactMarkdown from 'react-markdown';
 
+// ---- Helpers front ----
+const GARAGE_URL = 'https://re-fap.fr/trouver_garage_partenaire/';
+const CC_URL = 'https://auto.re-fap.fr';
+
+function safeParse(s) {
+  try { return JSON.parse(s); } catch { return null; }
+}
+function isFAP(obj) {
+  return Array.isArray(obj?.suspected) && obj.suspected.some((x) => /fap|dpf/i.test(String(x)));
+}
+
+function StructuredBotCard({ obj }) {
+  return (
+    <div className="bot-msg">
+      <strong>AutoAI:</strong>
+      <div style={{ marginTop: 6 }}>
+        {obj.title && <div style={{ fontWeight: 700, marginBottom: 4 }}>{obj.title}</div>}
+        {obj.summary && <p style={{ margin: '4px 0 8px 0' }}>{obj.summary}</p>}
+
+        {Array.isArray(obj.suspected) && obj.suspected.length > 0 && (
+          <div style={{ marginBottom: 6 }}>
+            <div style={{ fontWeight: 600 }}>Pistes probables</div>
+            <ul>{obj.suspected.map((s, i) => <li key={i}>{s}</li>)}</ul>
+          </div>
+        )}
+        {Array.isArray(obj.actions) && obj.actions.length > 0 && (
+          <div style={{ marginBottom: 6 }}>
+            <div style={{ fontWeight: 600 }}>À faire maintenant</div>
+            <ul>{obj.actions.map((a, i) => <li key={i}>{a}</li>)}</ul>
+          </div>
+        )}
+        {obj.stage === 'triage' && Array.isArray(obj.questions) && obj.questions.length > 0 && (
+          <div style={{ marginBottom: 6 }}>
+            <div style={{ fontWeight: 600 }}>Questions</div>
+            <ul>{obj.questions.map((q, i) => <li key={q.id || i}>{q.q || String(q)}</li>)}</ul>
+          </div>
+        )}
+        {Array.isArray(obj.follow_up) && obj.follow_up.length > 0 && (
+          <div style={{ marginTop: 6 }}>
+            <div style={{ fontWeight: 600 }}>Suite</div>
+            <ul>{obj.follow_up.map((f, i) => <li key={i}>{f}</li>)}</ul>
+          </div>
+        )}
+        {obj.legal && (
+          <p style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8 }}>{obj.legal}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [messages, setMessages] = useState([
     {
@@ -14,7 +65,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState('');
-  const [nextAction, setNextAction] = useState(null); // ← pilote les CTA
+  const [nextAction, setNextAction] = useState(null); // classification backend (toujours dispo)
+  const [lastObj, setLastObj] = useState(null); // dernier objet JSON structuré du bot
   const chatEndRef = useRef();
 
   useEffect(() => {
@@ -24,7 +76,7 @@ export default function Home() {
   function getHistoriqueText() {
     const lastMessages = messages.slice(-5);
     return lastMessages
-      .map((m) => (m.from === 'user' ? `Moi: ${m.text}` : `AutoAI: ${m.text}`))
+      .map((m) => (m.from === 'user' ? `Moi: ${m.text}` : m.json ? `AutoAI: ${JSON.stringify(m.json)}` : `AutoAI: ${m.text}`))
       .join('\n');
   }
 
@@ -53,7 +105,7 @@ export default function Home() {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         body: JSON.stringify({
           question: trimmedInput,
           historique: historiqueText,
@@ -77,13 +129,23 @@ export default function Home() {
         return;
       }
 
-      const data = await res.json();
-      const botMsg = {
-        from: 'bot',
-        text: data.reply || "Désolé, le service a reçu trop de messages en même temps, merci de renvoyer votre message :).",
-      };
-      setMessages((msgs) => [...msgs, botMsg]);
-      setNextAction(data.nextAction || { type: 'GEN' }); // ← met à jour l’action suivante (FAP/DIAG/GEN)
+      const payload = await res.json();
+      const obj = payload.data || safeParse(payload.reply);
+
+      if (obj) {
+        // Ajoute une carte structurée au lieu d'un texte brut
+        setMessages((msgs) => [...msgs, { from: 'bot', json: obj }]);
+        setLastObj(obj);
+        setNextAction(payload.nextAction || { type: 'GEN' });
+      } else {
+        // Fallback texte (rare)
+        const botMsg = {
+          from: 'bot',
+          text: payload.reply || "Désolé, le service a reçu trop de messages en même temps, merci de renvoyer votre message :).",
+        };
+        setMessages((msgs) => [...msgs, botMsg]);
+        setNextAction(payload.nextAction || { type: 'GEN' });
+      }
 
     } catch {
       setLoading(false);
@@ -93,6 +155,15 @@ export default function Home() {
       ]);
     }
   }
+
+  // --- Boutons permanents pilotés par le JSON ---
+  const isFapDiag = (lastObj && ((lastObj.stage === 'diagnosis' && isFAP(lastObj)) || (lastObj.stage === 'handoff' && isFAP(lastObj))));
+  const garageLabel = lastObj?.cta?.label || 'Prendre RDV avec un garage partenaire';
+  const garageHref = (lastObj?.cta?.url || GARAGE_URL).replace(/^http:/, 'https:');
+  const garageReason = lastObj?.cta?.reason || 'Partout en France : garages au choix, RDV en quelques clics.';
+  const ccReason = isFapDiag
+    ? 'Si vous pouvez déposer le FAP, apportez-le en Carter-Cash pour un nettoyage Re-FAP.'
+    : 'Réservé aux cas FAP. Si doute : commencez par le diagnostic en garage.';
 
   return (
     <>
@@ -109,7 +180,11 @@ export default function Home() {
             {messages.map((m, i) => (
               <div key={i} className={m.from === 'user' ? 'user-msg' : 'bot-msg'}>
                 <strong>{m.from === 'user' ? 'Moi' : 'AutoAI'}:</strong>
-                <ReactMarkdown skipHtml>{m.text.replace(/\n{2,}/g, '\n')}</ReactMarkdown>
+                {m.json ? (
+                  <StructuredBotCard obj={m.json} />
+                ) : (
+                  <ReactMarkdown skipHtml>{(m.text || '').replace(/\n{2,}/g, '\n')}</ReactMarkdown>
+                )}
               </div>
             ))}
 
@@ -123,35 +198,30 @@ export default function Home() {
             <div ref={chatEndRef} />
           </div>
 
-          {/* CTA dynamiques selon la classification */}
+          {/* 2 boutons permanents, pilotés par le dernier JSON */}
           <div className="garage-button-container">
-            {nextAction?.type === 'FAP' && (
-              <>
-                <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
-                  FAP monté ? Prendre RDV 🔧
-                </a>
-                <a href="https://auto.re-fap.fr" className="carter-button">
-                  FAP démonté ? Dépose Carter-Cash 🛠️
-                </a>
-              </>
-            )}
+            <a id="btn-garage" href={garageHref} className="garage-button" target="_blank" rel="nofollow">
+              <span className="label">{garageLabel} 🔧</span>
+            </a>
+            <small className="cta-reason" id="garage-reason">{garageReason}</small>
 
-            {nextAction?.type === 'DIAG' && (
-              <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
-                Diagnostic électronique proche de chez toi 🔎
-              </a>
-            )}
-
-            {(!nextAction || nextAction.type === 'GEN') && (
-              <>
-                <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
-                  Trouver un garage partenaire 🔧
-                </a>
-                <a href="https://auto.re-fap.fr" className="carter-button">
-                  Trouver un Carter-Cash 🛠️
-                </a>
-              </>
-            )}
+            <a
+              id="btn-cc"
+              href={CC_URL}
+              className={`carter-button ${isFapDiag ? '' : 'is-disabled'}`}
+              target="_blank"
+              rel="nofollow"
+              onClick={(e) => {
+                if (!isFapDiag) {
+                  e.preventDefault();
+                  alert('Ce bouton est réservé aux cas FAP (FAP déjà déposé). Utilisez le bouton vert pour un diagnostic.');
+                }
+              }}
+            >
+              <span className="label">FAP démonté ? Dépose Carter-Cash 🛠️</span>
+              <span className="badge">réservé aux cas FAP</span>
+            </a>
+            <small className="cta-reason" id="cc-reason">{ccReason}</small>
           </div>
         </div>
 
