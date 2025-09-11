@@ -1,130 +1,133 @@
-// pages/api/chat.js
-import fs from 'fs';
-import path from 'path';
+// pages/api/chat.js — adaptateur LLM JSON → UI (reply markdown + nextAction)
+import fs from "fs/promises";
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
 
-const STOPWORDS_FR = new Set([
-  'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a','d\'','l\'',
-  'pour','avec','sur','est','c\'est','il','elle','on','tu','te','ton','ta','tes','vos','votre',
-  'mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet','cette','ses','son','leurs'
-]);
+const MODEL = process.env.MISTRAL_MODEL || "mistral-large-latest";
 
-function normalize(s='') {
-  return s.toLowerCase()
-    .normalize('NFD').replace(/\p{Diacritic}+/gu,'')
-    .replace(/[^\p{L}\p{N}\s\-]/gu,' ')
-    .replace(/\s+/g,' ')
-    .trim();
+// ===== Schéma (identique au lab) =====
+const schema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["stage","title","summary","questions","suspected","risk","actions","cta","alt_cta","follow_up","legal"],
+  properties: {
+    stage: { enum: ["triage","diagnosis","handoff"] },
+    title: { type: "string", minLength: 1 },
+    summary: { type: "string", minLength: 1 },
+    questions: { type: "array", items: { type:"object", required:["id","q"], additionalProperties:false, properties:{ id:{type:"string"}, q:{type:"string"} } } },
+    suspected: { type:"array", items:{type:"string"}, maxItems:5 },
+    risk: { enum: ["low","moderate","high"] },
+    actions: { type:"array", items:{type:"string"}, minItems:2, maxItems:4 },
+    cta: { type:"object", required:["label","url","reason"], additionalProperties:false,
+      properties:{ label:{type:"string"}, url:{type:"string", format:"uri", pattern:"^https://"}, reason:{type:"string"} } },
+    alt_cta: { type:"array", items: { $ref:"#/properties/cta" }, maxItems:3 },
+    follow_up: { type:"array", items:{type:"string"}, maxItems:3 },
+    legal: { type:"string", minLength:1 }
+  },
+  allOf: [
+    { if: { properties:{ stage:{ const:"triage"} }, required:["stage"] },
+      then: { properties:{ questions:{ minItems:3, maxItems:5 } } },
+      else: { properties:{ questions:{ maxItems:0 } } }
+    }
+  ]
+};
+
+const ajv = new Ajv({ allErrors:true, strict:false }); addFormats(ajv);
+const validate = ajv.compile(schema);
+
+// ===== Utils =====
+function parseJsonLoose(out) {
+  let s = (out ?? "").trim();
+  try { return JSON.parse(s); } catch {}
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) { s = fence[1].trim(); try { return JSON.parse(s); } catch {} }
+  const a = s.indexOf("{"), b = s.lastIndexOf("}");
+  if (a > -1 && b > a) { try { return JSON.parse(s.slice(a, b+1)); } catch {} }
+  throw new Error("non-json");
 }
-function tokenize(s) {
-  return normalize(s).split(' ').filter(t => t && t.length>2 && !STOPWORDS_FR.has(t));
+
+function allowCta(url) {
+  try {
+    const u = new URL(url);
+    const okHost = ["re-fap.fr","www.re-fap.fr","carter-cash.com","www.carter-cash.com","idgarages.com","www.idgarages.com"]
+      .includes(u.hostname);
+    return u.protocol === "https:" && okHost;
+  } catch { return false; }
 }
 
-function parseBlocks(raw) {
-  const parts = raw.split(/\n(?=\[[^\]]*\]\s*)/g);
-  return parts.map(p => {
-    const m = p.match(/^\[([^\]]*)\]\s*([\s\S]*)$/);
-    if (!m) return null;
-    const title = m[1] || '';
-    const body  = (m[2] || '').trim();
-    const synLine = body.match(/^Synonymes:\s*(.+)$/mi);
-    const synonyms = synLine ? synLine[1].split(/[,|]/).map(s=>s.trim()).filter(Boolean) : [];
-    return { title, body, synonyms };
-  }).filter(Boolean);
+function renderReply(j) {
+  const L = [];
+  L.push(`**${j.title}**`, "", j.summary);
+  if (j.stage === "triage" && (j.questions||[]).length) {
+    L.push("", "**Questions**");
+    j.questions.forEach(q => L.push(`- ${q.q}`));
+  }
+  if ((j.suspected||[]).length) {
+    L.push("", "**Pistes**");
+    j.suspected.forEach(s => L.push(`- ${s}`));
+  }
+  if ((j.actions||[]).length) {
+    L.push("", "**Actions**");
+    j.actions.forEach(a => L.push(`- ${a}`));
+  }
+  L.push("", `[${j.cta.label}](${j.cta.url}) — ${j.cta.reason}`, "", `_${j.legal}_`);
+  return L.join("\n");
 }
 
-function scoreBlock(block, queryTokens) {
-  const bag = tokenize(block.title + ' ' + block.body + ' ' + (block.synonyms||[]).join(' '));
-  if (!bag.length) return 0;
-  let hits = 0;
-  for (const t of queryTokens) if (bag.includes(t)) hits++;
-  const titleHits = tokenize(block.title).filter(t=>queryTokens.includes(t)).length;
-  const synHits   = tokenize((block.synonyms||[]).join(' ')).filter(t=>queryTokens.includes(t)).length;
-  return hits + 1.5*titleHits + 1.2*synHits;
-}
-
-function classify(text) {
-  const txt = normalize(text);
-  if (/\bfap\b|\bdpf\b|\bfiltre a particule/.test(txt)) return { type:'FAP' };
-  if (/\bdiag(nostic)?\b|\brdv\b|\brendez.?vous\b|\burgent/.test(txt)) return { type:'DIAG' };
-  return { type:'GEN' };
+function mapNextAction(j) {
+  const url = (j.cta?.url || "").toLowerCase();
+  if (url.includes("carter-cash")) return { type: "FAP" };
+  if (url.includes("idgarages") || j.stage === "handoff") return { type: "DIAG" };
+  return { type: "GEN" };
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error:'Méthode non autorisée' });
-  if (!process.env.MISTRAL_API_KEY) return res.status(500).json({ error:'MISTRAL_API_KEY manquante' });
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { question, historique } = req.body || {};
-  if (!question || typeof question !== 'string') return res.status(400).json({ error:'Question invalide' });
-
-  let raw;
-  try {
-    raw = fs.readFileSync(path.join(process.cwd(),'data','data.txt'),'utf-8');
-  } catch {
-    return res.status(500).json({ error:'Erreur de lecture des données' });
-  }
-
-  const blocks = parseBlocks(raw);
-  const queryTokens = tokenize(`${historique||''} ${question}`);
-
-  const ranked = blocks
-    .map(b => ({ b, s: scoreBlock(b, queryTokens) }))
-    .sort((a,b) => b.s - a.s)
-    .slice(0, 3)
-    .map(x => x.b);
-
-  const contextText = ranked.length
-    ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
-    : "Aucune correspondance fiable dans la base locale. Donne une réponse brève et honnête, puis pose 2 questions de clarification utiles.";
-
-  const system = `
-Tu es AutoAI, mécano expérimenté, direct et pro.
-Règles: 1) tri rapide (FAP / non-FAP / hors sujet), 2) 1 à 3 questions max si flou,
-3) réponse courte, actionnable, 4) propose un CTA cohérent (FAP -> démonté ? oui = Carter-Cash ; non = Garage partenaire ; non-FAP -> diagnostic partenaire).
-Interdits: pas d'inventions; si tu ne sais pas, dis-le. Appuie-toi sur le CONTEXTE quand pertinent.`;
-
-  const userContent = `
-Historique (résumé): ${historique||'(vide)'}
-Question: ${question}
-
-=== CONTEXTE STRUCTURÉ ===
-${contextText}
-
-Consigne de sortie:
-- ≤ 120 mots, clair, listes concises ok.
-- Termine par "**Prochaine étape**:" + 1 phrase menant à l'action appropriée.`;
+  const { question = "" } = req.body || {};
+  if (!process.env.MISTRAL_API_KEY) return res.status(500).json({ error: "Missing MISTRAL_API_KEY" });
 
   try {
-    const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "mistral-medium-latest",
-        temperature: 0.2,
-        top_p: 0.9,
-        max_tokens: 600,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: userContent }
-        ]
-      })
+    // 1) prompt EXACT (chargé à chaque requête pour pouvoir itérer sans redeploy)
+    const SYSTEM_PROMPT = await fs.readFile(process.cwd() + "/data/prompt.txt", "utf8");
+
+    // 2) appel modèle
+    const { Mistral } = await import("@mistralai/mistralai");
+    const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY });
+    const r = await client.chat.complete({
+      model: MODEL,
+      temperature: 0.0,
+      maxTokens: 800,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: question }
+      ]
     });
 
-    if (!r.ok) {
-      const minimal = ranked.length
-        ? `Je m'appuie sur: ${ranked.map(r=>r.title||'info').join(', ')}. ${ranked[0].body.split('\n').slice(0,4).join(' ')}`
-        : `Je ne trouve pas d'info locale fiable. Dis-moi: voyant allumé ? perte de puissance ? odeur/fumée ?`;
-      return res.status(r.status).json({ reply: minimal, nextAction: classify(minimal) });
-    }
+    // 3) parse + validation + garde-fous
+    const raw = r?.choices?.[0]?.message?.content ?? "";
+    const data = parseJsonLoose(raw);
+    if (!validate(data)) throw new Error("schema: " + ajv.errorsText(validate.errors));
+    if (!allowCta(data?.cta?.url)) throw new Error("cta not allowed: " + (data?.cta?.url || ""));
 
-    const data = await r.json();
-    const reply = (data.choices?.[0]?.message?.content || '').trim() || "Réponse indisponible pour le moment.";
-    return res.status(200).json({ reply, nextAction: classify(reply) });
+    // 4) adapter à l’UI existante
+    const reply = renderReply(data);
+    const nextAction = mapNextAction(data);
 
-  } catch {
-    const backup = `Problème technique. Réponds à ces 2 questions: (1) voyant allumé ? (2) perte de puissance ? Puis on oriente.`;
-    return res.status(200).json({ reply: backup, nextAction: { type:'GEN' } });
+    const payload = { reply, nextAction };
+    if (process.env.NODE_ENV !== "production") payload.raw = data; // debug en Preview
+
+    res.status(200).json(payload);
+
+  } catch (e) {
+    console.error("chat error", e);
+    // Fallback sûr
+    res.status(200).json({
+      reply:
+        "⚠️ Erreur temporaire. Par sécurité : **urgence atelier**.\n\n" +
+        "[Trouver un garage partenaire](https://re-fap.fr/trouver_garage_partenaire/)\n\n" +
+        "_En cas d’odeur de brûlé, arrête immédiatement le véhicule._",
+      nextAction: { type: "DIAG" }
+    });
   }
 }
