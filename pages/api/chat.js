@@ -82,11 +82,46 @@ function ensureHttps(u) {
 }
 
 function parseBotJSON(text) {
-  // Try straight parse
+  if (typeof text !== 'string') return null;
+  // 1) Sanitize curly quotes
+  let s = text.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+  // 2) Strip Markdown code fences if present
+  s = s.split('```').join('');
+  // 3) Try direct JSON
   try {
-    const o = JSON.parse(text);
+    const o = JSON.parse(s);
     if (o && typeof o === 'object') return o;
   } catch {}
+  // 4) Brace-count extraction (ignore braces inside strings)
+  let inStr = false, esc = false, depth = 0, start = -1;
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    if (inStr) {
+      if (esc) { esc = false; }
+      else if (code === 92) { esc = true; } // backslash
+      else if (code === 34) { inStr = false; } // double quote
+      continue;
+    }
+    if (code === 34) { inStr = true; continue; } // start string
+    if (code === 123) { // '{'
+      if (depth === 0) start = i;
+      depth++;
+      continue;
+    }
+    if (code === 125) { // '}'
+      if (depth > 0) depth--;
+      if (depth === 0 && start !== -1) {
+        const cand = s.slice(start, i + 1);
+        try {
+          const o = JSON.parse(cand);
+          if (o && typeof o === 'object') return o;
+        } catch { /* keep scanning */ }
+        start = -1;
+      }
+    }
+  }
+  return null;
+} catch {}
   // Extract first {...} block
   const m = text.match(/\{[\s\S]*\}/);
   if (m) {
@@ -226,7 +261,7 @@ CONSTRUCTION
 - Ne jamais afficher de prix si le cas n’est pas FAP.
 - Interdit dans "suspected" : pourcentages/probabilités.
 
-NE FOURNIS QUE L’OBJET JSON. AUCUN TEXTE AUTOUR.`;
+NE FOURNIS QUE L’OBJET JSON. AUCUN TEXTE AUTOUR. PAS DE ``` OU DE BLOC CODE.`;
 
 // ===== 3) API Route =====
 export default async function handler(req, res) {
