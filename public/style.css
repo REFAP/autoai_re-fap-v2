@@ -266,6 +266,22 @@ button:hover {
     padding: 0.7rem 1rem;
     font-size: 1rem;
   }
+/* --- états CTA permanents --- */
+.cta-reason {
+  display:block; margin-top:4px; font-size:.85rem; color:#0f3c2f; opacity:.9; text-align:center;
+}
+
+/* Carter-Cash désactivé hors FAP : visible mais grisé + clic bloqué */
+.carter-button.is-disabled {
+  opacity:.45; filter: grayscale(.5) saturate(.5); cursor:not-allowed; position:relative;
+  pointer-events:auto; /* on capte le clic pour afficher l’explication */
+}
+.carter-button .badge { display:none; font-size:.75rem; margin-left:.4rem; background:rgba(0,0,0,.15); padding:.1rem .35rem; border-radius:8px; }
+.carter-button.is-disabled .badge { display:inline-block; }
+
+/* Optionnel : masquer prix FAP si pas FAP (si tu en affiches) */
+:root[data-mode="non-fap"] .cta-price { display:none !important; }
+
 
 
 
