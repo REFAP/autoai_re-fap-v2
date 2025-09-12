@@ -175,39 +175,60 @@ function sanitizeObjToBrief(obj, { leadUrl, isFap, forceCarter }) {
 
 // ============================= Rendu texte =============================
 function renderTextFromObj(obj, { isFap, forceCarter }) {
+  // ⛔️ Pas de HTML côté texte (ReactMarkdown skipHtml=true). On mise sur du Markdown pur.
   const L = [];
 
   if (forceCarter) {
-    L.push("FAP déjà démonté : inutile de diagnostiquer, on passe direct au nettoyage Re‑FAP.");
-    L.push("👉 Dépose en Carter‑Cash, tu récupères un FAP comme neuf (garantie 1 an).");
-    L.push("Prochaine étape : Clique sur « Déposer mon FAP chez Carter‑Cash » (bouton à droite).");
+    L.push("### FAP déjà démonté");
+    L.push("");
+    L.push("Pas besoin de diagnostic : on passe **direct** au nettoyage Re-FAP (garantie 1 an).");
+    L.push("");
+    L.push("**Prochaine étape**");
+    L.push("- Clique sur **« Déposer mon FAP chez Carter-Cash »** (bouton à droite).");
     return L.join("\n");
   }
 
   if (isFap) {
-    L.push(W.fapIntro);
+    L.push("### FAP (priorité)");
     L.push("");
-    L.push("Au diagnostic, le garage :");
-    for (const line of W.diagSteps) L.push(line);
+    L.push("On **confirme d’abord** pour éviter les frais au hasard, puis on traite vite.");
     L.push("");
-    L.push(`Si FAP confirmé : ${W.commercialFix}.`);
-    L.push(fmt(W.priceNotes.cleaningOnly, { min: PRICING.fap_clean_min, max: PRICING.fap_clean_max }));
-    L.push(W.priceNotes.packIsMore);
-    L.push(fmt(W.priceNotes.replacementRef, { replaceRef: PRICING.replacement_ref }));
-  } else {
-    L.push(W.nonFapIntro);
-    L.push(W.nonFapDiag);
+    L.push("**Questions rapides**");
+    L.push("- Voyant **FAP** allumé ? (oui/non)");
+    L.push("- Voyant **moteur** fixe ou clignotant ?");
+    L.push("- **Perte de puissance** ou **fumée noire** ? (oui/non)");
+    L.push("");
+    L.push("**Au diagnostic, le garage**");
+    L.push("- lit les défauts et **vérifie les capteurs** ;");
+    L.push("- **mesure la contre-pression** du FAP ;");
+    L.push("- te **propose la bonne suite**.");
+    L.push("");
+    L.push("**Si FAP confirmé**");
+    L.push("- pack **tout compris** : démontage → **nettoyage Re-FAP** → remontage → réinitialisation ;");
+    L.push(`- **${PRICING.fap_clean_min}–${PRICING.fap_clean_max} €**, ~10× moins qu’un remplacement **> ${PRICING.replacement_ref} €**, **garantie 1 an**.`);
+    L.push("");
+    L.push("**Prochaine étape**");
+    L.push("- Si tu **déposes le FAP** : bouton **Carter-Cash** à droite ;");
+    L.push("- Sinon : bouton **Prendre RDV diagnostic** (garage partenaire).");
+    return L.join("\n");
   }
+
+  // Cas non-FAP / incertain
+  L.push("### Diagnostic recommandé");
   L.push("");
-  L.push("Prochaine étape : Clique sur « Prendre RDV diagnostic près de chez moi » (bouton à droite).");
+  L.push("Symptômes incertains : on **confirme la cause** avant d’engager des frais.");
+  L.push("");
+  L.push("**Au diagnostic**");
+  L.push("- lecture des **codes défauts** ;");
+  L.push("- **vérif capteurs** ;");
+  L.push("- **essai routier** si utile ;");
+  L.push("- plan d’action **clair** (pas de dépenses au hasard).");
+  L.push("");
+  L.push("**Prochaine étape**");
+  L.push("- Clique sur **« Prendre RDV diagnostic près de chez moi »** (bouton à droite).");
   return L.join("\n");
 }
 
-function decideNextActionFromObj(obj, { forceCarter, isFap }) {
-  if (forceCarter) return { type: "FAP" };
-  if (isFap) return { type: "FAP" };
-  return { type: "DIAG" };
-}
 
 function fallbackVibrationJSON() {
   return {
@@ -352,3 +373,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur" });
   }
 }
+
