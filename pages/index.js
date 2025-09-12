@@ -2,142 +2,89 @@ import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 import ReactMarkdown from 'react-markdown';
 
-const GARAGE_URL = 'https://re-fap.fr/trouver_garage_partenaire/';
-const CC_URL = 'https://auto.re-fap.fr';
-
-function safeParse(s){ try { return JSON.parse(s); } catch { return null; } }
-function isFAP(obj){
-  return Array.isArray(obj?.suspected) && obj.suspected.some(x => /fap|dpf/i.test(String(x)));
-}
-
-function StructuredBotCard({ obj }) {
-  return (
-    <div style={{ marginTop: 6 }}>
-      {obj.title && <div style={{ fontWeight: 700, marginBottom: 4 }}>{obj.title}</div>}
-      {obj.summary && <p style={{ margin: '4px 0 8px 0' }}>{obj.summary}</p>}
-
-      {Array.isArray(obj.suspected) && obj.suspected.length > 0 && (
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ fontWeight: 600 }}>Pistes probables</div>
-          <ul>{obj.suspected.map((s, i) => <li key={i}>{s}</li>)}</ul>
-        </div>
-      )}
-      {Array.isArray(obj.actions) && obj.actions.length > 0 && (
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ fontWeight: 600 }}>À faire maintenant</div>
-          <ul>{obj.actions.map((a, i) => <li key={i}>{a}</li>)}</ul>
-        </div>
-      )}
-      {obj.stage === 'triage' && Array.isArray(obj.questions) && obj.questions.length > 0 && (
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ fontWeight: 600 }}>Questions</div>
-          <ul>{obj.questions.map((q, i) => <li key={q.id || i}>{q.q || String(q)}</li>)}</ul>
-        </div>
-      )}
-      {Array.isArray(obj.follow_up) && obj.follow_up.length > 0 && (
-        <div style={{ marginTop: 6 }}>
-          <div style={{ fontWeight: 600 }}>Suite</div>
-          <ul>{obj.follow_up.map((f, i) => <li key={i}>{f}</li>)}</ul>
-        </div>
-      )}
-      {obj.legal && <p style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.8 }}>{obj.legal}</p>}
-    </div>
-  );
-}
-
 export default function Home() {
   const [messages, setMessages] = useState([
     {
       from: 'bot',
-      text:
-        "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Je t’aide à comprendre un voyant, un souci de **FAP/DPF** ou autre panne, et je t’oriente vers la bonne solution. Pose ta question 😄"
+      text: "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Je t’aide à comprendre un voyant, un souci de **FAP/DPF** ou autre panne, et je t’oriente vers la bonne solution. Pose ta question 😄"
     },
   ]);
+  const [botJson, setBotJson] = useState(null); // ← JSON structuré renvoyé par l’API
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState('');
-  const [nextAction, setNextAction] = useState(null);
-  const [lastObj, setLastObj] = useState(null);
+  const [nextAction, setNextAction] = useState(null); // fallback
   const chatEndRef = useRef();
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
 
   function getHistoriqueText() {
-    const lastMessages = messages.slice(-5);
-    return lastMessages
-      .map((m) => (m.from === 'user'
-        ? `Moi: ${m.text}`
-        : m.json ? `AutoAI: ${JSON.stringify(m.json)}`
-        : `AutoAI: ${m.text}`))
-      .join('\n');
+    const last = messages.slice(-5);
+    return last.map(m => (m.from === 'user' ? `Moi: ${m.text}` : `AutoAI: ${m.text}`)).join('\n');
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
 
-    const userMessagesCount = messages.filter(m => m.from === 'user').length;
-    if (userMessagesCount >= 10) {
+    const userCount = messages.filter(m => m.from === 'user').length;
+    if (userCount >= 10) {
       setBlocked(true);
-      setError("🔧 Tu as déjà échangé 10 messages avec moi sur ce sujet ! La session s’arrête ici. Relance une nouvelle discussion quand tu veux 🚀.");
+      setError("🔧 10 messages atteints. Relance une nouvelle discussion si besoin 🚀.");
       return;
     }
 
-    const trimmedInput = input.trim();
-    if (!trimmedInput) return;
+    const trimmed = input.trim();
+    if (!trimmed) return;
 
-    setMessages((msgs) => [...msgs, { from: 'user', text: trimmedInput }]);
+    setMessages(msgs => [...msgs, { from: 'user', text: trimmed }]);
     setInput('');
     setLoading(true);
     setError('');
 
-    const historiqueText = getHistoriqueText() + `\nMoi: ${trimmedInput}`;
+    const historiqueText = getHistoriqueText() + `\nMoi: ${trimmed}`;
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-        body: JSON.stringify({ question: trimmedInput, historique: historiqueText }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: trimmed, historique: historiqueText }),
       });
 
       setLoading(false);
 
       if (!res.ok) {
-        setMessages((msgs) => [...msgs, { from: 'bot', text: res.status === 429
-          ? "⚠️ Le service est temporairement saturé, merci de réessayer plus tard."
-          : `Erreur serveur ${res.status}` }]);
+        const txt = res.status === 429
+          ? "⚠️ Service temporairement saturé, réessaie plus tard."
+          : `Erreur serveur ${res.status}`;
+        setMessages(msgs => [...msgs, { from: 'bot', text: txt }]);
         return;
       }
 
-      const payload = await res.json();
-      const obj = payload.data || safeParse(payload.reply);
+      const data = await res.json();
+      const botMsg = { from: 'bot', text: (data.reply || '').trim() || "Réponse indisponible." };
+      setMessages(msgs => [...msgs, botMsg]);
 
-      if (obj) {
-        setMessages((msgs) => [...msgs, { from: 'bot', json: obj }]);
-        setLastObj(obj);
-      } else {
-        setMessages((msgs) => [...msgs, { from: 'bot', text: payload.reply || "Désolé, réponse indisponible." }]);
-      }
-      setNextAction(payload.nextAction || { type: 'GEN' });
+      setBotJson(data.data || null);         // ← on stocke l'objet JSON nettoyé
+      setNextAction(data.nextAction || {type:'GEN'});
 
     } catch {
       setLoading(false);
-      setMessages((msgs) => [...msgs, { from: 'bot', text: "Désolé, erreur réseau. Actualise la page." }]);
+      setMessages(msgs => [...msgs, { from: 'bot', text: "Désolé, erreur réseau. Actualise la page." }]);
     }
   }
 
-  // --- CTA : 2 boutons permanents, Carter-Cash grisé hors FAP ---
-  const isFapDiag = (lastObj && ((lastObj.stage === 'diagnosis' && isFAP(lastObj)) || (lastObj.stage === 'handoff' && isFAP(lastObj))));
-  const carterEnabled = isFapDiag || nextAction?.type === 'FAP';
-  const garageLabel = lastObj?.cta?.label || 'Prendre RDV avec un garage partenaire';
-  const garageHref  = (lastObj?.cta?.url || GARAGE_URL).replace(/^http:/,'https:');
-  const garageReason = lastObj?.cta?.reason || 'Partout en France : garages au choix, RDV en quelques clics.';
+  // Décide l'état FAP à partir du JSON structuré (source de vérité)
+  const isFap = !!botJson && Array.isArray(botJson.suspected)
+    && /fap|dpf|filtre.*particule/i.test(botJson.suspected.join(' '));
 
   return (
     <>
       <Head>
         <title>Auto AI</title>
-        <link rel="stylesheet" href="/style.css?v=2" />
+        <link rel="stylesheet" href="/style.css" />
       </Head>
 
       <main className="container">
@@ -148,9 +95,7 @@ export default function Home() {
             {messages.map((m, i) => (
               <div key={i} className={m.from === 'user' ? 'user-msg' : 'bot-msg'}>
                 <strong>{m.from === 'user' ? 'Moi' : 'AutoAI'}:</strong>
-                {m.json ? <StructuredBotCard obj={m.json} /> : (
-                  <ReactMarkdown skipHtml>{(m.text || '').replace(/\n{2,}/g, '\n')}</ReactMarkdown>
-                )}
+                <ReactMarkdown skipHtml>{m.text.replace(/\n{2,}/g, '\n')}</ReactMarkdown>
               </div>
             ))}
 
@@ -164,33 +109,24 @@ export default function Home() {
             <div ref={chatEndRef} />
           </div>
 
-          {/* Boutons permanents */}
+          {/* CTA permanents mais pilotés par le JSON pour le libellé du 2ᵉ */}
           <div className="garage-button-container">
-            <a id="btn-garage" href={garageHref} className="garage-button" target="_blank" rel="nofollow">
-              <span className="label">{garageLabel} 🔧</span>
+            <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
+              {isFap ? "FAP monté ? Prendre RDV 🔧" : "Trouver un garage partenaire 🔧"}
             </a>
-            <small className="cta-reason" id="garage-reason">{garageReason}</small>
 
-            <a
-              id="btn-cc"
-              href={CC_URL}
-              className={`carter-button ${carterEnabled ? '' : 'is-disabled'}`}
-              target="_blank" rel="nofollow"
-              onClick={(e) => {
-                if (!carterEnabled) {
-                  e.preventDefault();
-                  alert('Réservé aux cas FAP (FAP déjà déposé). Utilisez le bouton vert pour un diagnostic.');
-                }
-              }}
-            >
-              <span className="label">FAP démonté ? Dépose Carter-Cash 🛠️</span>
-              <span className="badge">réservé aux cas FAP</span>
-            </a>
-            <small className="cta-reason" id="cc-reason">
-              {carterEnabled
-                ? 'Si vous pouvez déposer le FAP, apportez-le en Carter-Cash pour un nettoyage Re-FAP.'
-                : 'Réservé aux cas FAP. Si doute : commencez par le diagnostic en garage.'}
-            </small>
+            {isFap ? (
+              <a href="https://auto.re-fap.fr" className="carter-button">
+                FAP démonté ? Dépose Carter-Cash 🛠️
+              </a>
+            ) : (
+              <a
+                href="https://www.idgarages.com/fr-fr/prestations/diagnostic-electronique?utm_source=re-fap&utm_medium=partenariat&utm_campaign=diagnostic-electronique&ept-publisher=re-fap&ept-name=re-fap-diagnostic-electronique"
+                className="carter-button"
+              >
+                Diagnostic électronique proche 🔎
+              </a>
+            )}
           </div>
         </div>
 
