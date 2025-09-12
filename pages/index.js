@@ -4,17 +4,13 @@ import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
   const [messages, setMessages] = useState([
-    {
-      from: 'bot',
-      text: "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Je t’aide à comprendre un voyant, un souci de **FAP/DPF** ou autre panne, et je t’oriente vers la bonne solution. Pose ta question 😄"
-    },
+    { from: 'bot', text: "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Dis-moi ce que tu vois (voyant FAP/moteur, fumée, perte de puissance…)." },
   ]);
-  const [botJson, setBotJson] = useState(null); // ← JSON structuré renvoyé par l’API
+  const [botJson, setBotJson] = useState(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState('');
-  const [nextAction, setNextAction] = useState(null); // fallback
   const chatEndRef = useRef();
 
   useEffect(() => {
@@ -64,11 +60,16 @@ export default function Home() {
       }
 
       const data = await res.json();
-      const botMsg = { from: 'bot', text: (data.reply || '').trim() || "Réponse indisponible." };
-      setMessages(msgs => [...msgs, botMsg]);
+      // Blindage texte : si non-FAP, évite toute mention "Carter"
+      const isFap = !!data?.data && Array.isArray(data.data.suspected)
+        && /fap|dpf|filtre.*particule/i.test(data.data.suspected.join(' '));
 
-      setBotJson(data.data || null);         // ← on stocke l'objet JSON nettoyé
-      setNextAction(data.nextAction || {type:'GEN'});
+      const safeText = !isFap
+        ? String(data.reply || '').replace(/carter.?cash/ig, 'garage partenaire')
+        : String(data.reply || '');
+
+      setMessages(msgs => [...msgs, { from: 'bot', text: (safeText || "Réponse indisponible.").trim() }]);
+      setBotJson(data.data || null);
 
     } catch {
       setLoading(false);
@@ -76,7 +77,6 @@ export default function Home() {
     }
   }
 
-  // Décide l'état FAP à partir du JSON structuré (source de vérité)
   const isFap = !!botJson && Array.isArray(botJson.suspected)
     && /fap|dpf|filtre.*particule/i.test(botJson.suspected.join(' '));
 
@@ -109,12 +109,11 @@ export default function Home() {
             <div ref={chatEndRef} />
           </div>
 
-          {/* CTA permanents mais pilotés par le JSON pour le libellé du 2ᵉ */}
+          {/* Deux boutons permanents ; le 2e varie selon FAP vs non-FAP */}
           <div className="garage-button-container">
             <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
               {isFap ? "FAP monté ? Prendre RDV 🔧" : "Trouver un garage partenaire 🔧"}
             </a>
-
             {isFap ? (
               <a href="https://auto.re-fap.fr" className="carter-button">
                 FAP démonté ? Dépose Carter-Cash 🛠️
