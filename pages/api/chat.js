@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Bot "mécano triage" orienté RDV diagnostic (IDGarages) + option Carter‑Cash si FAP déjà démonté.
+// Bot "mécano triage" orienté RDV diagnostic (IDGarages) + option Carter-Cash si FAP déjà démonté.
 // - Tarifs verrouillés côté serveur
 // - Pas de régénération
 // - Deep link avec lead_id + cp + immat (si consentis)
@@ -14,13 +14,16 @@ const PRICING = {
 };
 
 // --- Commercial : wording imposé
-const COMMERCIAL_FIX = "pack tout compris (démontage → nettoyage Re‑FAP → remontage → réinitialisation)";
+const COMMERCIAL_FIX =
+  "pack tout compris (démontage → nettoyage Re-FAP → remontage → réinitialisation)";
 
 // Toute mention confuse est remplacée par COMMERCIAL_FIX
-const BAN_REGEX = /(nettoyage\s+sans\s+d[eé]monter|additif[s]?|produit\s+à\s+injecter|defap|défap|suppression\s+fap)/gi;
+const BAN_REGEX =
+  /(nettoyage\s+sans\s+d[eé]monter|nettoyage\s+sans\s+d[eé]montage|additif[s]?|produit\s+à\s+injecter|defap|défap|suppression\s+fap)/gi;
 
 // ===== 1) Utils =====
-const DIAG_BASE_URL = "https://www.idgarages.com/fr-fr/prestations/diagnostic-electronique";
+const DIAG_BASE_URL =
+  "https://www.idgarages.com/fr-fr/prestations/diagnostic-electronique";
 
 function normalize(s = "") {
   return s
@@ -39,9 +42,7 @@ function extractCp(text = "") {
 }
 function extractImmat(text = "") {
   // Formats FR: AA-123-BB ou AA123BB (standard SIV)
-  const m = String(text)
-    .toUpperCase()
-    .match(/\b([A-Z]{2}-?\d{3}-?[A-Z]{2})\b/);
+  const m = String(text).toUpperCase().match(/\b([A-Z]{2}-?\d{3}-?[A-Z]{2})\b/);
   return m ? m[1].replace(/-/g, "-") : null;
 }
 function buildDiagUrl({ lead_id, cp, immat, ref, promo }) {
@@ -64,7 +65,7 @@ function looksUrgentFap(text = "") {
   const hasVoyant = /\b(voyant|lumi[eè]re)\b/.test(t);
   const hasPertePuiss = /\b(perte|plus)\b.{0,10}\b(puissance)\b/.test(t);
   const mentionsFap = /\b(fap|dpf|filtre.?a.?particule[s]?)\b/.test(t);
-  return hasVoyant && hasPertePuiss && (mentionsFap || true); // garde l'escalade même sans mot "FAP"
+  return hasVoyant && hasPertePuiss && (mentionsFap || true);
 }
 
 function urgentFapJSON() {
@@ -80,21 +81,23 @@ function urgentFapJSON() {
       "Évite les longs trajets et les régimes élevés jusqu’au RDV.",
       "Prendre RDV diagnostic : lecture défauts, vérif capteurs, mesure contre-pression.",
       `Si FAP confirmé : ${COMMERCIAL_FIX}.`,
-      `Nettoyage Re‑FAP ${PRICING.fap_clean_min}–${PRICING.fap_clean_max} € (~10× moins qu’un remplacement > ${PRICING.replacement_ref} €), garantie 1 an.`,
+      `Le nettoyage seul (FAP déjà déposé chez Carter-Cash) coûte ${PRICING.fap_clean_min}–${PRICING.fap_clean_max} €. Avec dépose/remontage + réinitialisation, le total est chiffré par le garage (selon le véhicule).`,
     ],
     cta: { label: "", url: "", reason: "" },
     alt_cta: [
       {
         label: "Déposer mon FAP chez Carter-Cash",
         url: "https://auto.re-fap.fr",
-        reason: "FAP déjà démonté : dépôt simple, nettoyage Re‑FAP, récup’ comme neuf.",
+        reason:
+          "FAP déjà démonté : dépôt simple, nettoyage Re-FAP, récup’ comme neuf.",
       },
     ],
     follow_up: [
       "Si tu as un code défaut OBD, indique-le.",
-      "Dis-moi si tu préfères déposer le FAP toi-même (Carter‑Cash) ou passer par le garage partenaire.",
+      "Dis-moi si tu préfères déposer le FAP toi-même (Carter-Cash) ou passer par le garage partenaire.",
     ],
-    legal: "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite.",
+    legal:
+      "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite.",
   };
 }
 
@@ -132,8 +135,8 @@ function ensurePedoCommerciale(obj, isFap) {
   obj.follow_up = Array.isArray(obj.follow_up) ? obj.follow_up : [];
   const lines = isFap
     ? [
-        `Pourquoi le nettoyage Re‑FAP : ${PRICING.fap_clean_min}–${PRICING.fap_clean_max} € (~10× moins qu’un remplacement > ${PRICING.replacement_ref} €), résultat équivalent à neuf, légal, garanti 1 an.`,
-        "Le diagnostic évite les frais au hasard : lecture défauts, vérif capteurs, mesure contre‑pression, puis la bonne suite.",
+        `Pourquoi le nettoyage Re-FAP : solution légale, résultat équivalent à neuf, ~10× moins cher qu’un remplacement > ${PRICING.replacement_ref} €, garanti 1 an.`,
+        "Le diagnostic évite les frais au hasard : lecture défauts, vérif capteurs, mesure contre-pression, puis la bonne suite.",
       ]
     : [
         "Le diagnostic évite les dépenses au hasard : lecture défauts + essai routier = cause confirmée et plan clair.",
@@ -165,9 +168,10 @@ function sanitizeObjToBrief(obj, { leadUrl, isFap, forceCarter }) {
   obj.actions = (obj.actions || []).filter((a) => {
     const s = String(a || "");
     const banRegen = /r[eé]g[eé]n[eé]ration|2500.?3000|tr.?min/i.test(s);
-    const banAmbig = /(sans\s+d[eé]monter|additif|produit\s+à\s+injecter|defap|défap|suppression\s+fap)/i.test(
-      s
-    );
+    const banAmbig =
+      /(sans\s+d[eé]monter|sans\s+d[eé]montage|additif|produit\s+à\s+injecter|defap|défap|suppression\s+fap)/i.test(
+        s
+      );
     return !banRegen && !banAmbig;
   });
 
@@ -190,7 +194,7 @@ function sanitizeObjToBrief(obj, { leadUrl, isFap, forceCarter }) {
       obj,
       "Déposer mon FAP chez Carter-Cash",
       "https://auto.re-fap.fr",
-      "FAP déjà démonté : dépôt simple, nettoyage Re‑FAP, récup’ comme neuf."
+      "FAP déjà démonté : dépôt simple, nettoyage Re-FAP, récup’ comme neuf."
     );
   } else {
     oneStrongCTA(
@@ -212,9 +216,9 @@ function sanitizeObjToBrief(obj, { leadUrl, isFap, forceCarter }) {
 function renderTextFromObj(obj, { isFap, forceCarter }) {
   const L = [];
   if (forceCarter) {
-    L.push("FAP déjà démonté : inutile de diagnostiquer, on passe direct au nettoyage Re‑FAP.");
-    L.push("👉 Dépose en Carter‑Cash, tu récupères un FAP comme neuf (garantie 1 an).");
-    L.push("Prochaine étape : Clique sur « Déposer mon FAP chez Carter‑Cash » (bouton à droite).");
+    L.push("FAP déjà démonté : inutile de diagnostiquer, on passe direct au nettoyage Re-FAP.");
+    L.push("👉 Dépose en Carter-Cash, tu récupères un FAP comme neuf (garantie 1 an).");
+    L.push("Prochaine étape : Clique sur « Déposer mon FAP chez Carter-Cash » (bouton à droite).");
     return L.join("\n");
   }
 
@@ -225,12 +229,19 @@ function renderTextFromObj(obj, { isFap, forceCarter }) {
     L.push("");
     L.push("Au diagnostic, le garage :");
     L.push("- lit les défauts et vérifie les capteurs,");
-    L.push("- mesure la contre‑pression du FAP,");
+    L.push("- mesure la contre-pression du FAP,");
     L.push("- te propose la bonne suite.");
+    L.push("Le diagnostic est obligatoire pour confirmer que c’est bien le FAP.");
     L.push("");
     L.push(`Si FAP confirmé : ${COMMERCIAL_FIX}.`);
     L.push(
-      `Le nettoyage coûte ${PRICING.fap_clean_min}–${PRICING.fap_clean_max} € (~10× moins qu’un remplacement > ${PRICING.replacement_ref} €), garantie 1 an.`
+      `Important : les ${PRICING.fap_clean_min}–${PRICING.fap_clean_max} € correspondent au nettoyage seul quand le FAP est déjà déposé en point de dépôt Carter-Cash.`
+    );
+    L.push(
+      "Avec dépose/remontage + réinitialisation (devis tout compris chez le garage partenaire), le total est plus élevé et dépend du véhicule."
+    );
+    L.push(
+      `Référence : un remplacement FAP dépasse souvent ${PRICING.replacement_ref} € ; notre solution reste bien plus économique.`
     );
   } else {
     L.push("Symptômes incertains. On ne va pas te faire payer au hasard : on confirme d’abord.");
@@ -295,7 +306,7 @@ export default async function handler(req, res) {
     const forceCarter = mentionsFapDemonte(textPool);
     const diagUrl = buildDiagUrl({ lead_id, cp, immat, ref });
 
-    // Kill‑switch vibrations → pas d’appel LLM
+    // Kill-switch vibrations → pas d’appel LLM
     if (looksLikeVibrationQuery(question)) {
       const base = fallbackVibrationJSON();
       const clean = sanitizeObjToBrief(base, {
@@ -323,12 +334,15 @@ export default async function handler(req, res) {
       return res.status(200).json({
         reply: text,
         data: clean,
-        nextAction: decideNextActionFromObj(clean, { forceCarter: false, isFap: false }),
+        nextAction: decideNextActionFromObj(clean, {
+          forceCarter: false,
+          isFap: false,
+        }),
         handoff_meta: meta,
       });
     }
 
-    // Kill‑switch urgence FAP (voyant + perte de puissance)
+    // Kill-switch urgence FAP (voyant + perte de puissance)
     if (looksUrgentFap(textPool) && !forceCarter) {
       const base = urgentFapJSON();
       const clean = sanitizeObjToBrief(base, {
@@ -361,10 +375,32 @@ export default async function handler(req, res) {
       });
     }
 
-    // Sinon, on utilise le LLM pour classer FAP vs non‑FAP (le rendu/CTA reste serveur)
-    const system = `Tu es AutoAI, mécano triage Re‑FAP.\nObjectif: en ≤5 questions, orienter l’utilisateur vers un RDV diagnostic si un garage est nécessaire (99% des cas).\nRègles:\n- Pas de régénération, pas de reprogrammation, jamais de suppression FAP.\n- Ton pro, direct, humain, sans jargon inutile.\n- Si \"FAP déjà démonté\" → orienter Carter‑Cash (point de dépôt).\n- Réponds UNIQUEMENT par un objet JSON conforme au schéma demandé, ≤120 mots, FR.\nSchéma:{\n  \"stage\": \"triage|diagnosis|handoff\",\n  \"title\": \"string\",\n  \"summary\": \"string\",\n  \"questions\": [{\"id\":\"q1\",\"q\":\"string\"}],\n  \"suspected\": [\"string\"],\n  \"risk\": \"low|moderate|high\",\n  \"actions\": [\"string\"],\n  \"cta\": {\"label\":\"string\",\"url\":\"string\",\"reason\":\"string\"},\n  \"alt_cta\": [{\"label\":\"string\",\"url\":\"string\",\"reason\":\"string\"}],\n  \"follow_up\": [\"string\"],\n  \"legal\": \"string\"\n}`;
+    // Sinon, on utilise le LLM pour classer FAP vs non-FAP (le rendu/CTA reste serveur)
+    const system = `Tu es AutoAI, mécano triage Re-FAP.
+Objectif: en ≤5 questions, orienter l’utilisateur vers un RDV diagnostic si un garage est nécessaire (99% des cas).
+Règles:
+- Pas de régénération, pas de reprogrammation, jamais de suppression FAP.
+- Ton pro, direct, humain, sans jargon inutile.
+- Si "FAP déjà démonté" → orienter Carter-Cash (point de dépôt).
+- Réponds UNIQUEMENT par un objet JSON conforme au schéma demandé, ≤120 mots, FR.
+Schéma:{
+  "stage": "triage|diagnosis|handoff",
+  "title": "string",
+  "summary": "string",
+  "questions": [{"id":"q1","q":"string"}],
+  "suspected": ["string"],
+  "risk": "low|moderate|high",
+  "actions": ["string"],
+  "cta": {"label":"string","url":"string","reason":"string"},
+  "alt_cta": [{"label":"string","url":"string","reason":"string"}],
+  "follow_up": ["string"],
+  "legal": "string"
+}`;
 
-    const userContent = `Historique (résumé): ${historique || "(vide)"}\nQuestion: ${question}\n\nConsigne: rends UNIQUEMENT l'objet JSON conforme au schéma (≤120 mots).`;
+    const userContent = `Historique (résumé): ${historique || "(vide)"}
+Question: ${question}
+
+Consigne: rends UNIQUEMENT l'objet JSON conforme au schéma (≤120 mots).`;
 
     let obj = null;
     try {
@@ -395,7 +431,7 @@ export default async function handler(req, res) {
       }
     } catch {}
 
-    // Fail‑safe JSON min
+    // Fail-safe JSON min
     if (!obj) {
       obj = {
         stage: "triage",
@@ -419,7 +455,8 @@ export default async function handler(req, res) {
 
     // Détection FAP robuste: JSON + texte utilisateur
     const isFap =
-      hasFapInSuspected(obj) || /\b(fap|dpf|filtre.?a.?particule[s]?)\b/i.test(normalize(textPool));
+      hasFapInSuspected(obj) ||
+      /\b(fap|dpf|filtre.?a.?particule[s]?)\b/i.test(normalize(textPool));
 
     const clean = sanitizeObjToBrief(obj, {
       leadUrl: buildDiagUrl({ lead_id, cp, immat, ref }),
