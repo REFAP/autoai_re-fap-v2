@@ -112,3 +112,20 @@ button:hover { background: linear-gradient(45deg, #3ddc84, #2ec673); transform: 
   #user-input { flex: 1; padding: 0.7rem 1rem; font-size: 1rem; }
   button { padding: 0.7rem 1rem; font-size: 1rem; }
 }
+/* === UTILITAIRES === */
+.nowrap { 
+  white-space: nowrap;  /* empêche "Prendre RDV" de passer à la ligne */
+}
+/* Mise en forme des titres et listes du bot */
+.bot-msg h3, .bot-msg h4 { 
+  margin: 0.4rem 0 0.3rem;
+  color: #0b3d2e;
+}
+.bot-msg ul {
+  margin: 0.25rem 0 0.75rem 1.25rem;
+  padding: 0;
+}
+.bot-msg li { 
+  margin: 0.15rem 0;
+}
+
