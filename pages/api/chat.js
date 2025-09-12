@@ -1,5 +1,5 @@
 // pages/api/chat.js
-// Mode "prompt seul" + garde-fous côté serveur.
+// Prompt seul + JSON forcé + fallback hors FAP + sanitisation + microcopy CTA pédagogique
 
 function normalize(s = '') {
   return s.toLowerCase()
@@ -16,20 +16,41 @@ function classify(text) {
   return { type:'GEN' };
 }
 
-function hasFAP(obj){
+function hasFAPInSuspected(obj) {
   const suspected = Array.isArray(obj?.suspected) ? obj.suspected.join(' ').toLowerCase() : '';
   return /fap|dpf|filtre.*particule/.test(suspected);
 }
 
-// Force nos règles business si le modèle s'égare
+function sanitizeText(s) {
+  return String(s || '').replace(/diagnostic\s+(gratuit|rembours[ée]|d[ée]duit)/gi,
+    'diagnostic (tarif variable, voir page RDV)');
+}
+
+function ensureWhyClickLine(actions, { risk, isFap }) {
+  const arr = Array.isArray(actions) ? [...actions] : [];
+  const already = arr.some(a => /pourquoi cliquer|rdv en 2 min|prix.*affich/i.test(a || ''));
+  if (already) return arr;
+
+  // Microcopy courte, honnête, orientée valeur
+  if (risk === 'high') {
+    arr.push("Pourquoi cliquer : créneau en 2 min, diagnostic prioritaire et consignes claires pour éviter une casse plus coûteuse.");
+  } else if (isFap) {
+    arr.push("Pourquoi cliquer : créneau en 2 min, prix du diag affiché, et option nettoyage FAP 99–149 € garanti 1 an si confirmé.");
+  } else {
+    arr.push("Pourquoi cliquer : créneau en 2 min, prix du diag affiché avant validation, orientation claire sans remplacement inutile.");
+  }
+  return arr;
+}
+
+// Imposer nos règles business dans le JSON (CTA, tarifs, microcopy)
 function sanitizeObj(obj) {
   if (!obj || typeof obj !== 'object') return null;
 
-  // CTA garage partenaire (source de vérité)
   const GARAGE_CTA = {
     label: "Prendre RDV avec un garage partenaire",
     url: "https://re-fap.fr/trouver_garage_partenaire/",
-    reason: "Partout en France, près de chez vous : plusieurs garages au choix, RDV en quelques clics au meilleur prix pour un diagnostic et une solution adaptée."
+    // Raison plus pédagogique (bénéfices + frictions levées)
+    reason: "Près de chez vous, garages au choix : RDV en 2 min, prix affiché avant validation, diagnostic fiable pour savoir quoi faire ensuite."
   };
   const ALT_DIAG = {
     label: "Diagnostic électronique proche de chez vous",
@@ -37,55 +58,83 @@ function sanitizeObj(obj) {
     reason: "Lire les codes défauts avant d’intervenir."
   };
 
-  const isFap = hasFAP(obj);
+  const isFap = hasFAPInSuspected(obj);
 
-  // Règle dure : HORS FAP => JAMAIS Carter-Cash dans cta/alt_cta
+  // Hors FAP : JAMAIS Carter-Cash, on pousse le garage
   if (!isFap) {
     obj.cta = GARAGE_CTA;
-    // alt_cta = diag électronique, pas Carter-Cash
     obj.alt_cta = [ALT_DIAG];
     if (obj.stage !== 'handoff' && obj.stage !== 'diagnosis') obj.stage = 'triage';
-    if (!obj.risk) obj.risk = 'low';
-    // Ajoute une mention prix INDICATIVE sans promesse
-    if (Array.isArray(obj.actions)) {
-      const hasPriceLine = obj.actions.some(a => /diagnostic/i.test(a));
-      if (!hasPriceLine) obj.actions.push("Diagnostic 50–90 € selon garage (prix affiché sur la page RDV).");
-    } else {
-      obj.actions = ["Diagnostic 50–90 € selon garage (prix affiché sur la page RDV)."];
+    obj.risk = obj.risk || 'low';
+
+    if (!Array.isArray(obj.actions)) obj.actions = [];
+    if (!obj.actions.some(a => /diagnostic/i.test(a))) {
+      obj.actions.unshift("Prendre RDV pour un diagnostic en garage partenaire (lecture défauts + essai routier).");
     }
+    if (!obj.actions.some(a => /50.?–.?90|50-90|50 – 90/.test(a))) {
+      obj.actions.push("Diagnostic 50–90 € selon garage (prix exact affiché sur la page RDV).");
+    }
+    // Alt CTA : purge toute mention Carter-Cash
+    obj.alt_cta = (obj.alt_cta || []).filter(a => !/carter|cash/i.test(`${a?.label} ${a?.url}`));
   } else {
-    // Cas FAP : cta garage + possibilité d'alt_cta Carter-Cash uniquement si l’utilisateur sait déposer
-    // On laisse le modèle gérer alt_cta Carter-Cash via le prompt, mais on garde cta garage par défaut
-    if (!obj.cta) obj.cta = GARAGE_CTA;
+    // FAP : cta garage OK ; Carter-Cash possible en alt_cta si l’utilisateur sait déposer (géré par le prompt)
+    obj.cta = obj.cta || GARAGE_CTA;
+    if (!Array.isArray(obj.actions)) obj.actions = [];
+    // Rappel pédagogique FAP (valeur)
+    if (!obj.actions.some(a => /99.?–.?149|99-149/.test(a))) {
+      obj.actions.push("Nettoyage FAP Re-FAP 99–149 € (~10× moins qu’un remplacement > 1000 €), garantie 1 an.");
+    }
   }
 
-  // Mentions légales/phrases interdites
-  if (!obj.legal) obj.legal = "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite.";
-  // Purge toute promesse de “diagnostic gratuit/remboursé/déduit”
-  const scrub = (s) => String(s).replace(/diagnostic\s+(gratuit|rembours[ée]|d[ée]duit)/gi, 'diagnostic (tarif variable, voir page RDV)');
-  if (Array.isArray(obj.actions)) obj.actions = obj.actions.map(scrub);
-  if (obj.summary) obj.summary = scrub(obj.summary);
-  if (obj.follow_up) obj.follow_up = obj.follow_up.map(scrub);
+  // Ajout systématique d’une ligne “Pourquoi cliquer …”
+  obj.actions = ensureWhyClickLine(obj.actions, { risk: obj.risk, isFap });
+
+  // Mentions légales
+  obj.legal = obj.legal || "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite.";
+
+  // Nettoyage des promesses interdites
+  if (Array.isArray(obj.actions)) obj.actions = obj.actions.map(sanitizeText);
+  if (Array.isArray(obj.follow_up)) obj.follow_up = obj.follow_up.map(sanitizeText);
+  if (obj.summary) obj.summary = sanitizeText(obj.summary);
 
   return obj;
 }
 
 function decideNextActionFromObj(obj) {
   if (!obj || typeof obj !== 'object') return { type:'GEN' };
-  const isFap = hasFAP(obj);
+  const isFap = hasFAPInSuspected(obj);
   if ((obj.stage === 'diagnosis' && isFap) || (obj.stage === 'handoff' && isFap)) return { type:'FAP' };
   if (obj.stage === 'diagnosis' || obj.stage === 'handoff') return { type:'DIAG' };
   return { type:'GEN' };
 }
 
-// Fallback JSON pour cas hors FAP (ex: vibrations/fibrations)
+function extractFirstJson(text) {
+  if (!text) return null;
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        const candidate = text.slice(start, i + 1);
+        try { return JSON.parse(candidate); } catch { /* continue */ }
+      }
+    }
+  }
+  return null;
+}
+
+// Fallback hors FAP (vibrations & co)
 function fallbackNonFapJSON() {
   return {
     stage: "triage",
     title: "Vibrations = hors périmètre FAP",
     summary: "Les vibrations viennent surtout des roues/freins/train roulant. Mieux vaut un diagnostic mécanique.",
     questions: [
-      { id:"q1", q:"À quelle vitesse vibrent-elles ? (>90 km/h = roues)" },
+      { id:"q1", q:"À quelle vitesse ? (>90 km/h = roues)" },
       { id:"q2", q:"Au freinage ? (disques à contrôler)" },
       { id:"q3", q:"Au volant ou dans le siège ? (avant vs transmission)" }
     ],
@@ -94,13 +143,14 @@ function fallbackNonFapJSON() {
     actions: [
       "Contrôler pression/usure pneus et masses d’équilibrage.",
       "Éviter les vitesses élevées jusqu’au contrôle.",
-      "Prendre RDV pour un diagnostic en garage partenaire.",
-      "Diagnostic 50–90 € selon garage (prix affiché sur la page RDV)."
+      "Prendre RDV pour un diagnostic en garage partenaire (lecture défauts + essai routier).",
+      "Diagnostic 50–90 € selon garage (prix exact affiché sur la page RDV).",
+      "Pourquoi cliquer : créneau en 2 min, prix du diag affiché, orientation claire sans remplacement inutile."
     ],
     cta: {
       label: "Prendre RDV avec un garage partenaire",
       url: "https://re-fap.fr/trouver_garage_partenaire/",
-      reason: "Partout en France, près de chez vous : plusieurs garages au choix, RDV en quelques clics au meilleur prix pour un diagnostic et une solution adaptée."
+      reason: "Près de chez vous, garages au choix : RDV en 2 min, prix affiché avant validation, diagnostic fiable pour savoir quoi faire ensuite."
     },
     alt_cta: [
       {
@@ -121,7 +171,10 @@ export default async function handler(req, res) {
   const { question, historique } = req.body || {};
   if (!question || typeof question !== 'string') return res.status(400).json({ error:'Question invalide' });
 
-  // --- PROMPT unique (durci) ---
+  // Détection hors FAP “vibrations” (tolère fautes)
+  const qn = normalize(question);
+  const looksLikeVibration = /\b(vibration|vibrations|vibre|tremblement|tremblements|tremble|equilibrage|equilibrer|jante|jantes|disque voil|cardan|cardans|rotule|rotules|amortisseur|amortisseurs)\b/.test(qn);
+
   const system = `
 Tu es AutoAI (Re-FAP). Tu aides un conducteur à comprendre des symptômes (FAP/DPF, voyant, fumée, perte de puissance…) et tu l’orientes vers l’action la plus sûre et utile.
 
@@ -134,7 +187,7 @@ RÈGLES IMPÉRATIVES
 - PRIORITÉ : tu n’as AUCUN contexte externe. TES RÈGLES font foi. Sortie = JSON strict.
 - Tarifs : fourchette OK (diag 50–90 €). INTERDIT “diagnostic gratuit/remboursé/déduit”. Toujours “variable selon garage, prix affiché lors de la prise de RDV”.
 - Garantie Re-FAP : toujours “1 an”. Ne jamais écrire “2 ans”.
-- HORS FAP (pneus/freins/train roulant/vibrations) : ne JAMAIS proposer Carter-Cash. CTA principal = garage partenaire.
+- HORS FAP (pneus/freins/train roulant/vibrations) : ne JAMAIS proposer Carter-Cash. Les CTA et tarifs doivent être fournis UNIQUEMENT via "cta"/"alt_cta".
 
 SCHÉMA DE SORTIE (obligatoire)
 {
@@ -158,16 +211,18 @@ POLITIQUE D’ARBITRAGE
   Pédagogie : Nettoyage FAP Re-FAP = 99–149 € (~10× moins qu’un remplacement > 1000 €), garantie 1 an.
 - Signaux critiques / doute sérieux → stage="handoff", risk="high".
 - HORS FAP (vibrations, pneus, freins, supports moteur, transmission) → 2–3 vérifs simples puis cta garage partenaire. Ne JAMAIS proposer Carter-Cash ici.
-- ESCALADE : voyant moteur clignote / brûlé / fumée très épaisse / bruits métalliques / mode dégradé sévère → stage="handoff", risk="high".
+
+MICROCOPY CTA (obligatoire)
+- Dans "actions", ajoute une ligne finale commençant par "Pourquoi cliquer : ..." qui explique la valeur : "RDV en 2 min", "prix affiché avant validation", "diagnostic fiable/orientation claire". Si risk="high", ajouter l’urgence (“éviter une casse plus coûteuse”).
 
 RÈGLES CTA
 - CTA par défaut :
   "label": "Prendre RDV avec un garage partenaire",
   "url": "https://re-fap.fr/trouver_garage_partenaire/",
-  "reason": "Partout en France, près de chez vous : plusieurs garages au choix, RDV en quelques clics au meilleur prix pour un diagnostic et une solution adaptée."
-- Mention tarifs diag : “50–90 € selon garage, prix affiché sur la page de RDV”.
+  "reason": "Près de chez vous, garages au choix : RDV en 2 min, prix affiché avant validation, diagnostic fiable pour savoir quoi faire ensuite."
 - Si FAP suspecté/confirmé : demander s’il sait déposer le FAP.
-  - S’il sait : alt_cta Carter-Cash (https://auto.re-fap.fr). Sinon : rester sur garage partenaire (“demandez un nettoyage Re-FAP”).`;
+  - S’il sait : alt_cta Carter-Cash (https://auto.re-fap.fr). Sinon : rester sur garage partenaire (“demandez un nettoyage Re-FAP”).
+`;
 
   const userContent = `
 Historique (résumé): ${historique || '(vide)'}
@@ -177,10 +232,6 @@ Consigne de sortie:
 - Fournis UNIQUEMENT l'objet JSON (conforme au schéma). AUCUN texte autour.
 - ≤ 120 mots, clair, listes concises ok.
 `;
-
-  // Détection hors FAP “vibrations” (tolère fautes : fibrations, etc.)
-  const qn = normalize(question);
-  const looksLikeVibration = /\bf?ibration|tremblement|vibre|jante|equilibrage|equilibrage|disque voil|cardan|rotule|amortisseur/.test(qn);
 
   try {
     const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -194,6 +245,7 @@ Consigne de sortie:
         temperature: 0.2,
         top_p: 0.9,
         max_tokens: 600,
+        response_format: { type: 'json_object' }, // JSON forcé
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: userContent },
@@ -209,15 +261,12 @@ Consigne de sortie:
     }
 
     const data = await r.json();
-    const reply = (data.choices?.[0]?.message?.content || '').trim();
+    let reply = (data.choices?.[0]?.message?.content || '').trim();
 
-    // Parse JSON strict ou fallback hors FAP
     let obj = null;
-    try { obj = JSON.parse(reply); } catch { obj = null; }
-
-    if (!obj && looksLikeVibration) {
-      obj = fallbackNonFapJSON();
-    }
+    try { obj = JSON.parse(reply); } catch {}
+    if (!obj) obj = extractFirstJson(reply);
+    if (!obj && looksLikeVibration) obj = fallbackNonFapJSON();
 
     if (obj) {
       const clean = sanitizeObj(obj) || obj;
@@ -225,7 +274,6 @@ Consigne de sortie:
       return res.status(200).json({ reply: JSON.stringify(clean), data: clean, nextAction });
     }
 
-    // Si toujours pas de JSON, on renvoie la prose + classification
     return res.status(200).json({ reply: reply || 'Réponse indisponible.', data: null, nextAction: classify(reply) });
 
   } catch {
