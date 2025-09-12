@@ -3,6 +3,45 @@
 // - Tarifs verrouillés côté serveur
 // - Pas de régénération
 // - Deep link avec lead_id + cp + immat (si consentis)
+// --- Détection cas FAP urgent (voyant + perte de puissance) ---
+function looksUrgentFap(text='') {
+  const t = normalize(text);
+  const hasVoyant = /\b(voyant|lumi[eè]re)\b/.test(t);
+  const hasPertePuiss = /\b(perte|plus)\b.{0,10}\b(puissance)\b/.test(t);
+  // on booste en présence de "fap/dpf/filtre particules" ou si l'historique le mentionne
+  const mentionsFap = /\b(fap|dpf|filtre.?a.?particule[s]?)\b/.test(t);
+  return hasVoyant && hasPertePuiss && (mentionsFap || true); // mets "|| true" si tu veux escalader même sans mot "FAP"
+}
+
+function urgentFapJSON() {
+  return {
+    stage: "handoff",
+    title: "FAP saturé : RDV diag urgent",
+    summary: "Perte de puissance + voyant = risque mécanique. On confirme au diagnostic puis on traite vite.",
+    questions: [{ id: "q1", q: "Peux-tu déposer le FAP toi-même ? (oui/non)" }],
+    suspected: ["FAP"],
+    risk: "high",
+    actions: [
+      "Évite les longs trajets et les régimes élevés jusqu’au RDV.",
+      "Prendre RDV diagnostic : lecture défauts, vérif capteurs, mesure contre-pression.",
+      "Si FAP confirmé : pack tout compris (démontage → nettoyage Re-FAP → remontage → réinitialisation).",
+      `Nettoyage Re-FAP ${PRICING.fap_clean_min}–${PRICING.fap_clean_max} € (~10× moins qu’un remplacement > ${PRICING.replacement_ref} €), garantie 1 an.`
+    ],
+    cta: { label: "", url: "", reason: "" },   // on posera le vrai lien plus bas
+    alt_cta: [
+      {
+        label: "Déposer mon FAP chez Carter-Cash",
+        url: "https://auto.re-fap.fr",
+        reason: "FAP déjà démonté : dépôt simple, nettoyage Re-FAP, récup’ comme neuf."
+      }
+    ],
+    follow_up: [
+      "Si tu as un code défaut OBD, indique-le.",
+      "Dis-moi si tu préfères déposer le FAP toi-même (Carter-Cash) ou passer par le garage partenaire."
+    ],
+    legal: "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite."
+  };
+}
 
 const PRICING = {
   fap_clean_min: 99,
@@ -313,3 +352,4 @@ Consigne: rends UNIQUEMENT l'objet JSON conforme au schéma (≤120 mots).`;
     handoff_meta: meta
   });
 }
+
