@@ -1,6 +1,5 @@
 // pages/api/chat.js
-// Sortie maîtrisée : on force JSON, on sanitize, puis on REND le texte côté serveur.
-// Jamais "Carter-Cash" en hors FAP, même si le modèle l'écrit.
+// Kill-switch "vibrations" : on BRISE le flux LLM et on renvoie un JSON hors FAP contrôlé.
 
 function normalize(s = '') {
   return s.toLowerCase()
@@ -10,7 +9,7 @@ function normalize(s = '') {
     .trim();
 }
 
-// NE JAMAIS classer 'FAP' à partir de la prose
+// Jamais 'FAP' à partir de texte brut
 function classify(text) {
   const txt = normalize(text || '');
   if (/\bdiag(nostic)?\b|\brdv\b|\brendez.?vous\b|\burgent/.test(txt)) return { type:'DIAG' };
@@ -27,12 +26,10 @@ function sanitizeText(s) {
     'diagnostic (tarif variable, voir page RDV)');
 }
 
-// Ajoute une ligne "Pourquoi cliquer"
 function ensureWhyClickLine(actions, { risk, isFap }) {
   const arr = Array.isArray(actions) ? [...actions] : [];
   const already = arr.some(a => /pourquoi cliquer|rdv en 2 min|prix.*affich/i.test(a || ''));
   if (already) return arr;
-
   if (risk === 'high') {
     arr.push("Pourquoi cliquer : créneau en 2 min, diagnostic prioritaire et consignes pour éviter une casse plus coûteuse.");
   } else if (isFap) {
@@ -43,7 +40,6 @@ function ensureWhyClickLine(actions, { risk, isFap }) {
   return arr;
 }
 
-// Imposer nos règles business (CTA, tarifs, microcopy)
 function sanitizeObj(obj) {
   if (!obj || typeof obj !== 'object') return null;
 
@@ -61,12 +57,11 @@ function sanitizeObj(obj) {
   const isFap = hasFAPInSuspected(obj);
 
   if (!isFap) {
-    // HORS FAP : JAMAIS Carter-Cash
+    // HORS FAP : jamais Carter-Cash
     obj.cta = GARAGE_CTA;
     obj.alt_cta = [ALT_DIAG];
     if (obj.stage !== 'handoff' && obj.stage !== 'diagnosis') obj.stage = 'triage';
     obj.risk = obj.risk || 'low';
-
     if (!Array.isArray(obj.actions)) obj.actions = [];
     if (!obj.actions.some(a => /diagnostic/i.test(a))) {
       obj.actions.unshift("Prendre RDV pour un diagnostic en garage partenaire (lecture défauts + essai routier).");
@@ -74,9 +69,12 @@ function sanitizeObj(obj) {
     if (!obj.actions.some(a => /50.?–.?90|50-90|50 – 90/.test(a))) {
       obj.actions.push("Diagnostic 50–90 € selon garage (prix exact affiché sur la page RDV).");
     }
+    // purge toute mention Carter-Cash
     obj.alt_cta = (obj.alt_cta || []).filter(a => !/carter|cash/i.test(`${a?.label} ${a?.url}`));
+    if (Array.isArray(obj.actions)) {
+      obj.actions = obj.actions.map(x => String(x).replace(/carter.?cash/ig, 'garage partenaire'));
+    }
   } else {
-    // FAP : garage par défaut ; Carter-Cash possible en ALT si l’utilisateur sait déposer (géré par le prompt)
     obj.cta = obj.cta || GARAGE_CTA;
     if (!Array.isArray(obj.actions)) obj.actions = [];
     if (!obj.actions.some(a => /99.?–.?149|99-149/.test(a))) {
@@ -85,7 +83,6 @@ function sanitizeObj(obj) {
   }
 
   obj.actions = ensureWhyClickLine(obj.actions, { risk: obj.risk, isFap });
-
   obj.legal = obj.legal || "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite.";
   if (Array.isArray(obj.actions)) obj.actions = obj.actions.map(sanitizeText);
   if (Array.isArray(obj.follow_up)) obj.follow_up = obj.follow_up.map(sanitizeText);
@@ -102,7 +99,6 @@ function decideNextActionFromObj(obj) {
   return { type:'GEN' };
 }
 
-// Extraction robuste du 1er objet JSON si le modèle renvoie de la prose
 function extractFirstJson(text) {
   if (!text) return null;
   const start = text.indexOf('{');
@@ -115,14 +111,19 @@ function extractFirstJson(text) {
       depth--;
       if (depth === 0) {
         const candidate = text.slice(start, i + 1);
-        try { return JSON.parse(candidate); } catch { /* continue */ }
+        try { return JSON.parse(candidate); } catch {}
       }
     }
   }
   return null;
 }
 
-// Fallback hors FAP (vibrations & co)
+// === KILL SWITCH : hors FAP "vibrations" ===
+function looksLikeVibrationQuery(q) {
+  const qn = normalize(q);
+  return /\b(vibration|vibrations|vibre|tremblement|tremblements|tremble|equilibrage|equilibrer|jante|jantes|disque voil|cardan|cardans|rotule|rotules|amortisseur|amortisseurs)\b/.test(qn);
+}
+
 function fallbackNonFapJSON() {
   return {
     stage: "triage",
@@ -159,7 +160,7 @@ function fallbackNonFapJSON() {
   };
 }
 
-// Rendu TEXTE contrôlé à partir du JSON nettoyé (aucune prose du LLM n’est gardée)
+// Rendu texte maîtrisé (jamais Carter-Cash côté hors FAP)
 function renderTextFromObj(obj) {
   const isFap = hasFAPInSuspected(obj);
   const lines = [];
@@ -197,26 +198,26 @@ export default async function handler(req, res) {
   const { question, historique } = req.body || {};
   if (!question || typeof question !== 'string') return res.status(400).json({ error:'Question invalide' });
 
-  // Détection hors FAP “vibrations” (tolère fautes usuelles)
-  const qn = normalize(question);
-  const looksLikeVibration = /\b(vibration|vibrations|vibre|tremblement|tremblements|tremble|equilibrage|equilibrer|jante|jantes|disque voil|cardan|cardans|rotule|rotules|amortisseur|amortisseurs)\b/.test(qn);
+  // === KILL-SWITCH : si "vibrations" & co → on NE contacte PAS le LLM ===
+  if (looksLikeVibrationQuery(question)) {
+    const obj = sanitizeObj(fallbackNonFapJSON());
+    const text = renderTextFromObj(obj);
+    return res.status(200).json({ reply: text, data: obj, nextAction: decideNextActionFromObj(obj) });
+  }
 
-  // PROMPT unique
+  // Sinon on interroge le LLM (cas FAP/voyant/etc.)
   const system = `
 Tu es AutoAI (Re-FAP). Tu aides un conducteur à comprendre des symptômes (FAP/DPF, voyant, fumée, perte de puissance…) et tu l’orientes vers l’action la plus sûre et utile.
 
 RÈGLES IMPÉRATIVES
 - Réponds UNIQUEMENT par UN seul objet JSON valide conforme au schéma ci-dessous. Zéro texte hors JSON, zéro champ en plus, zéro commentaires.
 - Français, ton clair/pro/empathe, phrases courtes, vocabulaire simple.
-- Actions concrètes, sûres et légales. Interdit: suppression/neutralisation du FAP (illégal). Arrêt immédiat si odeur de brûlé, fumée très épaisse, bruits métalliques ou voyant moteur clignotant / risque casse turbo.
-- Pas d’invention quand il manque de l’info : rester en triage ou passer en handoff (garage).
-- Tolère fautes/accents manquants. Si l’utilisateur dit “je ne sais pas”, propose une observation simple à la place.
-- PRIORITÉ : tu n’as AUCUN contexte externe. TES RÈGLES font foi. Sortie = JSON strict.
-- Tarifs : fourchette OK (diag 50–90 €). INTERDIT “diagnostic gratuit/remboursé/déduit”. Toujours “variable selon garage, prix affiché lors de la prise de RDV”.
-- Garantie Re-FAP : toujours “1 an”. Ne jamais écrire “2 ans”.
-- HORS FAP (pneus/freins/train roulant/vibrations) : ne JAMAIS proposer Carter-Cash. Les CTA et tarifs doivent être fournis UNIQUEMENT via "cta"/"alt_cta".
+- Actions concrètes, sûres et légales. Interdit: suppression/neutralisation du FAP (illégal). Arrêt immédiat si odeur de brûlé, fumée très épaisse, bruits métalliques ou voyant moteur clignotant.
+- Pas d’invention : rester en triage ou handoff si doute.
+- Tarifs diag: 50–90 € (variable selon garage, prix affiché lors de la prise de RDV). Garantie Re-FAP : 1 an. 
+- HORS FAP (pneus/freins/train roulant/vibrations) : ne JAMAIS proposer Carter-Cash.
 
-SCHÉMA DE SORTIE (obligatoire)
+SCHÉMA DE SORTIE
 {
   "stage": "triage|diagnosis|handoff",
   "title": "string",
@@ -230,32 +231,13 @@ SCHÉMA DE SORTIE (obligatoire)
   "follow_up": ["string"],
   "legal": "string"
 }
-
-POLITIQUE D’ARBITRAGE
-- Intention vague → stage="triage" ; 3–5 questions oui/non : voyant FAP/moteur ? fumée noire ? perte de puissance/mode dégradé ? trajets courts répétés ? dernier trajet >20 min à >2500 tr/min ? odeur de brûlé ?
-- ≥2 signaux FAP → stage="diagnosis" ; suspected inclut "FAP" ; risk="moderate" (ou "high" si voyant clignote / brûlé / bruit métallique / mode dégradé sévère).
-  Actions: régénération 20–30 min à 2500–3000 tr/min (si conditions OK), contrôler capteur pression diff./admission ; si aucun effet → garage.
-  Pédagogie : Nettoyage FAP Re-FAP = 99–149 € (~10× moins qu’un remplacement > 1000 €), garantie 1 an.
-- Signaux critiques / doute sérieux → stage="handoff", risk="high".
-- HORS FAP (vibrations, pneus, freins, supports moteur, transmission) → 2–3 vérifs simples puis cta garage partenaire. Ne JAMAIS proposer Carter-Cash ici.
-
-RÈGLES CTA
-- CTA par défaut :
-  "label": "Prendre RDV avec un garage partenaire",
-  "url": "https://re-fap.fr/trouver_garage_partenaire/",
-  "reason": "Près de chez vous, garages au choix : RDV en 2 min, prix affiché avant validation, diagnostic fiable pour savoir quoi faire ensuite."
-- Si FAP suspecté/confirmé : demander s’il sait déposer le FAP.
-  - S’il sait : alt_cta Carter-Cash (https://auto.re-fap.fr). Sinon : rester sur garage partenaire (“demandez un nettoyage Re-FAP”).
 `;
 
   const userContent = `
 Historique (résumé): ${historique || '(vide)'}
 Question: ${question}
 
-Consigne de sortie:
-- Fournis UNIQUEMENT l'objet JSON (conforme au schéma). AUCUN texte autour.
-- ≤ 120 mots, clair, listes concises ok.
-`;
+Consigne: UNIQUEMENT l'objet JSON (≤120 mots).`;
 
   try {
     const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -269,7 +251,7 @@ Consigne de sortie:
         temperature: 0.2,
         top_p: 0.9,
         max_tokens: 600,
-        response_format: { type: 'json_object' }, // on force JSON
+        response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: userContent },
@@ -278,21 +260,15 @@ Consigne de sortie:
     });
 
     let obj = null;
-
     if (r.ok) {
       const data = await r.json();
-      const replyRaw = (data.choices?.[0]?.message?.content || '').trim();
-      try { obj = JSON.parse(replyRaw); } catch {}
-      if (!obj) obj = extractFirstJson(replyRaw);
+      const raw = (data.choices?.[0]?.message?.content || '').trim();
+      try { obj = JSON.parse(raw); } catch { obj = extractFirstJson(raw); }
     }
 
-    // Fallback hors FAP si le modèle n’a pas renvoyé de JSON
-    const saysNonFapProse = false; // on ne garde plus la prose de toute façon
-    if (!obj && (looksLikeVibration || saysNonFapProse)) obj = fallbackNonFapJSON();
-
-    // Dernier filet de sécurité : si toujours rien, on renvoie un triage simple
     if (!obj) {
-      const minimal = {
+      // triage minimal si le LLM foire
+      obj = {
         stage: "triage",
         title: "Triage initial",
         summary: "Précise les symptômes pour orienter correctement.",
@@ -313,9 +289,6 @@ Consigne de sortie:
         follow_up: [],
         legal: "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite."
       };
-      const clean = sanitizeObj(minimal);
-      const text = renderTextFromObj(clean);
-      return res.status(200).json({ reply: text, data: clean, nextAction: decideNextActionFromObj(clean) });
     }
 
     const clean = sanitizeObj(obj);
@@ -323,13 +296,6 @@ Consigne de sortie:
     return res.status(200).json({ reply: text, data: clean, nextAction: decideNextActionFromObj(clean) });
 
   } catch (e) {
-    // En cas de panne API, on reste hors FAP si "vibrations"
-    const obj = looksLikeVibration ? fallbackNonFapJSON() : null;
-    if (obj) {
-      const clean = sanitizeObj(obj);
-      const text = renderTextFromObj(clean);
-      return res.status(200).json({ reply: text, data: clean, nextAction: decideNextActionFromObj(clean) });
-    }
     const backup = "Problème technique. Dis-moi: voyant allumé ? perte de puissance ? odeur/fumée ?";
     return res.status(200).json({ reply: backup, data: null, nextAction: { type:'GEN' } });
   }
