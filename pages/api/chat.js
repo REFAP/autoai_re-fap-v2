@@ -1,5 +1,15 @@
 // pages/api/chat.js
-// Kill-switch "vibrations" : on BRISE le flux LLM et on renvoie un JSON hors FAP contrôlé.
+// Conseiller commercial maîtrisé : tarifs figés côté serveur, pédagogie imposée, kill-switch "vibrations".
+
+// === CONFIG TARIFS (modifie ici si besoin) =========================
+const PRICING = {
+  fap_clean_min: 99,
+  fap_clean_max: 149,
+  replacement_ref: 1000,     // " > 1000 € " pour un repère simple
+  diag_min: 50,
+  diag_max: 90
+};
+// ==================================================================
 
 function normalize(s = '') {
   return s.toLowerCase()
@@ -22,8 +32,9 @@ function hasFAPInSuspected(obj) {
 }
 
 function sanitizeText(s) {
-  return String(s || '').replace(/diagnostic\s+(gratuit|rembours[ée]|d[ée]duit)/gi,
-    'diagnostic (tarif variable, voir page RDV)');
+  return String(s || '')
+    .replace(/diagnostic\s+(gratuit|rembours[ée]|d[ée]duit)/gi, 'diagnostic (tarif variable, voir page RDV)')
+    .replace(/\b(gratuit|free)\b/gi, 'affiché avant validation');
 }
 
 function ensureWhyClickLine(actions, { risk, isFap }) {
@@ -33,7 +44,7 @@ function ensureWhyClickLine(actions, { risk, isFap }) {
   if (risk === 'high') {
     arr.push("Pourquoi cliquer : créneau en 2 min, diagnostic prioritaire et consignes pour éviter une casse plus coûteuse.");
   } else if (isFap) {
-    arr.push("Pourquoi cliquer : créneau en 2 min, prix du diag affiché, et option nettoyage FAP 99–149 € garanti 1 an si confirmé.");
+    arr.push(`Pourquoi cliquer : créneau en 2 min, prix du diag affiché, option nettoyage FAP ${PRICING.fap_clean_min}–${PRICING.fap_clean_max} € garanti 1 an si confirmé.`);
   } else {
     arr.push("Pourquoi cliquer : créneau en 2 min, prix du diag affiché avant validation, orientation claire sans remplacement inutile.");
   }
@@ -56,39 +67,64 @@ function sanitizeObj(obj) {
 
   const isFap = hasFAPInSuspected(obj);
 
+  // Harmonise le risk
+  if (!obj.risk) obj.risk = isFap ? 'moderate' : 'low';
+
+  // Actions & CTA
   if (!isFap) {
-    // HORS FAP : jamais Carter-Cash
+    // HORS FAP : jamais Carter-Cash, pousse garage + diag
     obj.cta = GARAGE_CTA;
     obj.alt_cta = [ALT_DIAG];
     if (obj.stage !== 'handoff' && obj.stage !== 'diagnosis') obj.stage = 'triage';
-    obj.risk = obj.risk || 'low';
+
     if (!Array.isArray(obj.actions)) obj.actions = [];
-    if (!obj.actions.some(a => /diagnostic/i.test(a))) {
-      obj.actions.unshift("Prendre RDV pour un diagnostic en garage partenaire (lecture défauts + essai routier).");
-    }
-    if (!obj.actions.some(a => /50.?–.?90|50-90|50 – 90/.test(a))) {
-      obj.actions.push("Diagnostic 50–90 € selon garage (prix exact affiché sur la page RDV).");
-    }
-    // purge toute mention Carter-Cash
+    // impose nos actions
+    obj.actions = [
+      "Contrôler pression/usure pneus et masses d’équilibrage (si vibrations à vitesse).",
+      "Éviter les vitesses élevées jusqu’au contrôle.",
+      `Prendre RDV pour un diagnostic en garage partenaire (lecture défauts + essai routier).`,
+      `Diagnostic ${PRICING.diag_min}–${PRICING.diag_max} € selon garage (prix exact affiché sur la page RDV).`,
+      ...obj.actions.filter(Boolean)
+    ];
+    // purge Carter-Cash
     obj.alt_cta = (obj.alt_cta || []).filter(a => !/carter|cash/i.test(`${a?.label} ${a?.url}`));
-    if (Array.isArray(obj.actions)) {
-      obj.actions = obj.actions.map(x => String(x).replace(/carter.?cash/ig, 'garage partenaire'));
-    }
   } else {
+    // FAP : impose nos messages + tarifs
     obj.cta = obj.cta || GARAGE_CTA;
     if (!Array.isArray(obj.actions)) obj.actions = [];
-    if (!obj.actions.some(a => /99.?–.?149|99-149/.test(a))) {
-      obj.actions.push("Nettoyage FAP Re-FAP 99–149 € (~10× moins qu’un remplacement > 1000 €), garantie 1 an.");
-    }
+    const core = [
+      `Nettoyage FAP Re-FAP ${PRICING.fap_clean_min}–${PRICING.fap_clean_max} € (~10× moins qu’un remplacement > ${PRICING.replacement_ref} €), garantie 1 an.`,
+      "Si conditions OK : rouler 20–30 min à 2500–3000 tr/min (peut déclencher une régénération).",
+      "Sinon : RDV garage partenaire (demandez explicitement un nettoyage Re-FAP).",
+      "Vous savez déposer le FAP ? Dépôt possible en Carter-Cash (tarif affiché avant validation)."
+    ];
+    // remplace toute tarification fantaisiste par nos lignes
+    obj.actions = [...core, ...obj.actions.filter(a => !/€/.test(String(a)))];
   }
 
   obj.actions = ensureWhyClickLine(obj.actions, { risk: obj.risk, isFap });
-  obj.legal = obj.legal || "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite.";
+
+  // Pédagogie commerciale (toujours, mais adaptée)
+  obj.follow_up = Array.isArray(obj.follow_up) ? obj.follow_up : [];
+  if (isFap) {
+    addUnique(obj.follow_up,
+      "Pourquoi le nettoyage Re-FAP ? Prix 10× inférieur au remplacement, résultat équivalent à neuf, garanti 1 an, rapide (~48h) et légal (pas de suppression FAP).");
+    addUnique(obj.follow_up,
+      "Impact si on attend : risque EGR/turbo/catalyseur, consommation en hausse, contre-visite au contrôle technique.");
+  } else {
+    addUnique(obj.follow_up, "Reviens avec 3 infos : vitesse d’apparition, freinage oui/non, ressenti au volant ou au siège.");
+  }
+
+  obj.legal = "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite.";
   if (Array.isArray(obj.actions)) obj.actions = obj.actions.map(sanitizeText);
   if (Array.isArray(obj.follow_up)) obj.follow_up = obj.follow_up.map(sanitizeText);
   if (obj.summary) obj.summary = sanitizeText(obj.summary);
 
   return obj;
+}
+
+function addUnique(arr, line) {
+  if (!arr.some(x => (x || '').toLowerCase() === line.toLowerCase())) arr.push(line);
 }
 
 function decideNextActionFromObj(obj) {
@@ -118,7 +154,7 @@ function extractFirstJson(text) {
   return null;
 }
 
-// === KILL SWITCH : hors FAP "vibrations" ===
+// === KILL SWITCH : hors FAP "vibrations" (zéro LLM) ================
 function looksLikeVibrationQuery(q) {
   const qn = normalize(q);
   return /\b(vibration|vibrations|vibre|tremblement|tremblements|tremble|equilibrage|equilibrer|jante|jantes|disque voil|cardan|cardans|rotule|rotules|amortisseur|amortisseurs)\b/.test(qn);
@@ -128,7 +164,7 @@ function fallbackNonFapJSON() {
   return {
     stage: "triage",
     title: "Vibrations = hors périmètre FAP",
-    summary: "Les vibrations viennent surtout des roues/freins/train roulant. Mieux vaut un diagnostic mécanique.",
+    summary: "Vibrations = surtout roues/freins/train roulant. Le bon réflexe : diagnostic mécanique.",
     questions: [
       { id:"q1", q:"À quelle vitesse ? (>90 km/h = roues)" },
       { id:"q2", q:"Au freinage ? (disques à contrôler)" },
@@ -139,8 +175,8 @@ function fallbackNonFapJSON() {
     actions: [
       "Contrôler pression/usure pneus et masses d’équilibrage.",
       "Éviter les vitesses élevées jusqu’au contrôle.",
-      "Prendre RDV pour un diagnostic en garage partenaire (lecture défauts + essai routier).",
-      "Diagnostic 50–90 € selon garage (prix exact affiché sur la page RDV).",
+      `Prendre RDV pour un diagnostic en garage partenaire (lecture défauts + essai routier).`,
+      `Diagnostic ${PRICING.diag_min}–${PRICING.diag_max} € selon garage (prix exact affiché sur la page RDV).`,
       "Pourquoi cliquer : créneau en 2 min, prix du diag affiché, orientation claire sans remplacement inutile."
     ],
     cta: {
@@ -155,40 +191,46 @@ function fallbackNonFapJSON() {
         reason: "Lire les codes défauts avant d’intervenir."
       }
     ],
-    follow_up: ["Reviens avec les constats (vitesse, freinage, localisation)."],
+    follow_up: [],
     legal: "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite."
   };
 }
+// ===================================================================
 
-// Rendu texte maîtrisé (jamais Carter-Cash côté hors FAP)
+// Rendu texte maîtrisé (aucune prose brute du LLM)
 function renderTextFromObj(obj) {
   const isFap = hasFAPInSuspected(obj);
-  const lines = [];
+  const L = [];
   if (!isFap) {
-    lines.push("Tri: Hors sujet FAP (vibrations = train roulant/transmission).");
-    lines.push("");
-    lines.push("Causes probables :");
-    lines.push("- Roues déséquilibrées / pneus.");
-    lines.push("- Disques voilés (si au freinage).");
-    lines.push("- Rotules/amortisseurs/usure direction.");
-    lines.push("");
-    lines.push("À vérifier :");
-    lines.push("- Vitesse ? (>90 km/h = roues).");
-    lines.push("- Freinage ? (disques).");
-    lines.push("- Ressenti au volant ou au siège ? (avant vs transmission).");
-    lines.push("");
-    lines.push("Prochaine étape : Clique sur « Garage partenaire » (bouton à droite) — RDV en 2 min, prix du diag affiché, orientation claire.");
+    L.push("Tri: Hors sujet FAP (vibrations = train roulant/transmission).");
+    L.push("");
+    L.push("Causes probables :");
+    L.push("- Roues déséquilibrées / pneus.");
+    L.push("- Disques voilés (si au freinage).");
+    L.push("- Rotules/amortisseurs/usure direction.");
+    L.push("");
+    L.push("À vérifier :");
+    L.push("- Vitesse ? (>90 km/h = roues).");
+    L.push("- Freinage ? (disques).");
+    L.push("- Ressenti au volant ou au siège ? (avant vs transmission).");
+    L.push("");
+    L.push("Prochaine étape : Clique sur « Garage partenaire » (bouton à droite) — RDV en 2 min, prix du diag affiché, orientation claire.");
   } else {
-    lines.push("Tri: Problème lié au FAP probable.");
-    lines.push("");
-    lines.push("Actions utiles :");
-    lines.push("- Si conditions OK : roulage 20–30 min à 2500–3000 tr/min (peut déclencher la régénération).");
-    lines.push("- Sinon : RDV garage partenaire (demandez un nettoyage Re-FAP 99–149 € garanti 1 an).");
-    lines.push("- Vous savez déposer le FAP ? Alors dépôt possible en Carter-Cash (option).");
-    lines.push("");
-    lines.push("Prochaine étape : Clique sur « Garage partenaire » (bouton à droite). Si FAP démonté, utilise l’option Carter-Cash.");
+    L.push("Tri: Problème FAP probable.");
+    L.push("");
+    L.push("Pourquoi le nettoyage Re-FAP :");
+    L.push(`- ${PRICING.fap_clean_min}–${PRICING.fap_clean_max} € (~10× moins qu’un remplacement > ${PRICING.replacement_ref} €).`);
+    L.push("- Résultat équivalent à neuf (décolmatage profond), légal et garanti 1 an.");
+    L.push("- Rapide (~48h) via garage partenaire ; pas de suppression/reprog illégale.");
+    L.push("");
+    L.push("Actions :");
+    L.push("- Si conditions OK : 20–30 min à 2500–3000 tr/min (peut déclencher une régénération).");
+    L.push("- Sinon : RDV garage partenaire (demandez un nettoyage Re-FAP).");
+    L.push("- FAP déjà déposé ? Dépôt possible en Carter-Cash (tarif affiché avant validation).");
+    L.push("");
+    L.push("Prochaine étape : Clique sur « Garage partenaire » (bouton à droite). Si FAP démonté, utilise l’option Carter-Cash.");
   }
-  return lines.join('\n');
+  return L.join('\n');
 }
 
 export default async function handler(req, res) {
@@ -198,26 +240,26 @@ export default async function handler(req, res) {
   const { question, historique } = req.body || {};
   if (!question || typeof question !== 'string') return res.status(400).json({ error:'Question invalide' });
 
-  // === KILL-SWITCH : si "vibrations" & co → on NE contacte PAS le LLM ===
+  // KILL-SWITCH : vibrations & co => pas d'appel LLM
   if (looksLikeVibrationQuery(question)) {
     const obj = sanitizeObj(fallbackNonFapJSON());
     const text = renderTextFromObj(obj);
     return res.status(200).json({ reply: text, data: obj, nextAction: decideNextActionFromObj(obj) });
   }
 
-  // Sinon on interroge le LLM (cas FAP/voyant/etc.)
+  // Sinon interroge le LLM (FAP/voyant/etc.) — mais tarifs & pédagogie restent forcés côté serveur
   const system = `
-Tu es AutoAI (Re-FAP). Tu aides un conducteur à comprendre des symptômes (FAP/DPF, voyant, fumée, perte de puissance…) et tu l’orientes vers l’action la plus sûre et utile.
+Tu es AutoAI (Re-FAP). Tu aides un conducteur (FAP/DPF, voyant, fumée, perte de puissance…) et tu l’orientes vers l’action la plus sûre et utile.
 
-RÈGLES IMPÉRATIVES
-- Réponds UNIQUEMENT par UN seul objet JSON valide conforme au schéma ci-dessous. Zéro texte hors JSON, zéro champ en plus, zéro commentaires.
+RÈGLES
+- Réponds UNIQUEMENT par UN objet JSON valide conforme au schéma (pas de texte hors JSON).
 - Français, ton clair/pro/empathe, phrases courtes, vocabulaire simple.
-- Actions concrètes, sûres et légales. Interdit: suppression/neutralisation du FAP (illégal). Arrêt immédiat si odeur de brûlé, fumée très épaisse, bruits métalliques ou voyant moteur clignotant.
-- Pas d’invention : rester en triage ou handoff si doute.
-- Tarifs diag: 50–90 € (variable selon garage, prix affiché lors de la prise de RDV). Garantie Re-FAP : 1 an. 
-- HORS FAP (pneus/freins/train roulant/vibrations) : ne JAMAIS proposer Carter-Cash.
+- Interdit: suppression/neutralisation du FAP. Arrêt immédiat si brûlé, fumée épaisse, bruits métal, voyant moteur clignotant.
+- Pas d’invention; si doute → triage ou handoff.
+- Tarifs : NE PAS inventer. Les prix affichés à l’utilisateur seront gérés par l’application.
+- Hors FAP (pneus/freins/vibrations) : NE PAS proposer Carter-Cash.
 
-SCHÉMA DE SORTIE
+SCHÉMA
 {
   "stage": "triage|diagnosis|handoff",
   "title": "string",
@@ -237,7 +279,8 @@ SCHÉMA DE SORTIE
 Historique (résumé): ${historique || '(vide)'}
 Question: ${question}
 
-Consigne: UNIQUEMENT l'objet JSON (≤120 mots).`;
+Consigne: rends UNIQUEMENT l'objet JSON conforme au schéma (≤120 mots).
+`;
 
   try {
     const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -267,7 +310,6 @@ Consigne: UNIQUEMENT l'objet JSON (≤120 mots).`;
     }
 
     if (!obj) {
-      // triage minimal si le LLM foire
       obj = {
         stage: "triage",
         title: "Triage initial",
