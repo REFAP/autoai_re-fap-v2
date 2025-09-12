@@ -1,10 +1,15 @@
+// pages/index.js
 import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
   const [messages, setMessages] = useState([
-    { from: 'bot', text: "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Dis-moi ce que tu vois (voyant FAP/moteur, fumée, perte de puissance…)."}
+    {
+      from: 'bot',
+      text:
+        "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Dis-moi ce que tu vois (voyant FAP/moteur, fumée, perte de puissance…)."
+    }
   ]);
   const [botJson, setBotJson] = useState(null);
   const [input, setInput] = useState('');
@@ -19,7 +24,9 @@ export default function Home() {
 
   function getHistoriqueText() {
     const last = messages.slice(-5);
-    return last.map(m => (m.from === 'user' ? `Moi: ${m.text}` : `AutoAI: ${m.text}`)).join('\n');
+    return last
+      .map(m => (m.from === 'user' ? `Moi: ${m.text}` : `AutoAI: ${m.text}`))
+      .join('\n');
   }
 
   async function handleSubmit(e) {
@@ -46,40 +53,50 @@ export default function Home() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: trimmed, historique: historiqueText }),
+        body: JSON.stringify({ question: trimmed, historique: historiqueText })
       });
 
       setLoading(false);
 
       if (!res.ok) {
-        const txt = res.status === 429
-          ? "⚠️ Service temporairement saturé, réessaie plus tard."
-          : `Erreur serveur ${res.status}`;
+        const txt =
+          res.status === 429
+            ? '⚠️ Service temporairement saturé, réessaie plus tard.'
+            : `Erreur serveur ${res.status}`;
         setMessages(msgs => [...msgs, { from: 'bot', text: txt }]);
         return;
       }
 
       const data = await res.json();
 
-      // Blindage texte : si non-FAP, on remplace les mentions Carter-Cash par « garage partenaire »
-      const isFapReply = !!data?.data && Array.isArray(data.data.suspected)
-        && /fap|dpf|filtre.*particule/i.test(data.data.suspected.join(' '));
+      // Si non-FAP, on évite que le texte bot pousse Carter-Cash
+      const isFapReply =
+        !!data?.data &&
+        Array.isArray(data.data.suspected) &&
+        /fap|dpf|filtre.*particule/i.test(data.data.suspected.join(' '));
 
       const safeText = !isFapReply
-        ? String(data.reply || '').replace(/carter.?cash/ig, 'garage partenaire')
+        ? String(data.reply || '').replace(/carter.?cash/gi, 'garage partenaire')
         : String(data.reply || '');
 
-      setMessages(msgs => [...msgs, { from: 'bot', text: (safeText || "Réponse indisponible.").trim() }]);
+      setMessages(msgs => [
+        ...msgs,
+        { from: 'bot', text: (safeText || 'Réponse indisponible.').trim() }
+      ]);
       setBotJson(data.data || null);
-
     } catch {
       setLoading(false);
-      setMessages(msgs => [...msgs, { from: 'bot', text: "Désolé, erreur réseau. Actualise la page." }]);
+      setMessages(msgs => [
+        ...msgs,
+        { from: 'bot', text: "Désolé, erreur réseau. Actualise la page." }
+      ]);
     }
   }
 
-  const isFap = !!botJson && Array.isArray(botJson.suspected)
-    && /fap|dpf|filtre.*particule/i.test(botJson.suspected.join(' '));
+  const isFap =
+    !!botJson &&
+    Array.isArray(botJson.suspected) &&
+    /fap|dpf|filtre.*particule/i.test(botJson.suspected.join(' '));
 
   return (
     <>
@@ -94,9 +111,12 @@ export default function Home() {
         <div className="chat-and-button">
           <div id="chat-window" className="chat-window">
             {messages.map((m, i) => (
-              <div key={i} className={m.from === 'user' ? 'user-msg' : 'bot-msg'}>
+              <div
+                key={i}
+                className={m.from === 'user' ? 'user-msg' : 'bot-msg'}
+              >
                 <strong>{m.from === 'user' ? 'Moi' : 'AutoAI'}:</strong>
-                {/* rendu Markdown propre (ne pas aplatir les sauts de ligne) */}
+                {/* rendu Markdown propre (on garde les sauts de ligne) */}
                 <ReactMarkdown skipHtml>{m.text}</ReactMarkdown>
               </div>
             ))}
@@ -104,7 +124,11 @@ export default function Home() {
             {loading && (
               <div className="bot-msg typing-indicator">
                 <strong>AutoAI:</strong>
-                <span className="dots"><span>.</span><span>.</span><span>.</span></span>
+                <span className="dots">
+                  <span>.</span>
+                  <span>.</span>
+                  <span>.</span>
+                </span>
               </div>
             )}
 
@@ -118,7 +142,8 @@ export default function Home() {
               className="garage-button"
               aria-label="Besoin qu’un garage s’occupe de tout ? Prendre RDV"
             >
-              Besoin qu’un garage s’occupe de tout ? <span className="nowrap">Prendre RDV</span> 🔧
+              Besoin qu’un garage s’occupe de tout ?{' '}
+              <span className="nowrap">Prendre RDV</span> 🔧
             </a>
 
             {isFap ? (
@@ -141,16 +166,23 @@ export default function Home() {
             type="text"
             placeholder="Écris ta question ici..."
             value={input}
-            onChange={(e) => {
+            onChange={e => {
               const val = e.target.value;
               setInput(val);
-              setError(val.length > 600 ? '⚠️ Ton message ne peut pas dépasser 600 caractères.' : '');
+              setError(
+                val.length > 600
+                  ? '⚠️ Ton message ne peut pas dépasser 600 caractères.'
+                  : ''
+              );
             }}
             autoComplete="off"
             id="user-input"
             disabled={blocked}
           />
-          <button type="submit" disabled={blocked || input.length > 600 || loading}>
+          <button
+            type="submit"
+            disabled={blocked || input.length > 600 || loading}
+          >
             {loading ? 'Envoi…' : 'Envoyer'}
           </button>
         </form>
@@ -159,7 +191,10 @@ export default function Home() {
       </main>
 
       <footer className="footer">
-        <p>⚠️ AutoAI peut faire des erreurs, envisage de vérifier les informations importantes.</p>
+        <p>
+          ⚠️ AutoAI peut faire des erreurs, envisage de vérifier les informations
+          importantes.
+        </p>
       </footer>
     </>
   );
