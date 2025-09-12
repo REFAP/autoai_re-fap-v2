@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
   const [messages, setMessages] = useState([
-    { from: 'bot', text: "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Dis-moi ce que tu vois (voyant FAP/moteur, fumée, perte de puissance…)." },
+    { from: 'bot', text: "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Dis-moi ce que tu vois (voyant FAP/moteur, fumée, perte de puissance…)."}
   ]);
   const [botJson, setBotJson] = useState(null);
   const [input, setInput] = useState('');
@@ -60,11 +60,12 @@ export default function Home() {
       }
 
       const data = await res.json();
-      // Blindage texte : si non-FAP, évite toute mention "Carter"
-      const isFap = !!data?.data && Array.isArray(data.data.suspected)
+
+      // Blindage texte : si non-FAP, on remplace les mentions Carter-Cash par « garage partenaire »
+      const isFapReply = !!data?.data && Array.isArray(data.data.suspected)
         && /fap|dpf|filtre.*particule/i.test(data.data.suspected.join(' '));
 
-      const safeText = !isFap
+      const safeText = !isFapReply
         ? String(data.reply || '').replace(/carter.?cash/ig, 'garage partenaire')
         : String(data.reply || '');
 
@@ -95,7 +96,8 @@ export default function Home() {
             {messages.map((m, i) => (
               <div key={i} className={m.from === 'user' ? 'user-msg' : 'bot-msg'}>
                 <strong>{m.from === 'user' ? 'Moi' : 'AutoAI'}:</strong>
-                <ReactMarkdown skipHtml>{m.text.replace(/\n{2,}/g, '\n')}</ReactMarkdown>
+                {/* rendu Markdown propre (ne pas aplatir les sauts de ligne) */}
+                <ReactMarkdown skipHtml>{m.text}</ReactMarkdown>
               </div>
             ))}
 
@@ -111,9 +113,14 @@ export default function Home() {
 
           {/* Deux boutons permanents ; le 2e varie selon FAP vs non-FAP */}
           <div className="garage-button-container">
-            <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
-              {isFap ? "FAP monté ? Prendre RDV 🔧" : "Trouver un garage partenaire 🔧"}
+            <a
+              href="https://re-fap.fr/trouver_garage_partenaire/"
+              className="garage-button"
+              aria-label="Besoin qu’un garage s’occupe de tout ? Prendre RDV"
+            >
+              Besoin qu’un garage s’occupe de tout ? <span className="nowrap">Prendre RDV</span> 🔧
             </a>
+
             {isFap ? (
               <a href="https://auto.re-fap.fr" className="carter-button">
                 FAP démonté ? Dépose Carter-Cash 🛠️
