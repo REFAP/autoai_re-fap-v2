@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "partners": {
+    "idGarages": { "diagBaseUrl": "https://www.idgarages.com/fr-fr/prestations/diagnostic-electronique" },
+    "carterCash": { "depositUrl": "https://auto.re-fap.fr" }
+  },
+  "pricing": {
+    "fap_clean_min": 99,
+    "fap_clean_max": 149,
+    "replacement_ref": 1000,
+    "diag_min": 50,
+    "diag_max": 90
+  },
+  "wording": {
+    "commercialFix": "pack tout compris (démontage → nettoyage Re-FAP → remontage → réinitialisation)",
+    "fapIntro": "Ça ressemble à un FAP saturé. On confirme d’abord pour éviter les frais au hasard, puis on traite vite.",
+    "diagSteps": [
+      "- lit les défauts et vérifie les capteurs,",
+      "- mesure la contre-pression du FAP,",
+      "- te propose la bonne suite.",
+      "Le diagnostic est obligatoire pour confirmer que c’est bien le FAP."
+    ],
+    "priceNotes": {
+      "cleaningOnly": "Important : les {{min}}–{{max}} € correspondent au nettoyage seul quand le FAP est déjà déposé en point de dépôt Carter-Cash.",
+      "packIsMore": "Avec dépose/remontage + réinitialisation (devis tout compris chez le garage partenaire), le total est plus élevé et dépend du véhicule.",
+      "replacementRef": "Référence : un remplacement FAP dépasse souvent {{replaceRef}} € ; notre solution reste bien plus économique."
+    },
+    "nonFapIntro": "Symptômes incertains. On ne va pas te faire payer au hasard : on confirme d’abord.",
+    "nonFapDiag": "Au diagnostic : lecture défauts + essai routier → cause confirmée et plan clair.",
+    "legal": "Ne constitue pas un diagnostic officiel. Suppression/neutralisation du FAP interdite."
+  },
+  "ctas": {
+    "diag": {
+      "label": "Prendre RDV diagnostic près de chez moi",
+      "reason": "On confirme la cause et on évite les frais au hasard."
+    },
+    "carterCash": {
+      "label": "Déposer mon FAP chez Carter-Cash",
+      "reason": "FAP déjà démonté : dépôt simple, nettoyage Re-FAP, récup’ comme neuf."
+    }
+  },
+  "banPatterns": [
+    "nettoyage\\s+sans\\s+d[eé]monter",
+    "nettoyage\\s+sans\\s+d[eé]montage",
+    "additif[s]?",
+    "produit\\s+à\\s+injecter",
+    "defap",
+    "défap",
+    "suppression\\s+fap"
+  ]
+}
