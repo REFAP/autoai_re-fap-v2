@@ -128,4 +128,57 @@ button:hover { background: linear-gradient(45deg, #3ddc84, #2ec673); transform: 
 .bot-msg li { 
   margin: 0.15rem 0;
 }
+/* === VEHICLE FORM === */
+.vehicle-form {
+  background: #eaf7f0;
+  border: 1px solid #c8ead7;
+  border-radius: 12px;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.vf-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0,1fr));
+  gap: 0.5rem;
+}
+.vf-grid input, .vf-grid select {
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid #bfe6d0;
+  background: #f6fffb;
+  font-size: 0.95rem;
+}
+
+.btn-veh-validate {
+  margin-top: 0.6rem;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(45deg, #4eea9b, #3ddc84);
+  color: #fff;
+  cursor: pointer;
+}
+
+.veh-error {
+  margin: 0.4rem 0 0;
+  color: #a33;
+  font-size: 0.9rem;
+}
+
+/* chip véhicule en haut de chat */
+.vehicle-chip {
+  background: #dff7ed;
+  border: 1px solid #bfe6d0;
+  border-radius: 10px;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Mobile */
+@media (max-width: 800px) {
+  .vf-grid { grid-template-columns: 1fr 1fr; }
+}
+
 
