@@ -46,7 +46,6 @@ function scoreBlock(block, queryTokens) {
 function classify(text) {
   const txt = normalize(text);
   
-  // Classification améliorée et plus précise
   if (/voyant.*clignotant|urgent|arrêt.*immédiat|danger/.test(txt)) return { type:'URGENT' };
   if (/\bfap\b|\bdpf\b|\bfiltre.*particule|saturé|encrassé|colmaté/.test(txt)) return { type:'FAP' };
   if (/\begr\b|vanne.*egr|recirculation.*gaz/.test(txt)) return { type:'EGR' };
@@ -81,60 +80,65 @@ export default async function handler(req, res) {
 
   const contextText = ranked.length
     ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
-    : "Aucune correspondance dans la base. Utilise tes connaissances générales sur les FAP et systèmes antipollution.";
+    : "Utilise tes connaissances sur les FAP et systèmes antipollution.";
 
-  // Prompt système SIMPLIFIÉ et DIRECT
+  // Prompt système ULTRA-CONCIS avec informations EXACTES
   const system = `
-Tu es l'assistant virtuel Re-Fap, expert en nettoyage de filtres à particules (FAP).
+Tu es l'assistant Re-Fap, expert en nettoyage de filtres à particules.
 
-RÈGLES ABSOLUES :
-1. CONCISION : Maximum 100-120 mots par réponse (sauf solution finale)
-2. UNE QUESTION À LA FOIS : Ne jamais poser plusieurs questions ensemble
-3. PROGRESSIF : D'abord diagnostic, PUIS solutions (pas l'inverse)
-4. PARAGRAPHES : Éviter les listes à puces, privilégier le texte fluide
+RÈGLE ABSOLUE : Maximum 80 mots par réponse pour que les boutons restent visibles.
 
-PROCESSUS STRICT :
-Étape 1 : Message d'accueil court + UNE question diagnostique
-Étape 2 : Selon la réponse, UNE autre question OU diagnostic
-Étape 3 : Si problème confirmé, présenter LA solution adaptée
-Étape 4 : Question finale : "Êtes-vous capable de démonter vous-même votre FAP ?"
+INFORMATIONS TECHNIQUES EXACTES (CRITIQUES) :
+- Nettoyage Re-Fap = HAUTE PRESSION (PAS ultrason)
+- Seulement CERTAINS Carter-Cash ont la machine (pas tous)
+- TOUJOURS distinguer : "Carter-Cash équipé" vs "autres Carter-Cash"
 
-NE JAMAIS présenter les 3 options de service avant d'avoir diagnostiqué le problème.
+TROIS SERVICES (bien distincts) :
+1. Carter-Cash ÉQUIPÉ machine Re-Fap : 4h, 99-149€
+2. AUTRES Carter-Cash (sans machine) : 48h, 199€ port compris
+3. Garage partenaire : 48h, 99-149€ + main d'œuvre
 
-INFORMATIONS SERVICES (à utiliser APRÈS diagnostic) :
-- Carter-Cash équipé : 4h, 99-149€
-- Carter-Cash non équipé : 48h, 199€ port compris (partout en France)
-- Garage partenaire : 48h, 99-149€ + main d'œuvre
+PROCESSUS :
+1. Accueil court + une question symptôme
+2. Question confirmation si besoin
+3. Diagnostic rapide
+4. "Êtes-vous capable de démonter votre FAP ?"
+5. Solution adaptée COURTE
 
-PREMIÈRE INTERACTION sur "fap" seul :
-"Bonjour ! Je suis votre assistant Re-Fap. Je comprends votre inquiétude concernant votre filtre à particules. Notre service est disponible partout en France pour résoudre ces problèmes à partir de 99€.
+RÉPONSE FINALE pour client qui PEUT démonter :
+"Parfait ! Deux options pour votre FAP démonté :
+- Carter-Cash équipé (machine sur place) : 4h, 99-149€
+- Autres Carter-Cash : envoi atelier 48h, 199€ port compris
+➡️ Cliquez 'Trouver un Carter-Cash' à côté.
+Agissez vite pour protéger votre turbo."
 
-Pour vous orienter au mieux, pouvez-vous me dire quel symptôme principal vous observez : un voyant allumé, une perte de puissance, de la fumée noire, ou autre chose ?"
+RÉPONSE FINALE pour client qui NE PEUT PAS démonter :
+"Nos garages partenaires s'occupent de tout : démontage, nettoyage haute pression, remontage. 
+Service complet 48h, 99-149€ + main d'œuvre.
+➡️ Cliquez 'Trouver un garage partenaire' à côté."
 
-ATTENDRE LA RÉPONSE avant de continuer.`;
+INTERDICTIONS :
+- Jamais dire "ultrason"
+- Jamais dire "tous les Carter-Cash" pour le 4h
+- Pas de listes longues
+- Pas d'italiques`;
 
-  // Consigne utilisateur SIMPLIFIÉE
+  // Consigne utilisateur ULTRA-COURTE
   const userContent = `
 Historique : ${historique || '(Première interaction)'}
-Question client : ${question}
+Question : ${question}
 
-=== CONTEXTE ===
-${contextText}
+CONTEXTE : ${contextText}
 
-INSTRUCTIONS CRITIQUES :
-1. LONGUEUR : 100-120 mots MAX (sauf présentation finale des solutions)
-2. STRUCTURE : Une seule question par message, attendre la réponse
-3. Ne JAMAIS lister toutes les options avant le diagnostic
-4. Si le client dit juste "fap", poser UNE question sur les symptômes
-5. Si symptômes multiples graves, passer vite au diagnostic (2 questions max)
+RÈGLES STRICTES :
+1. MAX 80 MOTS (boutons doivent rester visibles)
+2. JAMAIS dire "ultrason" - dire "haute pression"
+3. TOUJOURS préciser "Carter-Cash équipé" pour le 4h
+4. Distinguer "autres Carter-Cash" pour le 48h/199€
+5. Une seule question par message
+6. Pas de parenthèses ni italiques
 
-ADAPTATION :
-- Si "fap" seul → Question sur les symptômes principaux
-- Si symptômes décrits → Question de confirmation (voyant fixe/clignotant)
-- Si urgence confirmée → Solution directe
-- Toujours finir par : "Êtes-vous capable de démonter vous-même votre FAP ?"
-
-INTERDICTION : Ne pas présenter les 3 types de services dans le premier message.`;
+Si client dit "je peux démonter", utiliser EXACTEMENT le format court prévu.`;
 
   try {
     const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
@@ -145,9 +149,9 @@ INTERDICTION : Ne pas présenter les 3 types de services dans le premier message
       },
       body: JSON.stringify({
         model: "mistral-medium-latest",
-        temperature: 0.2,  // Plus bas pour plus de concision
-        top_p: 0.8,        // Plus restrictif pour éviter la verbosité
-        max_tokens: 400,   // Limité pour forcer la concision
+        temperature: 0.1,  // Très bas pour être direct et précis
+        top_p: 0.7,        // Restrictif pour éviter les dérives
+        max_tokens: 250,   // Limite stricte pour forcer la concision
         messages: [
           { role: "system", content: system },
           { role: "user", content: userContent }
@@ -156,9 +160,9 @@ INTERDICTION : Ne pas présenter les 3 types de services dans le premier message
     });
 
     if (!r.ok) {
-      const fallbackMessage = `Bonjour ! Je suis votre assistant Re-Fap. Notre service de nettoyage professionnel est disponible partout en France à partir de 99€.
+      const fallbackMessage = `Bonjour ! Je suis votre assistant Re-Fap. Notre nettoyage haute pression est disponible partout en France.
 
-Pour vous aider efficacement, pouvez-vous me dire quel problème vous rencontrez avec votre FAP : voyant allumé, perte de puissance, fumée noire, ou autre symptôme ?`;
+Pour vous aider, quel symptôme observez-vous : voyant allumé, perte de puissance, fumée noire ?`;
       
       return res.status(200).json({ 
         reply: fallbackMessage, 
@@ -170,9 +174,9 @@ Pour vous aider efficacement, pouvez-vous me dire quel problème vous rencontrez
     const reply = (data.choices?.[0]?.message?.content || '').trim();
     
     if (!reply) {
-      const defaultReply = `Bonjour ! Je suis votre assistant Re-Fap, spécialisé dans le nettoyage de filtres à particules. Notre service est disponible partout en France à partir de 99€.
+      const defaultReply = `Bonjour ! Assistant Re-Fap à votre service. Nettoyage haute pression disponible partout en France dès 99€.
 
-Quel symptôme principal observez-vous sur votre véhicule : voyant allumé, perte de puissance, fumée noire, ou autre chose ?`;
+Quel problème rencontrez-vous : voyant FAP, perte de puissance, ou fumée noire ?`;
       
       return res.status(200).json({ 
         reply: defaultReply, 
@@ -188,9 +192,9 @@ Quel symptôme principal observez-vous sur votre véhicule : voyant allumé, per
   } catch (error) {
     console.error('Erreur API:', error);
     
-    const backupMessage = `Bonjour ! Je comprends que vous avez un souci de FAP. Notre service est disponible partout en France.
+    const backupMessage = `Bonjour ! Problème FAP ? Notre nettoyage haute pression résout ça.
 
-Pour vous orienter vers la meilleure solution, pouvez-vous me dire si vous avez un voyant allumé sur votre tableau de bord ?`;
+Avez-vous un voyant allumé sur votre tableau de bord ?`;
     
     return res.status(200).json({ 
       reply: backupMessage, 
