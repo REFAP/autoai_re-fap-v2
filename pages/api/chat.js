@@ -15,6 +15,7 @@ function normalize(s='') {
     .replace(/\s+/g,' ')
     .trim();
 }
+
 function tokenize(s) {
   return normalize(s).split(' ').filter(t => t && t.length>2 && !STOPWORDS_FR.has(t));
 }
@@ -44,8 +45,14 @@ function scoreBlock(block, queryTokens) {
 
 function classify(text) {
   const txt = normalize(text);
-  if (/\bfap\b|\bdpf\b|\bfiltre a particule/.test(txt)) return { type:'FAP' };
-  if (/\bdiag(nostic)?\b|\brdv\b|\brendez.?vous\b|\burgent/.test(txt)) return { type:'DIAG' };
+  
+  // Classification améliorée et plus précise
+  if (/voyant.*clignotant|urgent|arrêt.*immédiat|danger/.test(txt)) return { type:'URGENT' };
+  if (/\bfap\b|\bdpf\b|\bfiltre.*particule|saturé|encrassé|colmaté/.test(txt)) return { type:'FAP' };
+  if (/\begr\b|vanne.*egr|recirculation.*gaz/.test(txt)) return { type:'EGR' };
+  if (/\badblue\b|niveau.*adblue|def\b/.test(txt)) return { type:'ADBLUE' };
+  if (/\bdiag(nostic)?\b|\brdv\b|\brendez.?vous|garage.*partenaire|carter.*cash/.test(txt)) return { type:'DIAG' };
+  
   return { type:'GEN' };
 }
 
@@ -74,24 +81,69 @@ export default async function handler(req, res) {
 
   const contextText = ranked.length
     ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
-    : "Aucune correspondance fiable dans la base locale. Donne une réponse brève et honnête, puis pose 2 questions de clarification utiles.";
+    : "Aucune correspondance dans la base. Utilise tes connaissances générales sur les FAP et systèmes antipollution.";
 
+  // Prompt système amélioré pour un comportement empathique et structuré
   const system = `
-Tu es AutoAI, mécano expérimenté, direct et pro.
-Règles: 1) tri rapide (FAP / non-FAP / hors sujet), 2) 1 à 3 questions max si flou,
-3) réponse courte, pédagogique, actionnable, 4) propose un CTA cohérent (FAP -> démonté ? oui = Carter-Cash ; non = Garage partenaire ; non-FAP -> diagnostic partenaire).
-Interdits: pas d'inventions; si tu ne sais pas, dis-le. Appuie-toi sur le CONTEXTE quand pertinent.`;
+Tu es l'assistant virtuel Re-Fap, spécialisé dans le diagnostic des problèmes de FAP (Filtre à Particules) et systèmes antipollution automobile.
 
+PRINCIPES FONDAMENTAUX :
+1. EMPATHIE OBLIGATOIRE : Commence TOUJOURS par un message rassurant et compréhensif face aux inquiétudes du client
+2. DIAGNOSTIC PROGRESSIF : Pose les questions UNE PAR UNE. Ne jamais enchaîner plusieurs questions. Attendre la réponse avant de continuer
+3. PÉDAGOGIE : Explique les problèmes simplement avec des analogies compréhensibles (ex: "Le FAP est comme un filtre de cafetière qui retient les particules")
+4. STRUCTURE : Suis précisément les arbres de décision fournis dans le contexte
+
+PROCESSUS OBLIGATOIRE pour un diagnostic :
+Étape 1 : Message d'accueil empathique et rassurant
+Étape 2 : Première question diagnostique (une seule)
+Étape 3 : Attendre la réponse et poser la question suivante si nécessaire (max 3 questions total)
+Étape 4 : Expliquer simplement le problème identifié
+Étape 5 : Présenter la solution Re-Fap avec les éléments clés :
+  - Prix : 99-149€ (vs 1000-2000€ pour un remplacement)
+  - Délai : 48h en atelier
+  - Garantie : 1 an
+  - Résultat : FAP comme neuf
+Étape 6 : Poser LA question finale : "Êtes-vous capable de démonter vous-même votre FAP ?"
+Étape 7 : Orienter vers le bon bouton selon la réponse
+
+INTERDICTIONS ABSOLUES :
+- Ne JAMAIS donner un diagnostic direct sans poser au moins une question
+- Ne JAMAIS utiliser de style télégraphique, astérisques ou listes à puces excessives
+- Ne JAMAIS sauter les étapes du diagnostic
+- Ne JAMAIS oublier le message empathique initial
+
+QUESTIONS TYPES À POSER selon les symptômes :
+- Voyant allumé : "Le voyant est-il fixe ou clignotant ?"
+- Perte de puissance : "Depuis combien de temps ressentez-vous cette perte de puissance ?"
+- Fumée noire : "La fumée apparaît-elle surtout à l'accélération ?"
+- Général : "Faites-vous principalement des trajets courts en ville ?"
+
+Utilise TOUJOURS le contexte fourni pour les informations techniques et tarifaires.`;
+
+  // Consigne utilisateur améliorée
   const userContent = `
-Historique (résumé): ${historique||'(vide)'}
-Question: ${question}
+Historique de la conversation : ${historique || '(Début de conversation - première interaction)'}
+Question actuelle du client : ${question}
 
-=== CONTEXTE STRUCTURÉ ===
+=== CONTEXTE TECHNIQUE RE-FAP ===
 ${contextText}
 
-Consigne de sortie:
-- ≤ 120 mots, clair, listes concises ok.
-- Termine par "**Prochaine étape**:" + 1 phrase menant à l'action appropriée.`;
+INSTRUCTIONS PRÉCISES POUR TA RÉPONSE :
+1. Si c'est la première interaction, commence par un accueil chaleureux et rassurant
+2. Adopte un ton professionnel mais empathique, comme un conseiller qui veut vraiment aider
+3. Structure ta réponse en paragraphes courts et clairs
+4. Pose UNE SEULE question à la fois et indique clairement que tu attends la réponse
+5. Limite ta réponse à 150-200 mots maximum
+6. Si tu proposes le nettoyage Re-Fap, mentionne TOUJOURS :
+   - Le prix exact : 99-149€
+   - La comparaison avec un remplacement : plus de 1000€
+   - La garantie : 1 an
+   - Le délai : 48h
+7. Pour l'orientation finale, sois très clair :
+   - Si le client peut démonter : "Cliquez sur 'Trouver un Carter-Cash'"
+   - Si le client ne peut pas : "Cliquez sur 'Trouver un garage partenaire Re-Fap'"
+
+IMPORTANT : Ne conclus JAMAIS sans avoir posé au moins une question diagnostique, même si le problème semble évident.`;
 
   try {
     const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
@@ -102,9 +154,9 @@ Consigne de sortie:
       },
       body: JSON.stringify({
         model: "mistral-medium-latest",
-        temperature: 0.2,
+        temperature: 0.3,  // Légèrement augmenté pour plus de naturel
         top_p: 0.9,
-        max_tokens: 600,
+        max_tokens: 800,   // Augmenté pour permettre des réponses complètes
         messages: [
           { role: "system", content: system },
           { role: "user", content: userContent }
@@ -113,19 +165,54 @@ Consigne de sortie:
     });
 
     if (!r.ok) {
-      const minimal = ranked.length
-        ? `Je m'appuie sur: ${ranked.map(r=>r.title||'info').join(', ')}. ${ranked[0].body.split('\n').slice(0,4).join(' ')}`
-        : `Je ne trouve pas d'info locale fiable. Dis-moi: voyant allumé ? perte de puissance ? odeur/fumée ?`;
-      return res.status(r.status).json({ reply: minimal, nextAction: classify(minimal) });
+      // Message de fallback amélioré et empathique
+      const fallbackMessage = `Je comprends votre inquiétude concernant votre véhicule. Je rencontre actuellement un problème technique, mais je vais quand même vous aider.
+
+Pour mieux vous orienter, pouvez-vous me dire si vous avez un voyant allumé sur votre tableau de bord ? (voyant moteur, FAP, ou autre)
+
+Cela me permettra de vous proposer la meilleure solution pour votre situation.`;
+      
+      return res.status(200).json({ 
+        reply: fallbackMessage, 
+        nextAction: { type: 'DIAG' } 
+      });
     }
 
     const data = await r.json();
-    const reply = (data.choices?.[0]?.message?.content || '').trim() || "Réponse indisponible pour le moment.";
-    return res.status(200).json({ reply, nextAction: classify(reply) });
+    const reply = (data.choices?.[0]?.message?.content || '').trim();
+    
+    if (!reply) {
+      // Message par défaut si pas de réponse
+      const defaultReply = `Je suis votre assistant Re-Fap. Je vais vous aider à diagnostiquer votre problème de véhicule.
 
-  } catch {
-    const backup = `Problème technique. Réponds à ces 2 questions: (1) voyant allumé ? (2) perte de puissance ? Puis on oriente.`;
-    return res.status(200).json({ reply: backup, nextAction: { type:'GEN' } });
+Pouvez-vous me décrire le principal symptôme que vous rencontrez ? (voyant allumé, perte de puissance, fumée noire, etc.)
+
+Je pourrai ainsi vous orienter vers la solution la plus adaptée et économique.`;
+      
+      return res.status(200).json({ 
+        reply: defaultReply, 
+        nextAction: { type: 'GEN' } 
+      });
+    }
+
+    return res.status(200).json({ 
+      reply, 
+      nextAction: classify(reply) 
+    });
+
+  } catch (error) {
+    console.error('Erreur API:', error);
+    
+    // Message de secours en cas d'erreur
+    const backupMessage = `Je comprends que vous rencontrez un problème avec votre véhicule. Pour vous aider efficacement, j'ai besoin de quelques informations.
+
+Commençons par le plus important : avez-vous un voyant allumé sur votre tableau de bord ?
+
+Si oui, pouvez-vous me préciser lequel (voyant moteur, FAP, AdBlue, etc.) ?`;
+    
+    return res.status(200).json({ 
+      reply: backupMessage, 
+      nextAction: { type: 'GEN' } 
+    });
   }
 }
-
