@@ -1,5 +1,5 @@
 []
-Le nettoyage FAP proposé par Re-Fap coûte entre 99€ et 149€. Il évite un remplacement complet (2000€) et restaure les performances.
+Le nettoyage FAP proposé par Re-Fap coûte entre 99€ et 149€. Il évite un remplacement complet (+ de 1000€) et restaure les performances d'origines du FAP.
 Pour prendre rdv dans un garage partenaire, il faut juste cliquer sur le bouton associé à coté de la fenetre de dialogue.
 
 [Voyant moteur allumé]
@@ -18,13 +18,12 @@ Un voyant moteur peut être lié à la vanne EGR, au FAP ou à un problème de c
 
 👉 CONCLUSION APRES AVOIR REP AUX QUESTIONS :
 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
-SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
+SI OUI : IL doit poser son fap dans le CARTER-CASH le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
 SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
-
+SI PAS PB FAP, conseiller de faire rapidement un diagnostic OBD chez un de nos garages de confiance près de chez lui. Grâce au diagnostic la panne sera vite déterminée et nos garages partenaires proposent la solution la plus adaptée et la moins coûteuse. En cliquant sur le bouton "trouver un garage partenaire re-fap" à côté de la fenêtre de dialogue le client pourra obtenir après avoir indiqué son Immatriculation et son code postal un rdv dans un garage partenaire près de chez lui.
 
 [Voyant FAP]
-Quand le voyant FAP s’allume, cela indique une saturation du filtre. Un nettoyage est souvent suffisant.
+Quand le voyant FAP s’allume, cela indique souvent une saturation du filtre. Un nettoyage re-fap est la solution efficace pour un retrouver un fonctionnement comme neuf.
 
 > Questions à poser :
 1. Le voyant vient-il de s’allumer ?
@@ -32,14 +31,14 @@ Quand le voyant FAP s’allume, cela indique une saturation du filtre. Un nettoy
    - Non (voyant présent depuis plusieurs trajets) → Risque d’endommager le moteur → Nettoyage urgent.
 
 2. Y a-t-il perte de puissance ?
-   - Oui → Saturation avancée → RDV nécessaire.
-   - Non → Nettoyage recommandé pour éviter aggravation.
+   - Oui → cela indique souvent que le FAP est saturé → RDV nécessaire.
+   - Non → Nettoyage recommandé pour éviter aggravation et blocage rapide de la puissance
 
 👉 CONCLUSION APRES AVOIR REP AUX QUESTIONS :
 👉 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
 SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
 SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
+SI PAS PB FAP, conseiller de faire rapidement un diagnostic OBD chez un de nos garages de confiance près de chez lui. Grâce au diagnostic la panne sera vite déterminée et nos garages partenaires proposent la solution la plus adaptée et la moins coûteuse. En cliquant sur le bouton "trouver un garage partenaire re-fap" à côté de la fenêtre de dialogue le client pourra obtenir après avoir indiqué son Immatriculation et son code postal un rdv dans un garage partenaire près de chez lui.
 
 
 [EGR encrassée]
@@ -58,7 +57,7 @@ Une vanne EGR encrassée peut provoquer des ratés moteur, une perte de puissanc
 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
 SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
 SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
+SI PAS PB FAP, conseiller de faire rapidement un diagnostic OBD chez un de nos garages de confiance près de chez lui. Grâce au diagnostic la panne sera vite déterminée et nos garages partenaires proposent la solution la plus adaptée et la moins coûteuse. En cliquant sur le bouton "trouver un garage partenaire re-fap" à côté de la fenêtre de dialogue le client pourra obtenir après avoir indiqué son Immatriculation et son code postal un rdv dans un garage partenaire près de chez lui.
 
 
 [AdBlue]
@@ -78,12 +77,12 @@ Le système AdBlue réduit les NOx. S’il est vide, un message d’alerte appar
 si le problème persiste après appoint → 👉 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
 SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
 SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
+SI PAS PB FAP, conseiller de faire rapidement un diagnostic OBD chez un de nos garages de confiance près de chez lui. Grâce au diagnostic la panne sera vite déterminée et nos garages partenaires proposent la solution la plus adaptée et la moins coûteuse. En cliquant sur le bouton "trouver un garage partenaire re-fap" à côté de la fenêtre de dialogue le client pourra obtenir après avoir indiqué son Immatriculation et son code postal un rdv dans un garage partenaire près de chez lui.
 
 
 [Nettoyage Re-Fap]
-Le nettoyage FAP proposé par Re-Fap coûte entre 99€ et 149€.  
-Il évite un remplacement complet (2000€) et restaure les performances.
+Le nettoyage FAP proposé par Re-Fap coûte entre 99€ et 149€ chez CARTER-CASH.  
+Il évite un remplacement complet (>1000€) et restaure les performances.
 
 > Questions à poser :
 1. Votre voyant FAP est-il allumé ?
@@ -98,7 +97,7 @@ Il évite un remplacement complet (2000€) et restaure les performances.
 👉 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
 SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
 SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
+SI PAS PB FAP, conseiller de faire rapidement un diagnostic OBD chez un de nos garages de confiance près de chez lui. Grâce au diagnostic la panne sera vite déterminée et nos garages partenaires proposent la solution la plus adaptée et la moins coûteuse. En cliquant sur le bouton "trouver un garage partenaire re-fap" à côté de la fenêtre de dialogue le client pourra obtenir après avoir indiqué son Immatriculation et son code postal un rdv dans un garage partenaire près de chez lui.
 
 [INFOS FONCTIONNEMENT RE FAP]
 Résumé du fonctionnement Re-Fap :
@@ -119,12 +118,13 @@ Résumé du fonctionnement Re-Fap :
 👉 SI PB FAP, demander si l'utilisateur sait demonter son fap. 
 SI OUI : IL doit poser son fap dans le carter cash le plus proche de chez lui en cliquant sur le bouton "Trouver un Carter cash" a coté de la fenetre de dialogue
 SI NON : il doit trouver un garage partenaire re fap en cliquant sur "Trouver un garage partenaire re fap" a coté de la fenetre de dialogue
-SI PAS PB FAP, Orienter vers carter cash en cliquant sur le bouton a coté de la fenetre de dialogue
+SI PAS PB FAP, conseiller de faire rapidement un diagnostic OBD chez un de nos garages de confiance près de chez lui. Grâce au diagnostic la panne sera vite déterminée et nos garages partenaires proposent la solution la plus adaptée et la moins coûteuse. En cliquant sur le bouton "trouver un garage partenaire re-fap" à côté de la fenêtre de dialogue le client pourra obtenir après avoir indiqué son Immatriculation et son code postal un rdv dans un garage partenaire près de chez lui.
 
 
 [PRENDRE RENDEZ VOUS GARAGE PARTENAIRE RDV RENDEZ-VOUS]
 👉 Inviter l’utilisateur à appuyer sur le bouton **"Trouver un garage partenaire"** à côté de la fenêtre de dialogue.  
 Cela le redirigera directement vers la prise de rendez-vous.
+
 
 
 
