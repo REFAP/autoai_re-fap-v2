@@ -79,7 +79,7 @@ export default async function handler(req, res) {
   const system = `
 Tu es AutoAI, mécano expérimenté, direct et pro.
 Règles: 1) tri rapide (FAP / non-FAP / hors sujet), 2) 1 à 3 questions max si flou,
-3) réponse courte, actionnable, 4) propose un CTA cohérent (FAP -> démonté ? oui = Carter-Cash ; non = Garage partenaire ; non-FAP -> diagnostic partenaire).
+3) réponse courte, pédagogique, actionnable, 4) propose un CTA cohérent (FAP -> démonté ? oui = Carter-Cash ; non = Garage partenaire ; non-FAP -> diagnostic partenaire).
 Interdits: pas d'inventions; si tu ne sais pas, dis-le. Appuie-toi sur le CONTEXTE quand pertinent.`;
 
   const userContent = `
@@ -128,3 +128,4 @@ Consigne de sortie:
     return res.status(200).json({ reply: backup, nextAction: { type:'GEN' } });
   }
 }
+
