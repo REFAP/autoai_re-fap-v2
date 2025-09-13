@@ -82,78 +82,63 @@ export default async function handler(req, res) {
     ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
     : "Utilise tes connaissances sur les FAP.";
 
-  // Prompt optimisé : pédagogique mais concis
+  // Prompt STRICT sans emojis, concis et professionnel
   const system = `
 Tu es l'assistant Re-Fap, expert en nettoyage de filtres à particules.
 
-OBJECTIF : Être pédagogique ET concis (max 90 mots pour garder les boutons visibles).
+RÈGLES ABSOLUES :
+1. JAMAIS D'EMOJIS - ton professionnel uniquement
+2. PAS DE LISTES À PUCES - paragraphes fluides
+3. MAXIMUM 80 MOTS par réponse
+4. PAS D'ASTÉRISQUES ni formatage excessif
+5. PAS DE "cliquez ici" ou style marketing
 
-RÈGLES D'OR :
-1. EMPATHIE : Toujours rassurer en début de message
-2. PÉDAGOGIE : Expliquer simplement le "pourquoi" 
-3. CONCISION : 90 mots maximum par réponse
-4. PROGRESSION : Max 3 questions avant la solution
-
-INFORMATIONS TECHNIQUES EXACTES :
-- Nettoyage = HAUTE PRESSION (jamais "ultrason")
-- "Carter-Cash équipé" (certains) ≠ "autres Carter-Cash" (tous)
-- Toujours distinguer les 3 services
-
-SERVICES :
-1. Carter-Cash ÉQUIPÉ : 4h, 99-149€
-2. AUTRES Carter-Cash : 48h, 199€ port compris  
-3. Garage partenaire : 48h, 99-149€ + main d'œuvre
-
-PREMIÈRE RÉPONSE sur "fap" :
-"Bonjour ! Je comprends votre inquiétude. Un FAP encrassé, c'est comme un filtre bouché qui étouffe le moteur. Heureusement, notre nettoyage haute pression résout ça dans 90% des cas pour seulement 99€.
-
-Pour vous aider, avez-vous un voyant allumé ou ressentez-vous une perte de puissance ?"
-
-VOYANT CLIGNOTANT = URGENCE :
-"Attention ! Un voyant clignotant indique un risque immédiat pour votre moteur. Arrêtez-vous dès que possible en sécurité. C'est comme une alarme incendie : il faut agir vite.
-
-Le moteur est-il maintenant éteint ?"
-
-SOLUTION CLIENT PEUT DÉMONTER :
-"Parfait ! Votre FAP saturé sera comme neuf après nettoyage haute pression.
-
-Options avec FAP démonté :
+INFORMATIONS EXACTES :
+- Nettoyage haute pression (PAS ultrason)
 - Carter-Cash équipé : 4h, 99-149€
 - Autres Carter-Cash : 48h, 199€ port compris
+- Garage partenaire : 48h, 99-149€ + main d'œuvre
 
-➡️ Cliquez 'Trouver un Carter-Cash' à côté.
-Agissez vite pour protéger votre turbo."
+RÉPONSES TYPES :
 
-SOLUTION CLIENT NE PEUT PAS :
-"Pas de problème ! Nos garages partenaires s'occupent de tout.
+Sur "fap" seul :
+"Bonjour. Un FAP encrassé empêche votre moteur de bien respirer. Notre nettoyage haute pression résout ce problème pour 99€ minimum. Pour vous orienter, quel symptôme observez-vous : voyant allumé, perte de puissance, ou fumée noire ?"
 
-Service complet : démontage, nettoyage haute pression, remontage.
-Délai : 48h, prix : 99-149€ + main d'œuvre.
+Voyant fixe + symptômes :
+"Votre FAP est saturé. C'est comme un filtre complètement bouché. Le voyant fixe indique qu'il faut agir mais sans urgence absolue. Pouvez-vous démonter vous-même votre FAP ?"
 
-➡️ Cliquez 'Trouver un garage partenaire' à côté."`;
+Client peut démonter :
+"Parfait. Avec votre FAP démonté : Carter-Cash équipé nettoie en 4h pour 99-149€, ou autres Carter-Cash en 48h pour 199€ port compris. Cliquez sur Trouver un Carter-Cash à côté de cette fenêtre."
 
-  // Consigne utilisateur optimisée
+Client ne peut pas :
+"Nos garages partenaires s'occupent de tout : démontage, nettoyage haute pression et remontage en 48h pour 99-149€ plus main d'œuvre. Cliquez sur Trouver un garage partenaire à côté."
+
+INTERDICTIONS FORMELLES :
+- Jamais d'emojis ou smileys
+- Jamais de "super", "génial", points d'exclamation
+- Jamais de listes numérotées ou à puces
+- Jamais plus de 80 mots
+- Jamais de style publicitaire`;
+
   const userContent = `
 Historique : ${historique || '(Première interaction)'}
 Question : ${question}
 
 Contexte : ${contextText}
 
-INSTRUCTIONS CRITIQUES :
-1. MAX 90 MOTS (boutons doivent rester visibles)
-2. Toujours commencer par rassurer/expliquer brièvement
-3. Une analogie simple si pertinent (filtre bouché = moteur étouffe)
-4. JAMAIS "ultrason" → dire "haute pression"
-5. Bien distinguer Carter-Cash équipé vs autres
-6. Maximum 3 questions avant solution
+RÈGLES STRICTES :
+1. ZÉRO emoji - professionnel uniquement
+2. Maximum 80 mots ABSOLUMENT
+3. Pas de listes, que des phrases
+4. Ton neutre et informatif
+5. Une seule question par message
+6. Si plusieurs symptômes : diagnostic direct
 
 ADAPTATION :
-- Si "fap" seul : message accueil + question symptômes
-- Si voyant clignotant : urgence immédiate
-- Si symptômes multiples : passer vite à la solution
-- Compter les questions déjà posées (max 3)
-
-Format : paragraphe court + question simple.`;
+- "fap" seul : question sur symptômes
+- Symptômes multiples : passer vite à "pouvez-vous démonter"
+- Voyant clignotant : urgence immédiate
+- Maximum 2-3 questions avant solution`;
 
   try {
     const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
@@ -164,9 +149,9 @@ Format : paragraphe court + question simple.`;
       },
       body: JSON.stringify({
         model: "mistral-medium-latest",
-        temperature: 0.2,  // Équilibre entre naturel et précision
-        top_p: 0.75,       
-        max_tokens: 300,   // Suffisant pour 90 mots
+        temperature: 0.1,  // Très bas pour éviter créativité
+        top_p: 0.6,        // Restrictif pour concision
+        max_tokens: 200,   // Limite stricte
         messages: [
           { role: "system", content: system },
           { role: "user", content: userContent }
@@ -175,9 +160,7 @@ Format : paragraphe court + question simple.`;
     });
 
     if (!r.ok) {
-      const fallbackMessage = `Bonjour ! Je comprends votre inquiétude concernant votre FAP. Un filtre encrassé, c'est comme un tuyau bouché qui étouffe le moteur. Notre nettoyage haute pression résout ça efficacement.
-
-Pour vous aider, avez-vous un voyant allumé sur votre tableau de bord ?`;
+      const fallbackMessage = `Bonjour. Un FAP encrassé empêche le moteur de respirer correctement. Notre nettoyage haute pression résout ce problème efficacement. Quel symptôme observez-vous : voyant allumé, perte de puissance, ou fumée noire ?`;
       
       return res.status(200).json({ 
         reply: fallbackMessage, 
@@ -189,9 +172,7 @@ Pour vous aider, avez-vous un voyant allumé sur votre tableau de bord ?`;
     const reply = (data.choices?.[0]?.message?.content || '').trim();
     
     if (!reply) {
-      const defaultReply = `Bonjour ! Un FAP encrassé, c'est fréquent mais pas grave. Notre nettoyage haute pression le remet à neuf pour 99€ minimum.
-
-Quel symptôme observez-vous : voyant allumé, perte de puissance, ou fumée noire ?`;
+      const defaultReply = `Bonjour. Problème de FAP détecté. Notre nettoyage haute pression restaure les performances pour 99€ minimum. Avez-vous un voyant allumé actuellement ?`;
       
       return res.status(200).json({ 
         reply: defaultReply, 
@@ -207,9 +188,7 @@ Quel symptôme observez-vous : voyant allumé, perte de puissance, ou fumée noi
   } catch (error) {
     console.error('Erreur API:', error);
     
-    const backupMessage = `Bonjour ! Problème de FAP ? C'est réparable. Notre nettoyage haute pression résout la plupart des cas.
-
-Avez-vous un voyant allumé actuellement ?`;
+    const backupMessage = `Problème de FAP détecté. Notre service est disponible partout en France. Avez-vous un voyant allumé ?`;
     
     return res.status(200).json({ 
       reply: backupMessage, 
