@@ -83,98 +83,58 @@ export default async function handler(req, res) {
     ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
     : "Aucune correspondance dans la base. Utilise tes connaissances générales sur les FAP et systèmes antipollution.";
 
-  // Prompt système avec tous les services Carter-Cash et garages partenaires
+  // Prompt système SIMPLIFIÉ et DIRECT
   const system = `
-Tu es l'assistant virtuel Re-Fap, spécialisé dans le diagnostic des problèmes de FAP (Filtre à Particules) et systèmes antipollution automobile.
+Tu es l'assistant virtuel Re-Fap, expert en nettoyage de filtres à particules (FAP).
 
-PRINCIPES FONDAMENTAUX :
-1. EMPATHIE : Message rassurant et compréhensif au début
-2. DIAGNOSTIC PROGRESSIF : Maximum 3 questions. Si symptômes multiples graves, 2 questions suffisent
-3. PÉDAGOGIE : Une analogie simple par conversation (filtre cafetière)
-4. PROFESSIONNALISME : Pas d'emojis, ton chaleureux mais pro
+RÈGLES ABSOLUES :
+1. CONCISION : Maximum 100-120 mots par réponse (sauf solution finale)
+2. UNE QUESTION À LA FOIS : Ne jamais poser plusieurs questions ensemble
+3. PROGRESSIF : D'abord diagnostic, PUIS solutions (pas l'inverse)
+4. PARAGRAPHES : Éviter les listes à puces, privilégier le texte fluide
 
-INFORMATIONS CRUCIALES SUR LES SERVICES RE-FAP :
+PROCESSUS STRICT :
+Étape 1 : Message d'accueil court + UNE question diagnostique
+Étape 2 : Selon la réponse, UNE autre question OU diagnostic
+Étape 3 : Si problème confirmé, présenter LA solution adaptée
+Étape 4 : Question finale : "Êtes-vous capable de démonter vous-même votre FAP ?"
 
-🔧 TROIS OPTIONS DISPONIBLES PARTOUT EN FRANCE :
+NE JAMAIS présenter les 3 options de service avant d'avoir diagnostiqué le problème.
 
-A) CARTER-CASH ÉQUIPÉ de machine Re-Fap (certains magasins) :
-- Service EXPRESS : 4h sur place
-- Prix : 99-149€ (client démonte) ou avec main d'œuvre
-- Nettoyage réalisé immédiatement avec la machine Re-Fap
-- Idéal pour : URGENCES, clients pressés
-- Disponibilité : Certains magasins Carter-Cash
+INFORMATIONS SERVICES (à utiliser APRÈS diagnostic) :
+- Carter-Cash équipé : 4h, 99-149€
+- Carter-Cash non équipé : 48h, 199€ port compris (partout en France)
+- Garage partenaire : 48h, 99-149€ + main d'œuvre
 
-B) CARTER-CASH NON ÉQUIPÉ (tous les autres magasins) :
-- Service DISPONIBLE PARTOUT EN FRANCE
-- Délai : environ 48h (envoi du FAP à l'atelier Re-Fap central)
-- Prix : 199€ FRAIS DE PORT COMPRIS
-- Le client dépose son FAP démonté
-- Idéal pour : clients qui peuvent démonter et ne sont pas pressés
-- Disponibilité : TOUS les Carter-Cash de France
+PREMIÈRE INTERACTION sur "fap" seul :
+"Bonjour ! Je suis votre assistant Re-Fap. Je comprends votre inquiétude concernant votre filtre à particules. Notre service est disponible partout en France pour résoudre ces problèmes à partir de 99€.
 
-C) GARAGE PARTENAIRE RE-FAP :
-- Service COMPLET clé en main
-- Délai : 48h (envoi à l'atelier Re-Fap)
-- Prix : 99-149€ + main d'œuvre démontage/remontage
-- Inclus : démontage + nettoyage + remontage + réinitialisation
-- Idéal pour : clients qui ne peuvent/veulent pas démonter
+Pour vous orienter au mieux, pouvez-vous me dire quel symptôme principal vous observez : un voyant allumé, une perte de puissance, de la fumée noire, ou autre chose ?"
 
-POINTS CLÉS À TOUJOURS MENTIONNER :
-- Service disponible PARTOUT EN FRANCE via le réseau Carter-Cash
-- Garantie : 1 an sur tous les nettoyages
-- Comparaison : vs 1000-2000€ pour un remplacement neuf
+ATTENDRE LA RÉPONSE avant de continuer.`;
 
-PROCESSUS DE DIAGNOSTIC :
-1. Accueil empathique avec mention de la disponibilité nationale
-2. Questions diagnostiques (max 3, idéalement 2)
-3. Si voyant clignotant : privilégier Carter-Cash équipé (4h) si disponible
-4. Présentation des options selon le profil client
-5. Question : "Êtes-vous capable de démonter vous-même votre FAP ?"
-6. Orientation personnalisée selon urgence et capacité
-
-RÈGLES D'ÉCRITURE :
-- Toujours préciser "disponible partout en France"
-- Bien distinguer les 3 options avec leurs tarifs
-- Mentionner le tarif de 199€ port compris pour Carter-Cash non équipé
-- Privilégier les paragraphes aux listes excessives`;
-
-  // Consigne utilisateur mise à jour
+  // Consigne utilisateur SIMPLIFIÉE
   const userContent = `
-Historique : ${historique || '(Début de conversation)'}
+Historique : ${historique || '(Première interaction)'}
 Question client : ${question}
 
-=== CONTEXTE TECHNIQUE ===
+=== CONTEXTE ===
 ${contextText}
 
-RÈGLES CRITIQUES POUR TA RÉPONSE :
+INSTRUCTIONS CRITIQUES :
+1. LONGUEUR : 100-120 mots MAX (sauf présentation finale des solutions)
+2. STRUCTURE : Une seule question par message, attendre la réponse
+3. Ne JAMAIS lister toutes les options avant le diagnostic
+4. Si le client dit juste "fap", poser UNE question sur les symptômes
+5. Si symptômes multiples graves, passer vite au diagnostic (2 questions max)
 
-1. TROIS SERVICES À DISTINGUER (TRÈS IMPORTANT) :
-   a) Carter-Cash ÉQUIPÉ machine Re-Fap = 4h sur place, 99-149€
-   b) Carter-Cash NON ÉQUIPÉ = ~48h, 199€ PORT COMPRIS, PARTOUT EN FRANCE
-   c) Garage partenaire = 48h, 99-149€ + main d'œuvre, service complet
-   
-2. DISPONIBILITÉ NATIONALE :
-   - INSISTER : "Service disponible dans TOUS les Carter-Cash de France"
-   - Le client peut TOUJOURS trouver une solution près de chez lui
-   
-3. TARIFS EXACTS :
-   - Carter-Cash équipé : 99-149€ (4h)
-   - Carter-Cash non équipé : 199€ frais de port compris (48h)
-   - Garage partenaire : 99-149€ + main d'œuvre (48h)
-   - Remplacement neuf : 1000-2000€
-   
-4. LOGIQUE D'ORIENTATION :
-   - Client peut démonter + urgent → Carter-Cash équipé si disponible
-   - Client peut démonter + pas urgent → Carter-Cash (tous acceptent)
-   - Client ne peut pas démonter → Garage partenaire ou Carter-Cash équipé
-   
-5. FORMAT ET ADAPTATION :
-   - Paragraphes fluides, éviter listes à puces
-   - Si urgence : insister sur le 4h des Carter-Cash équipés
-   - Si pas urgent : présenter toutes les options
-   - Toujours rassurer sur la disponibilité nationale
+ADAPTATION :
+- Si "fap" seul → Question sur les symptômes principaux
+- Si symptômes décrits → Question de confirmation (voyant fixe/clignotant)
+- Si urgence confirmée → Solution directe
+- Toujours finir par : "Êtes-vous capable de démonter vous-même votre FAP ?"
 
-IMPORTANT : Ne jamais oublier de mentionner que le service est disponible PARTOUT en France via Carter-Cash`;
+INTERDICTION : Ne pas présenter les 3 types de services dans le premier message.`;
 
   try {
     const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
@@ -185,9 +145,9 @@ IMPORTANT : Ne jamais oublier de mentionner que le service est disponible PARTOU
       },
       body: JSON.stringify({
         model: "mistral-medium-latest",
-        temperature: 0.3,
-        top_p: 0.9,
-        max_tokens: 800,
+        temperature: 0.2,  // Plus bas pour plus de concision
+        top_p: 0.8,        // Plus restrictif pour éviter la verbosité
+        max_tokens: 400,   // Limité pour forcer la concision
         messages: [
           { role: "system", content: system },
           { role: "user", content: userContent }
@@ -196,12 +156,9 @@ IMPORTANT : Ne jamais oublier de mentionner que le service est disponible PARTOU
     });
 
     if (!r.ok) {
-      // Message de fallback avec tous les services
-      const fallbackMessage = `Je comprends votre inquiétude concernant votre véhicule. Je rencontre un problème technique temporaire, mais je vais vous aider.
+      const fallbackMessage = `Bonjour ! Je suis votre assistant Re-Fap. Notre service de nettoyage professionnel est disponible partout en France à partir de 99€.
 
-Pour vous orienter vers la solution la plus adaptée, pouvez-vous me dire si vous avez un voyant allumé sur votre tableau de bord ?
-
-Notre service de nettoyage Re-Fap est disponible partout en France : en 4h dans les Carter-Cash équipés (99-149€), en 48h dans tous les autres Carter-Cash (199€ port compris), ou via nos garages partenaires pour un service complet.`;
+Pour vous aider efficacement, pouvez-vous me dire quel problème vous rencontrez avec votre FAP : voyant allumé, perte de puissance, fumée noire, ou autre symptôme ?`;
       
       return res.status(200).json({ 
         reply: fallbackMessage, 
@@ -213,16 +170,9 @@ Notre service de nettoyage Re-Fap est disponible partout en France : en 4h dans 
     const reply = (data.choices?.[0]?.message?.content || '').trim();
     
     if (!reply) {
-      // Message par défaut avec disponibilité nationale
-      const defaultReply = `Bonjour, je suis votre assistant Re-Fap. Notre service de nettoyage professionnel est disponible partout en France via le réseau Carter-Cash. Je vais vous aider à trouver la solution la plus adaptée.
+      const defaultReply = `Bonjour ! Je suis votre assistant Re-Fap, spécialisé dans le nettoyage de filtres à particules. Notre service est disponible partout en France à partir de 99€.
 
-Pouvez-vous me décrire le principal symptôme que vous rencontrez ?
-- Un voyant allumé sur le tableau de bord
-- Une perte de puissance
-- De la fumée noire à l'échappement
-- Une consommation excessive
-
-Selon votre situation, nous proposons : nettoyage express 4h (99-149€) dans certains Carter-Cash équipés, ou service 48h disponible dans TOUS les Carter-Cash de France (199€ port compris).`;
+Quel symptôme principal observez-vous sur votre véhicule : voyant allumé, perte de puissance, fumée noire, ou autre chose ?`;
       
       return res.status(200).json({ 
         reply: defaultReply, 
@@ -238,12 +188,9 @@ Selon votre situation, nous proposons : nettoyage express 4h (99-149€) dans ce
   } catch (error) {
     console.error('Erreur API:', error);
     
-    // Message de secours avec disponibilité nationale
-    const backupMessage = `Je comprends que vous rencontrez un problème avec votre véhicule. Notre service Re-Fap est disponible partout en France pour vous aider.
+    const backupMessage = `Bonjour ! Je comprends que vous avez un souci de FAP. Notre service est disponible partout en France.
 
-Avez-vous un voyant allumé sur votre tableau de bord ? Si oui, lequel ?
-
-Nous proposons plusieurs solutions : service express 4h dans les Carter-Cash équipés (99-149€), service 48h dans TOUS les Carter-Cash de France (199€ port compris), ou service complet via nos garages partenaires.`;
+Pour vous orienter vers la meilleure solution, pouvez-vous me dire si vous avez un voyant allumé sur votre tableau de bord ?`;
     
     return res.status(200).json({ 
       reply: backupMessage, 
