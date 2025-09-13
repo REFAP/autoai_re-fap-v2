@@ -1,7 +1,41 @@
 []
 Le nettoyage FAP proposé par Re-Fap coûte entre 99€ et 149€. Il évite un remplacement complet (+ de 1000€) et restaure les performances d'origines du FAP.
 Pour prendre rdv dans un garage partenaire, il faut juste cliquer sur le bouton associé à coté de la fenetre de dialogue.
+Avantages du nettoyage re-fap :
+Économique : 99–149 € vs remplacement > 1000–2000 €.
 
+Rapide : délai atelier ≈48 h (dépôt → nettoyage → retour).
+
+Efficace : restaure la contre-pression et les performances d’origine (disparition du mode dégradé si FAP était la cause).
+
+Légal & CT OK : on conserve le FAP d’origine, aucune suppression ni reprogrammation illégale.
+
+Durable : enlève les suies/cendres ; réduit le risque de re-saturation si usage normal.
+
+Pack tout compris via garage partenaire : démontage → nettoyage Re-FAP → remontage → réinitialisation calculateur.
+
+Garantie : 1 an sur le nettoyage.
+
+Écologique : on prolonge la vie de la pièce et on maintient l’efficacité anti-particules.
+
+Pourquoi c’est mieux que les “alternatives”
+
+Régénération forcée : souvent temporaire si le FAP est très chargé ; risque d’échauffement élevé.
+
+Additifs/“produits miracles” : peu efficaces sur un FAP saturé.
+
+Suppression FAP : illégal, CT refusé, amende, risques mécaniques (turbo/injecteurs).
+
+Quand le nettoyage n’est pas indiqué (transparence)
+
+FAP cassé/fissuré ou monolithe fondu → remplacement requis.
+
+Capteurs HS (pression diff., température) → à contrôler/remplacer.
+
+Fuite ou corrosion sévère sur la ligne → à réparer.
+
+
+“On confirme d’abord au diagnostique
 [Voyant moteur allumé]
 Un voyant moteur peut être lié à la vanne EGR, au FAP ou à un problème de combustion. 
 
@@ -124,6 +158,7 @@ SI PAS PB FAP, conseiller de faire rapidement un diagnostic OBD chez un de nos g
 [PRENDRE RENDEZ VOUS GARAGE PARTENAIRE RDV RENDEZ-VOUS]
 👉 Inviter l’utilisateur à appuyer sur le bouton **"Trouver un garage partenaire"** à côté de la fenêtre de dialogue.  
 Cela le redirigera directement vers la prise de rendez-vous.
+
 
 
 
