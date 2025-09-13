@@ -289,7 +289,37 @@ export default async function handler(req, res) {
       };
       return res.status(200).json({ reply: text, data: clean, nextAction: decideNextActionFromObj(clean, { forceCarter: false, isFap: false }), handoff_meta: meta });
     }
+// dans handler(req, res)
+const { question, historique, vehicle } = req.body || {};
 
+// ... garde tes validations actuelles
+
+// Priorité pour CP/immat : on prend ceux du formulaire s'ils existent
+const cpFromVeh = vehicle?.cp || null;
+const immatFromVeh = vehicle?.immat || null;
+
+// ... remplace là où tu extrais cp/immat :
+const cp = cpFromVeh || extractCp(textPool);
+const immat = immatFromVeh || extractImmat(textPool);
+
+// Dans userContent, ajoute un bloc Contexte :
+const vehCtx = vehicle ? `
+Contexte véhicule:
+- Marque: ${vehicle.marque || '-'}
+- Modèle: ${vehicle.modele || '-'}
+- Année: ${vehicle.annee || '-'}
+- Énergie: ${vehicle.energie || '-'}
+- Immat: ${vehicle.immat || '-'}
+- CP: ${vehicle.cp || '-'}
+` : '';
+
+const userContent = `
+${vehCtx}
+Historique (résumé): ${historique || '(vide)'}
+Question: ${question}
+
+Consigne: rends UNIQUEMENT l'objet JSON conforme au schéma (≤120 mots).`;
+)
     // Kill‑switch urgence FAP (voyant + perte de puissance)
     if (looksUrgentFap(textPool) && !forceCarter) {
       const base = urgentFapJSON();
@@ -373,4 +403,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur" });
   }
 }
+
 
