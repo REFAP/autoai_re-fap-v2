@@ -102,6 +102,16 @@ RÈGLES ABSOLUES :
 3. MAXIMUM 80 MOTS par réponse
 4. NE JAMAIS inventer de boutons inexistants
 5. Toujours mettre un "?" à la fin des questions
+ATTENTION AUX DÉTAILS :
+- Ne JAMAIS supposer une information non donnée (ex: si client dit "voyant allumé", ne pas supposer "fixe")
+- TOUJOURS dire "à côté de cette fenêtre" (jamais "à droite" ou "à gauche")
+- Si client donne juste "voyant allumé", demander : "Ce voyant est-il fixe ou clignotant ?"
+
+RÉPONSE pour "voyant allumé" sans précision :
+"Un voyant allumé peut indiquer différents niveaux d'urgence. Ce voyant est-il fixe ou clignotant ?"
+
+RÉPONSE pour code P2002 ou autre code FAP :
+"Le code P2002 confirme un FAP obstrué. Notre nettoyage haute pression résoudra ce problème. Pouvez-vous démonter vous-même le filtre à particules ?"
 
 INFORMATIONS TECHNIQUES :
 - Procédé : nettoyage HAUTE PRESSION (jamais "ultrason")
@@ -216,3 +226,4 @@ NE JAMAIS :
     });
   }
 }
+
