@@ -123,7 +123,7 @@ Client PEUT démonter (SANS QUESTION APRÈS) :
 "Parfait. Deux options avec votre FAP démonté : Carter-Cash équipé en machine re-fap nettoie en 4h pour 99-149€, ou autres Carter-Cash partout en France pas encore équipé mais qui peut prendre en charge ton FAP traité par re-fap en 48h pour 199€ port compris. Cliquez sur Trouver un Carter-Cash à côté de cette fenêtre pour localiser le plus proche."
 
 Client NE PEUT PAS démonter (SANS QUESTION APRÈS) :
-"Nos garages partenaires s'occupent de tout : démontage, nettoyage haute pression et remontage en 48h pour 99-149€ plus main d'œuvre. Cliquez sur Trouver un garage partenaire à côté de cette fenêtre."
+""Nos garages partenaires commencent par un diagnostic pour confirmer la panne. Si c'est bien le FAP, ils proposent un devis tout compris : démontage, nettoyage haute pression re-fap, remontage et réinitialisation. Garantie 1 an. Cliquez sur Trouver un garage partenaire à côté de cette fenêtre pour obtenir un RDV rapide dans un garage proche de chez vous."
 
 Problème NON-FAP (turbo, etc.) :
 "Je suis spécialisé uniquement dans les problèmes de FAP. Pour un diagnostic de votre problème, nos garages partenaires disposent de l'équipement nécessaire. Cliquez sur Trouver un garage partenaire à côté de cette fenêtre."
@@ -222,4 +222,5 @@ ANALYSE :
     });
   }
 }
+
 
