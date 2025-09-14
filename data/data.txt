@@ -3,8 +3,8 @@ Le nettoyage FAP proposé par Re-Fap coûte entre 99€ et 149€. Il évite un 
 
 [SERVICES RE-FAP]
 TROIS OPTIONS DISPONIBLES :
-- Carter-Cash ÉQUIPÉ (machine sur place) : 4h, 99-149€
-- Carter-Cash NON ÉQUIPÉ (tous les autres) : 48h, 199€ port compris
+- Carter-Cash ÉQUIPÉ machine re-fap (machine sur place) : 4h, 99-149€
+- Carter-Cash NON ÉQUIPÉ machine re-fap (tous les autres) : 48h, 199€ port compris
 - Garage partenaire : 48h, 99-149€ + main d'œuvre
 
 Procédé : nettoyage HAUTE PRESSION (pas ultrason)
@@ -62,3 +62,4 @@ Nettoyage impossible si :
 - Jamais inventer de boutons
 - Jamais dépasser 80 mots
 - Jamais dire "ultrason" (dire "haute pression")
+
