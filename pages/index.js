@@ -6,15 +6,14 @@ export default function Home() {
   const [messages, setMessages] = useState([
     {
       from: 'bot',
-      text:
-        "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Je t’aide à comprendre un voyant, un souci de **FAP/DPF** ou autre panne, et je t’oriente vers la bonne solution. Pose ta question 😄"
+      text: "Bonjour ! Je suis AutoAI, votre expert Re-FAP. Je diagnostique vos problèmes de FAP et vous oriente vers la solution adaptée. Décrivez votre problème."
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState('');
-  const [nextAction, setNextAction] = useState(null); // ← pilote les CTA
+  const [nextAction, setNextAction] = useState(null);
   const chatEndRef = useRef();
 
   useEffect(() => {
@@ -31,11 +30,10 @@ export default function Home() {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    // Limite d'échanges utilisateur
     const userMessagesCount = messages.filter(m => m.from === 'user').length;
     if (userMessagesCount >= 10) {
       setBlocked(true);
-      setError("🔧 Tu as déjà échangé 10 messages avec moi sur ce sujet ! Pour éviter les conversations trop longues, la session s’arrête ici. Tu peux relancer une nouvelle discussion à tout moment 🚀.");
+      setError("Session limitée à 10 messages. Veuillez rafraîchir la page pour une nouvelle conversation.");
       return;
     }
 
@@ -66,7 +64,7 @@ export default function Home() {
         if (res.status === 429) {
           setMessages((msgs) => [
             ...msgs,
-            { from: 'bot', text: "⚠️ Le service est temporairement saturé, merci de réessayer plus tard." },
+            { from: 'bot', text: "Service temporairement saturé. Veuillez réessayer dans quelques instants." },
           ]);
         } else {
           setMessages((msgs) => [
@@ -80,16 +78,16 @@ export default function Home() {
       const data = await res.json();
       const botMsg = {
         from: 'bot',
-        text: data.reply || "Désolé, le service a reçu trop de messages en même temps, merci de renvoyer votre message :).",
+        text: data.reply || "Service temporairement indisponible. Veuillez réessayer.",
       };
       setMessages((msgs) => [...msgs, botMsg]);
-      setNextAction(data.nextAction || { type: 'GEN' }); // ← met à jour l’action suivante (FAP/DIAG/GEN)
+      setNextAction(data.nextAction || { type: 'GEN' });
 
     } catch {
       setLoading(false);
       setMessages((msgs) => [
         ...msgs,
-        { from: 'bot', text: "Désolé, il y a eu une erreur réseau, merci d'actualiser la page :)." },
+        { from: 'bot', text: "Erreur de connexion. Veuillez actualiser la page." },
       ]);
     }
   }
@@ -97,89 +95,217 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Auto AI</title>
+        <title>AutoAI - Expert FAP par Re-FAP</title>
         <link rel="stylesheet" href="/style.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
-      <main className="container">
-        <h1>AutoAI par Re-FAP</h1>
-
-        <div className="chat-and-button">
-          <div id="chat-window" className="chat-window">
-            {messages.map((m, i) => (
-              <div key={i} className={m.from === 'user' ? 'user-msg' : 'bot-msg'}>
-                <strong>{m.from === 'user' ? 'Moi' : 'AutoAI'}:</strong>
-                <ReactMarkdown skipHtml>{m.text.replace(/\n{2,}/g, '\n')}</ReactMarkdown>
+      <div className="app-container">
+        <main className="chat-container">
+          {/* Header */}
+          <div className="chat-header">
+            <div className="header-content">
+              <div className="logo-section">
+                <div className="logo-circle">
+                  <span className="logo-text">AI</span>
+                </div>
+                <div className="header-text">
+                  <h1>AutoAI par Re-FAP</h1>
+                  <p className="subtitle">Expert en diagnostic FAP • Service disponible partout en France</p>
+                </div>
               </div>
-            ))}
-
-            {loading && (
-              <div className="bot-msg typing-indicator">
-                <strong>AutoAI:</strong>
-                <span className="dots"><span>.</span><span>.</span><span>.</span></span>
+              <div className="status-indicator">
+                <span className="status-dot"></span>
+                <span>En ligne</span>
               </div>
-            )}
-
-            <div ref={chatEndRef} />
+            </div>
           </div>
 
-          {/* CTA dynamiques selon la classification */}
-          <div className="garage-button-container">
-            {nextAction?.type === 'FAP' && (
-              <>
-                <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
-                  FAP monté ? Prendre RDV 🔧
-                </a>
-                <a href="https://auto.re-fap.fr" className="carter-button">
-                  FAP démonté ? Dépose Carter-Cash 🛠️
-                </a>
-              </>
-            )}
+          <div className="chat-main">
+            {/* Zone de chat */}
+            <div className="chat-area">
+              <div className="messages-container">
+                {messages.map((m, i) => (
+                  <div key={i} className={`message ${m.from}`}>
+                    <div className="message-header">
+                      {m.from === 'user' ? (
+                        <span className="message-author user-author">Vous</span>
+                      ) : (
+                        <span className="message-author bot-author">AutoAI</span>
+                      )}
+                    </div>
+                    <div className="message-bubble">
+                      <ReactMarkdown>{m.text.replace(/\n{2,}/g, '\n')}</ReactMarkdown>
+                    </div>
+                  </div>
+                ))}
 
-            {nextAction?.type === 'DIAG' && (
-              <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
-                Diagnostic électronique proche de chez toi 🔎
-              </a>
-            )}
+                {loading && (
+                  <div className="message bot">
+                    <div className="message-header">
+                      <span className="message-author bot-author">AutoAI</span>
+                    </div>
+                    <div className="message-bubble">
+                      <div className="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-            {(!nextAction || nextAction.type === 'GEN') && (
-              <>
-                <a href="https://re-fap.fr/trouver_garage_partenaire/" className="garage-button">
-                  Trouver un garage partenaire 🔧
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Zone de saisie */}
+              <form onSubmit={handleSubmit} className="input-form">
+                <div className="input-wrapper">
+                  <input
+                    type="text"
+                    placeholder="Décrivez votre problème de FAP..."
+                    value={input}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setInput(val);
+                      setError(val.length > 600 ? 'Message limité à 600 caractères' : '');
+                    }}
+                    autoComplete="off"
+                    className="message-input"
+                    disabled={blocked}
+                    maxLength={600}
+                  />
+                  <button 
+                    type="submit" 
+                    className="send-button"
+                    disabled={blocked || input.length > 600 || loading || !input.trim()}
+                  >
+                    {loading ? (
+                      <span className="button-loading">...</span>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {error && <div className="error-message">{error}</div>}
+              </form>
+            </div>
+
+            {/* Zone CTA */}
+            <div className="cta-zone">
+              <div className="cta-header">
+                <h3>Actions rapides</h3>
+                <p>Choisissez selon votre situation</p>
+              </div>
+
+              {nextAction?.type === 'FAP' && (
+                <>
+                  <a href="https://re-fap.fr/trouver_garage_partenaire/" className="cta-button primary">
+                    <div className="cta-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
+                      </svg>
+                    </div>
+                    <div className="cta-content">
+                      <span className="cta-title">FAP monté ?</span>
+                      <span className="cta-subtitle">Prendre RDV en garage</span>
+                    </div>
+                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </a>
+
+                  <a href="https://auto.re-fap.fr" className="cta-button secondary">
+                    <div className="cta-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
+                        <path d="M14 2v6h6" stroke="white" strokeWidth="2"/>
+                      </svg>
+                    </div>
+                    <div className="cta-content">
+                      <span className="cta-title">FAP démonté ?</span>
+                      <span className="cta-subtitle">Dépôt Carter-Cash</span>
+                    </div>
+                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </a>
+                </>
+              )}
+
+              {nextAction?.type === 'DIAG' && (
+                <a href="https://re-fap.fr/trouver_garage_partenaire/" className="cta-button primary">
+                  <div className="cta-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <div className="cta-content">
+                    <span className="cta-title">Diagnostic complet</span>
+                    <span className="cta-subtitle">Garage proche de vous</span>
+                  </div>
+                  <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
                 </a>
-                <a href="https://auto.re-fap.fr" className="carter-button">
-                  Trouver un Carter-Cash 🛠️
-                </a>
-              </>
-            )}
+              )}
+
+              {(!nextAction || nextAction.type === 'GEN') && (
+                <>
+                  <a href="https://re-fap.fr/trouver_garage_partenaire/" className="cta-button primary">
+                    <div className="cta-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
+                      </svg>
+                    </div>
+                    <div className="cta-content">
+                      <span className="cta-title">Garage partenaire</span>
+                      <span className="cta-subtitle">Service complet</span>
+                    </div>
+                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </a>
+
+                  <a href="https://auto.re-fap.fr" className="cta-button secondary">
+                    <div className="cta-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
+                        <path d="M14 2v6h6" stroke="white" strokeWidth="2"/>
+                      </svg>
+                    </div>
+                    <div className="cta-content">
+                      <span className="cta-title">Carter-Cash</span>
+                      <span className="cta-subtitle">Dépôt FAP démonté</span>
+                    </div>
+                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </a>
+                </>
+              )}
+
+              <div className="info-card">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span>Service garanti 1 an • Partout en France</span>
+              </div>
+            </div>
           </div>
-        </div>
+        </main>
 
-        <form onSubmit={handleSubmit} className="chat-form">
-          <input
-            type="text"
-            placeholder="Écris ta question ici..."
-            value={input}
-            onChange={(e) => {
-              const val = e.target.value;
-              setInput(val);
-              setError(val.length > 600 ? '⚠️ Ton message ne peut pas dépasser 600 caractères.' : '');
-            }}
-            autoComplete="off"
-            id="user-input"
-            disabled={blocked}
-          />
-          <button type="submit" disabled={blocked || input.length > 600 || loading}>
-            {loading ? 'Envoi…' : 'Envoyer'}
-          </button>
-        </form>
-
-        {error && <p className="error-msg">{error}</p>}
-      </main>
-
-      <footer className="footer">
-        <p>⚠️ AutoAI peut faire des erreurs, envisage de vérifier les informations importantes.</p>
-      </footer>
+        <footer className="footer">
+          <p>AutoAI peut faire des erreurs. Vérifiez les informations importantes auprès d'un professionnel.</p>
+        </footer>
+      </div>
     </>
   );
 }
