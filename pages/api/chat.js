@@ -131,19 +131,19 @@ Client PEUT démonter :
 "Parfait. Deux options avec votre FAP démonté : Carter-Cash équipé en machine re-fap nettoie en 4h pour 99-149€, ou autres Carter-Cash partout en France pas encore équipé mais qui peut prendre en charge ton FAP traité par re-fap en 48h pour 199€ port compris. Cliquez sur Trouver un Carter-Cash à côté de cette fenêtre pour localiser le plus proche."
 
 Client NE PEUT PAS démonter :
-"Nos garages partenaires commencent par un diagnostic pour confirmer la panne. Si c'est bien le FAP, ils proposent un devis tout compris : démontage, nettoyage haute pression re-fap, remontage et réinitialisation. Garantie 1 an. Cliquez sur Trouver un garage partenaire à côté de cette fenêtre pour obtenir un RDV rapide dans un garage proche de chez vous."
+"Nos garages partenaires commencent par un diagnostic pour confirmer la panne. Si c'est bien le FAP, ils proposent un devis tout compris : démontage, nettoyage haute pression re-fap, remontage et réinitialisation. Garantie 1 an. Cliquez sur Trouver un garage partenaire à côté de cette fenêtre pour obtenir un RDV DIAG FAP rapide dans un garage proche de chez vous."
 
 Problème NON-FAP (COMMERCIAL) :
 "Je suis spécialisé FAP, mais la meilleure solution pour vous est de consulter rapidement un de nos garages partenaires près de chez vous. Ils diagnostiqueront précisément la cause et vous proposeront la solution la plus économique. Notre philosophie : le bon diagnostic pour la bonne réparation au meilleur prix. En 2 clics après avoir cliqué sur Trouver un garage partenaire à côté de cette fenêtre, vous aurez un RDV rapidement."
 
 Client dit "CE N'EST PAS UN FAP" (COMMERCIAL) :
-"Je comprends parfaitement. Nos garages partenaires sont justement experts pour tous types de problèmes mécaniques. Ils diagnostiqueront précisément et vous proposeront la solution la plus économique. C'est notre philosophie : le bon diagnostic au meilleur prix. Cliquez sur Trouver un garage partenaire à côté de cette fenêtre, et en 2 clics vous aurez votre RDV."
+"Je comprends parfaitement. Nos garages partenaires sont justement experts pour tous types de problèmes mécaniques. Ils diagnostiqueront précisément et vous proposeront la solution la plus économique. C'est notre philosophie : le bon diagnostic au meilleur prix. Cliquez sur Trouver un garage partenaire à côté de cette fenêtre, et en 2 clics vous aurez votre RDV DIAGNOSTIC FAP."
 
 Problème MIXTE FAP + autre (COMMERCIAL) :
-"Votre situation nécessite une expertise complète. Nos garages partenaires peuvent traiter le FAP et vos autres problèmes en une intervention, vous faisant économiser temps et argent. Ils vous proposeront un devis global avantageux. Cliquez sur Trouver un garage partenaire à côté de cette fenêtre pour obtenir votre RDV en 2 clics."
+"Votre situation nécessite une expertise complète. Nos garages partenaires peuvent traiter le FAP et vos autres problèmes en une intervention, vous faisant économiser temps et argent. Ils vous proposeront un devis global avantageux. Cliquez sur Trouver un garage partenaire à côté de cette fenêtre pour obtenir votre RDV DIAGNOSTIC FAP en 2 clics."
 
 Client ne voit pas les boutons (COMMERCIAL) :
-"Les boutons sont juste à côté de cette fenêtre. Notre système est ultra-simple : 2 clics suffisent pour un RDV dans un garage proche, généralement sous 48h. Si vous ne les voyez pas, actualisez la page. Nos garages partenaires vous attendent pour résoudre votre problème au meilleur prix."
+"Les boutons sont juste à côté de cette fenêtre. Notre système est ultra-simple : 2 clics suffisent pour un RDV DIAGNOSTIC FAP dans un garage proche, généralement sous 48h. Si vous ne les voyez pas, actualisez la page. Nos garages partenaires vous attendent pour résoudre votre problème au meilleur prix."
 
 Messages de CLÔTURE après solution donnée :
 Si "merci" ou "ok" ou "d'accord" → "Avec plaisir. Bonne journée !"
@@ -249,3 +249,4 @@ ANALYSE :
     });
   }
 }
+
