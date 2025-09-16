@@ -3,37 +3,10 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 
 export default function GarageLanding() {
-  const [showModal, setShowModal] = useState(false);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('dontShowGarageModal');
-    if (stored === 'true') {
-      setDontShowAgain(true);
-    }
-  }, []);
-
-  const handleCTAClick = () => {
-    if (dontShowAgain || localStorage.getItem('dontShowGarageModal') === 'true') {
-      window.open('https://www.idgarages.com/fr-fr/prestations/diagnostic-electronique?utm_source=re-fap&utm_medium=partenariat&utm_campaign=diagnostic-electronique&ept-publisher=re-fap&ept-name=re-fap-diagnostic-electronique', '_blank');
-    } else {
-      setShowModal(true);
-    }
-  };
-
-  const handleCloseModal = () => {
-    if (dontShowAgain) {
-      localStorage.setItem('dontShowGarageModal', 'true');
-    }
-    setShowModal(false);
-  };
+  const [agreed, setAgreed] = useState(false);
 
   const handleContinue = () => {
-    if (dontShowAgain) {
-      localStorage.setItem('dontShowGarageModal', 'true');
-    }
     window.open('https://www.idgarages.com/fr-fr/prestations/diagnostic-electronique?utm_source=re-fap&utm_medium=partenariat&utm_campaign=diagnostic-electronique&ept-publisher=re-fap&ept-name=re-fap-diagnostic-electronique', '_blank');
-    setShowModal(false);
   };
 
   const styles = {
@@ -50,7 +23,7 @@ export default function GarageLanding() {
       background: 'white',
       borderRadius: '20px',
       padding: '40px',
-      maxWidth: '600px',
+      maxWidth: '700px',
       width: '100%',
       boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
     },
@@ -63,7 +36,7 @@ export default function GarageLanding() {
     title: {
       color: '#2ecc71',
       fontSize: '28px',
-      marginBottom: '20px',
+      marginBottom: '15px',
       display: 'flex',
       alignItems: 'center',
       gap: '10px'
@@ -84,27 +57,68 @@ export default function GarageLanding() {
       marginBottom: '30px',
       lineHeight: '1.5'
     },
-    benefit: {
+    section: {
+      marginBottom: '25px'
+    },
+    sectionTitle: {
+      fontSize: '20px',
+      fontWeight: '600',
+      color: '#333',
+      marginBottom: '15px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px'
+    },
+    sectionIcon: {
+      width: '24px',
+      height: '24px',
+      color: '#2ecc71'
+    },
+    warningBox: {
+      background: '#fff3cd',
+      borderLeft: '4px solid #ffc107',
+      padding: '15px',
+      borderRadius: '8px',
+      marginBottom: '20px'
+    },
+    successBox: {
+      background: '#e8f5e9',
+      borderLeft: '4px solid #2ecc71',
+      padding: '15px',
+      borderRadius: '8px',
+      marginBottom: '20px'
+    },
+    step: {
       display: 'flex',
       alignItems: 'flex-start',
       gap: '15px',
-      marginBottom: '20px'
+      marginBottom: '15px'
     },
-    benefitIcon: {
-      width: '24px',
-      height: '24px',
-      color: '#2ecc71',
-      flexShrink: 0,
-      marginTop: '2px'
+    stepNumber: {
+      width: '28px',
+      height: '28px',
+      background: '#2ecc71',
+      color: 'white',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontWeight: 'bold',
+      fontSize: '14px',
+      flexShrink: 0
     },
-    benefitTitle: {
+    stepContent: {
+      flex: 1
+    },
+    stepTitle: {
       fontWeight: '600',
       color: '#333',
       marginBottom: '4px'
     },
-    benefitText: {
-      color: '#555',
-      lineHeight: '1.6'
+    stepText: {
+      color: '#666',
+      fontSize: '14px',
+      lineHeight: '1.5'
     },
     ctaButton: {
       display: 'block',
@@ -118,61 +132,40 @@ export default function GarageLanding() {
       fontWeight: '600',
       textAlign: 'center',
       cursor: 'pointer',
-      transition: 'all 0.3s ease'
+      transition: 'all 0.3s ease',
+      marginTop: '20px'
     },
-    infoBox: {
-      background: '#f8f9fa',
-      borderRadius: '10px',
-      padding: '20px',
-      margin: '30px 0',
-      textAlign: 'center'
+    ctaButtonDisabled: {
+      background: '#95a5a6',
+      cursor: 'not-allowed'
     },
-    modal: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      background: 'rgba(0, 0, 0, 0.5)',
+    checkboxContainer: {
       display: 'flex',
+      alignItems: 'flex-start',
+      gap: '10px',
+      marginTop: '20px',
+      marginBottom: '10px',
+      padding: '15px',
+      background: '#f8f9fa',
+      borderRadius: '8px'
+    },
+    badge: {
+      display: 'inline-flex',
       alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    },
-    modalContent: {
-      background: 'white',
-      borderRadius: '20px',
-      maxWidth: '600px',
-      width: '100%',
-      maxHeight: '90vh',
-      overflowY: 'auto',
-      position: 'relative'
-    },
-    modalHeader: {
-      padding: '30px 30px 20px',
-      borderBottom: '1px solid #eee',
-      position: 'sticky',
-      top: 0,
-      background: 'white',
-      zIndex: 10
-    },
-    modalClose: {
-      position: 'absolute',
-      top: '20px',
-      right: '20px',
-      background: 'none',
-      border: 'none',
-      fontSize: '28px',
-      color: '#999',
-      cursor: 'pointer'
+      gap: '5px',
+      padding: '5px 10px',
+      background: '#e8f5e9',
+      borderRadius: '5px',
+      fontSize: '14px',
+      color: '#2e7d32',
+      marginRight: '10px'
     }
   };
 
   return (
     <>
       <Head>
-        <title>Re-FAP - Diagnostic FAP Garage Partenaire</title>
+        <title>Re-FAP - Solution Garage Partenaire</title>
       </Head>
 
       <div style={styles.container}>
@@ -181,207 +174,143 @@ export default function GarageLanding() {
 
           <h1 style={styles.title}>
             <span style={styles.checkIcon}>✓</span>
-            Votre recommandation personnalisée
+            Solution recommandée pour vous
           </h1>
 
           <p style={styles.subtitle}>
-            Vous préférez une solution clé en main avec prise en charge complète.
+            D'après vos réponses, votre FAP nécessite une intervention professionnelle.
+            Voici la solution clé en main que nous vous proposons.
           </p>
 
-          <div style={{marginBottom: '30px'}}>
-            <div style={styles.benefit}>
-              <svg style={styles.benefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          {/* Section : Pourquoi cette recommandation */}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              <svg style={styles.sectionIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
+              </svg>
+              Pourquoi commencer par un diagnostic ?
+            </h2>
+            
+            <div style={styles.warningBox}>
+              <strong>⚠️ Important :</strong> Dans 30% des cas, le problème ne vient pas du FAP mais d'un capteur ou de la vanne EGR (200-400€ au lieu de 800-1500€ pour un FAP).
+            </div>
+
+            <div style={{color: '#666', lineHeight: '1.8'}}>
+              Le diagnostic permet de :
+              <ul style={{marginTop: '10px', paddingLeft: '25px'}}>
+                <li><strong>Confirmer l'origine exacte</strong> du problème (FAP, capteur, EGR)</li>
+                <li><strong>Éviter des dépenses inutiles</strong> si ce n'est pas le FAP</li>
+                <li><strong>Obtenir un devis tout compris</strong> adapté à votre véhicule</li>
+                <li><strong>Préserver votre garantie</strong> avec une intervention certifiée</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Section : Comment ça marche */}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              <svg style={styles.sectionIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 11l3 3L22 4"></path>
                 <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
               </svg>
-              <div>
-                <div style={styles.benefitTitle}>① Entrez votre immatriculation et code postal</div>
-                <div style={styles.benefitText}>Pour identifier votre véhicule et localiser les garages proches</div>
+              Comment ça marche avec IDGarages
+            </h2>
+
+            <div style={styles.step}>
+              <div style={styles.stepNumber}>1</div>
+              <div style={styles.stepContent}>
+                <div style={styles.stepTitle}>Entrez votre immatriculation</div>
+                <div style={styles.stepText}>IDGarages identifie automatiquement votre véhicule et ses spécificités techniques</div>
               </div>
             </div>
 
-            <div style={styles.benefit}>
-              <svg style={styles.benefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 11l3 3L22 4"></path>
-                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
-              </svg>
-              <div>
-                <div style={styles.benefitTitle}>② Comparez les garages certifiés Re-FAP</div>
-                <div style={styles.benefitText}>Prix, proximité, disponibilités, avis clients</div>
+            <div style={styles.step}>
+              <div style={styles.stepNumber}>2</div>
+              <div style={styles.stepContent}>
+                <div style={styles.stepTitle}>Comparez les garages certifiés</div>
+                <div style={styles.stepText}>Prix transparents, disponibilités en temps réel, avis clients vérifiés, distance</div>
               </div>
             </div>
 
-            <div style={styles.benefit}>
-              <svg style={styles.benefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 11l3 3L22 4"></path>
-                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
-              </svg>
-              <div>
-                <div style={styles.benefitTitle}>③ Prenez RDV pour un diagnostic</div>
-                <div style={styles.benefitText}>Le garage proposera un devis tout compris si nettoyage nécessaire</div>
+            <div style={styles.step}>
+              <div style={styles.stepNumber}>3</div>
+              <div style={styles.stepContent}>
+                <div style={styles.stepTitle}>Prenez RDV pour le diagnostic</div>
+                <div style={styles.stepText}>Sans engagement - Vous ne payez que si une intervention est nécessaire</div>
+              </div>
+            </div>
+
+            <div style={styles.step}>
+              <div style={styles.stepNumber}>4</div>
+              <div style={styles.stepContent}>
+                <div style={styles.stepTitle}>Recevez votre devis personnalisé</div>
+                <div style={styles.stepText}>Prix tout compris : diagnostic + nettoyage FAP si nécessaire + garantie 1 an</div>
               </div>
             </div>
           </div>
 
-          <button style={styles.ctaButton} onClick={handleCTAClick}>
-            Prendre RDV pour un diagnostic →
+          {/* Section : Avantages */}
+          <div style={styles.successBox}>
+            <div style={{fontWeight: '600', marginBottom: '8px'}}>✅ Vos avantages avec cette solution :</div>
+            <div style={{fontSize: '14px', lineHeight: '1.6'}}>
+              • <strong>Sans engagement</strong> : RDV diagnostic gratuit si pas d'intervention<br/>
+              • <strong>Prix garantis</strong> : Devis ferme avant toute intervention<br/>
+              • <strong>Garages certifiés</strong> : Professionnels agréés Re-FAP<br/>
+              • <strong>Garantie 1 an</strong> : Sur toutes les interventions
+            </div>
+          </div>
+
+          {/* Section : Engagement */}
+          <div style={{marginBottom: '20px'}}>
+            <div style={{marginBottom: '10px'}}>
+              <span style={styles.badge}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0110 0v4"/>
+                </svg>
+                Données sécurisées
+              </span>
+              <span style={styles.badge}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                2 minutes
+              </span>
+            </div>
+          </div>
+
+          <div style={styles.checkboxContainer}>
+            <input 
+              type="checkbox" 
+              id="understand" 
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              style={{marginTop: '3px'}}
+            />
+            <label htmlFor="understand" style={{color: '#666', fontSize: '14px', lineHeight: '1.5'}}>
+              J'ai compris que le diagnostic est sans engagement et que je reste libre de choisir mon garage
+            </label>
+          </div>
+
+          <button 
+            onClick={handleContinue}
+            style={{
+              ...styles.ctaButton,
+              ...(agreed ? {} : styles.ctaButtonDisabled)
+            }}
+            disabled={!agreed}
+          >
+            {agreed ? 'Accéder à IDGarages →' : 'Cochez pour continuer'}
           </button>
 
-          <div style={styles.infoBox}>
-            <div style={{fontSize: '16px', color: '#666', marginBottom: '10px'}}>
-              Pourquoi un diagnostic ?
-            </div>
-            <div style={{fontWeight: '600', color: '#333'}}>
-              Pour confirmer la cause (FAP vs capteur/EGR), éviter des dépenses inutiles,<br/>
-              et obtenir un <strong>devis tout compris</strong> si un nettoyage est nécessaire.
-            </div>
-          </div>
-
-          <div style={{textAlign: 'center', marginTop: '20px', color: '#999', fontSize: '14px'}}>
-            Recommandation basée sur vos réponses (modifiable à tout moment)<br/>
+          <div style={{textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#999'}}>
+            Vous allez être redirigé vers notre partenaire IDGarages<br/>
             <a href="/landing/carter" style={{color: '#2ecc71', textDecoration: 'none'}}>
-              Voir l'autre option
+              Voir l'option Carter-Cash (FAP démonté)
             </a>
           </div>
         </div>
-
-        {showModal && (
-          <div style={styles.modal} onClick={handleCloseModal}>
-            <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-              <div style={styles.modalHeader}>
-                <button style={styles.modalClose} onClick={handleCloseModal}>&times;</button>
-                <h2 style={{color: '#2ecc71', fontSize: '24px', fontWeight: '600', paddingRight: '40px'}}>
-                  📋 Ce qui va se passer sur notre site partenaire
-                </h2>
-                <p style={{color: '#666', fontSize: '16px', marginTop: '10px'}}>
-                  ✅ La prise de RDV diagnostic est sans engagement. Vous ne payez que si une intervention est nécessaire.
-                </p>
-              </div>
-              
-              <div style={{padding: '30px'}}>
-                <p style={{color: '#666', marginBottom: '20px'}}>
-                  Pour obtenir votre diagnostic FAP et devis personnalisé :
-                </p>
-                
-                <div style={{margin: '30px 0'}}>
-                  <div style={{display: 'flex', gap: '20px', marginBottom: '25px'}}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      background: '#2ecc71',
-                      color: 'white',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '18px',
-                      flexShrink: 0
-                    }}>1</div>
-                    <div>
-                      <div style={{fontWeight: '600', color: '#333', marginBottom: '5px', fontSize: '18px'}}>
-                        Entrez votre immatriculation et code postal
-                      </div>
-                      <div style={{color: '#666', lineHeight: '1.6'}}>
-                        Pour identifier votre véhicule et localiser les garages proches
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div style={{display: 'flex', gap: '20px', marginBottom: '25px'}}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      background: '#2ecc71',
-                      color: 'white',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '18px',
-                      flexShrink: 0
-                    }}>2</div>
-                    <div>
-                      <div style={{fontWeight: '600', color: '#333', marginBottom: '5px', fontSize: '18px'}}>
-                        Comparez les garages certifiés Re-FAP
-                      </div>
-                      <div style={{color: '#666', lineHeight: '1.6'}}>
-                        Prix, proximité, disponibilités, avis clients
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div style={{display: 'flex', gap: '20px', marginBottom: '25px'}}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      background: '#2ecc71',
-                      color: 'white',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '18px',
-                      flexShrink: 0
-                    }}>3</div>
-                    <div>
-                      <div style={{fontWeight: '600', color: '#333', marginBottom: '5px', fontSize: '18px'}}>
-                        Prenez RDV pour un diagnostic
-                      </div>
-                      <div style={{color: '#666', lineHeight: '1.6'}}>
-                        Le garage proposera un devis tout compris si nettoyage nécessaire
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{
-                  background: '#e8f5e9',
-                  padding: '15px',
-                  borderRadius: '8px',
-                  margin: '20px 0',
-                  color: '#2e7d32',
-                  fontWeight: '600'
-                }}>
-                  ✅ Vous restez libre de choisir le garage qui vous convient
-                </div>
-
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '10px',
-                  margin: '20px 0',
-                  padding: '15px',
-                  background: '#f8f9fa',
-                  borderRadius: '8px'
-                }}>
-                  <input 
-                    type="checkbox" 
-                    id="dontShow" 
-                    checked={dontShowAgain}
-                    onChange={(e) => setDontShowAgain(e.target.checked)}
-                    style={{marginTop: '3px'}}
-                  />
-                  <label htmlFor="dontShow" style={{color: '#666', fontSize: '14px', lineHeight: '1.5'}}>
-                    Ne plus afficher ce message
-                  </label>
-                </div>
-
-                <button 
-                  onClick={handleContinue}
-                  style={{
-                    ...styles.ctaButton,
-                    marginTop: '20px'
-                  }}
-                >
-                  Continuer vers IDGarages →
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );
