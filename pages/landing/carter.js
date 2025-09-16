@@ -15,7 +15,7 @@ export default function CarterLanding() {
 
   const handleCTAClick = () => {
     if (dontShowAgain || localStorage.getItem('dontShowCarterModal') === 'true') {
-      window.open('https://www.carter-cash.com/services/nettoyage-fap?utm_source=re-fap&utm_medium=partenariat&utm_campaign=depot-fap', '_blank');
+      window.open('https://refap.github.io/carter-cash-refap/', '_blank');
     } else {
       setShowModal(true);
     }
@@ -32,7 +32,7 @@ export default function CarterLanding() {
     if (dontShowAgain) {
       localStorage.setItem('dontShowCarterModal', 'true');
     }
-    window.open('https://www.carter-cash.com/services/nettoyage-fap?utm_source=re-fap&utm_medium=partenariat&utm_campaign=depot-fap', '_blank');
+    window.open('https://refap.github.io/carter-cash-refap/', '_blank');
     setShowModal(false);
   };
 
@@ -176,13 +176,8 @@ export default function CarterLanding() {
 
           <h1 style={styles.title}>
             <span style={styles.checkIcon}>✓</span>
-            Votre recommandation personnalisée
+            Vous être à l'aise en mécanique et vous pouvez démonter votre FAP
           </h1>
-
-          <p style={styles.subtitle}>
-            Vous avez un FAP déjà démonté ou êtes à l'aise avec la mécanique.
-          </p>
-
           <div style={{marginBottom: '30px'}}>
             <div style={styles.benefit}>
               <svg style={styles.benefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -249,7 +244,7 @@ export default function CarterLanding() {
                       Qui démonte/remonte ?
                     </div>
                     <div style={{color: '#666', lineHeight: '1.6'}}>
-                      Le client démonte et remonte lui-même le FAP. Le service Carter-Cash se limite au nettoyage de la pièce déposée. Des tutoriels vidéo sont disponibles sur YouTube pour votre modèle de véhicule.
+                      Le client démonte et remonte lui-même le FAP. Le service Carter-Cash se limite au nettoyage de la pièce déposée. 
                     </div>
                   </div>
                   
@@ -260,8 +255,8 @@ export default function CarterLanding() {
                     <div style={{color: '#666', lineHeight: '1.6'}}>
                       1. Démontez votre FAP<br/>
                       2. Apportez-le en magasin Carter-Cash<br/>
-                      3. Récupérez-le nettoyé sous 48-72h<br/>
-                      4. Remontez-le sur votre véhicule
+                      3. Récupérez-le nettoyé et fonctionnant comme neuf<br/>
+                      4. Remontez-le sur votre véhicule et pensez à le réinitialiser par OBD
                     </div>
                   </div>
                   
@@ -270,7 +265,7 @@ export default function CarterLanding() {
                       Quel est le prix ?
                     </div>
                     <div style={{color: '#666', lineHeight: '1.6'}}>
-                      Entre 99€ et 199€ selon la taille du FAP. Prix fixe, pas de surprise. Service garanti 1 an.
+                      Entre 99€ et 199€. Prix fixe, pas de surprise. Service garanti 1 an.
                     </div>
                   </div>
 
