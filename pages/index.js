@@ -4,11 +4,11 @@ import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
   // URLs pour les recommandations directes - landing pages dédiées
-  const RECOMMENDATION_URLS = {
-    garage: 'https://refap.github.io/re-fap-landing/garage-landing.html', // Landing page dédiée garage avec modal IDGarages
-    carter: 'https://refap.github.io/re-fap-landing/carter-landing.html', // Landing page dédiée Carter-Cash avec modal FAQ
-    quiz: 'https://refap.github.io/re-fap-landing/#quiz'
-  };
+const RECOMMENDATION_URLS = {
+  garage: '/landing/garage',  // URL locale Next.js
+  carter: '/landing/carter',  // URL locale Next.js
+  quiz: 'https://refap.github.io/re-fap-landing/#quiz'
+};
 
   const [messages, setMessages] = useState([
     {
@@ -331,3 +331,4 @@ export default function Home() {
     </>
   );
 }
+
