@@ -3,10 +3,10 @@ import Head from 'next/head';
 import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
-  // URLs pour les recommandations directes - 2 pages différentes
+  // URLs pour les recommandations directes - landing pages dédiées
   const RECOMMENDATION_URLS = {
-    garage: 'https://refap.github.io/re-fap-landing/?route=garage&utm_source=bot&utm_medium=cta&utm_campaign=garage_direct#recommendation', // Page landing avec reco RDV diagnostic
-    carter: 'https://refap.github.io/carter-cash-refap/?utm_source=bot&utm_medium=cta&utm_campaign=carter_depot', // Page dédiée Carter-Cash pour dépôt
+    garage: 'https://refap.github.io/re-fap-landing/garage-landing.html', // Landing page dédiée garage avec modal IDGarages
+    carter: 'https://refap.github.io/re-fap-landing/carter-landing.html', // Landing page dédiée Carter-Cash avec modal FAQ
     quiz: 'https://refap.github.io/re-fap-landing/#quiz'
   };
 
