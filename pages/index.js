@@ -1,261 +1,159 @@
-import { useState, useRef, useEffect } from 'react';
-import Head from 'next/head';
-import ReactMarkdown from 'react-markdown';
+// ========================================
+// MODIFICATIONS POUR LE BOT AUTOAI
+// ========================================
 
-const ENERGIES = ['Diesel', 'Essence', 'Hybride', 'Électrique', 'GPL/Autre'];
+// 1. CHERCHEZ LA PARTIE OÙ VOUS DÉFINISSEZ LES BOUTONS D'ACTION
+// Généralement après l'analyse du diagnostic, vous devez avoir quelque chose comme :
 
-export default function Home() {
-  // --- Chat state
-  const [messages, setMessages] = useState([
-    { from: 'bot', text: "Bonjour 👋! Je suis **AutoAI**, mécano IA de Re-FAP. Dis-moi ce que tu vois (voyant FAP/moteur, fumée, perte de puissance…)." }
-  ]);
-  const [botJson, setBotJson] = useState(null);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [blocked, setBlocked] = useState(false);
-  const [error, setError] = useState('');
-  const chatEndRef = useRef();
-
-  // --- Vehicle form state
-  const [vehicle, setVehicle] = useState({
-    marque: '',
-    modele: '',
-    annee: '',
-    energie: 'Diesel',
-    immat: '',
-    cp: ''
+// ANCIEN CODE (à remplacer) :
+if (diagnosis.includes('garage') || recommendation === 'garage') {
+  setNextAction({
+    type: 'garage',
+    url: 'https://www.idgarages.com/prestations/re-fap', // ANCIENNE URL
+    text: 'Prendre RDV en garage partenaire'
   });
-  const [vehValid, setVehValid] = useState(false);
-  const [vehTouched, setVehTouched] = useState(false);
-
-  // Load vehicle from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('autoai_vehicle');
-      if (raw) {
-        const v = JSON.parse(raw);
-        setVehicle(v);
-        setVehValid(validateVehicle(v));
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
-
-  function validateVehicle(v) {
-    const year = Number(v.annee);
-    const okYear = year >= 1998 && year <= new Date().getFullYear() + 1;
-    const okText = (t) => String(t || '').trim().length >= 2;
-    const okEnergy = ENERGIES.includes(v.energie);
-    return okText(v.marque) && okText(v.modele) && okYear && okEnergy;
-  }
-
-  function handleVehChange(e) {
-    const { name, value } = e.target;
-    const next = { ...vehicle, [name]: value };
-    setVehicle(next);
-    setVehTouched(true);
-    setVehValid(validateVehicle(next));
-  }
-
-  function saveVehicle(e) {
-    e?.preventDefault();
-    setVehTouched(true);
-    const ok = validateVehicle(vehicle);
-    setVehValid(ok);
-    if (!ok) return;
-    try { localStorage.setItem('autoai_vehicle', JSON.stringify(vehicle)); } catch {}
-    setMessages((msgs) => [
-      ...msgs,
-      { from: 'bot', text: "👌 Merci ! J’ai bien noté ton véhicule. Pose ta question 👍" }
-    ]);
-  }
-
-  function getHistoriqueText() {
-    const last = messages.slice(-5);
-    return last.map(m => (m.from === 'user' ? `Moi: ${m.text}` : `AutoAI: ${m.text}`)).join('\n');
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-
-    // Gating: ne pas répondre tant que le formulaire n’est pas validé
-    if (!vehValid) {
-      setMessages((msgs) => [
-        ...msgs,
-        { from: 'bot', text: "Pour te répondre précisément, complète d’abord le **formulaire véhicule** (marque, modèle, année, énergie). ↑" }
-      ]);
-      return;
-    }
-
-    const userCount = messages.filter(m => m.from === 'user').length;
-    if (userCount >= 10) {
-      setBlocked(true);
-      setError("🔧 10 messages atteints. Relance une nouvelle discussion si besoin 🚀.");
-      return;
-    }
-
-    const trimmed = input.trim();
-    if (!trimmed) return;
-
-    setMessages(msgs => [...msgs, { from: 'user', text: trimmed }]);
-    setInput('');
-    setLoading(true);
-    setError('');
-
-    const historiqueText = getHistoriqueText() + `\nMoi: ${trimmed}`;
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: trimmed,
-          historique: historiqueText,
-          vehicle // <-- on envoie le véhicule à l’API
-        }),
-      });
-
-      setLoading(false);
-
-      if (!res.ok) {
-        const txt = res.status === 429
-          ? "⚠️ Service temporairement saturé, réessaie plus tard."
-          : `Erreur serveur ${res.status}`;
-        setMessages(msgs => [...msgs, { from: 'bot', text: txt }]);
-        return;
-      }
-
-      const data = await res.json();
-
-      // Blindage texte : si non-FAP, remplacer Carter-Cash par « garage partenaire »
-      const isFapReply = !!data?.data && Array.isArray(data.data.suspected)
-        && /fap|dpf|filtre.*particule/i.test(data.data.suspected.join(' '));
-
-      const safeText = !isFapReply
-        ? String(data.reply || '').replace(/carter[\s-]?cash/ig, 'garage partenaire')
-        : String(data.reply || '');
-
-      setMessages(msgs => [...msgs, { from: 'bot', text: (safeText || "Réponse indisponible.").trim() }]);
-      setBotJson(data.data || null);
-
-    } catch {
-      setLoading(false);
-      setMessages(msgs => [...msgs, { from: 'bot', text: "Désolé, erreur réseau. Actualise la page." }]);
-    }
-  }
-
-  const isFap = !!botJson && Array.isArray(botJson.suspected)
-    && /fap|dpf|filtre.*particule/i.test(botJson.suspected.join(' '));
-
-  return (
-    <>
-      <Head>
-        <title>Auto AI</title>
-        <link rel="stylesheet" href="/style.css" />
-      </Head>
-
-      <main className="container">
-        <h1>AutoAI par Re-FAP</h1>
-
-        {/* --- Mini formulaire véhicule --- */}
-        <form className="vehicle-form" onSubmit={saveVehicle}>
-          <div className="vf-grid">
-            <input name="marque" value={vehicle.marque} onChange={handleVehChange} placeholder="Marque (ex: Peugeot)" />
-            <input name="modele" value={vehicle.modele} onChange={handleVehChange} placeholder="Modèle (ex: 308)" />
-            <input name="annee" value={vehicle.annee} onChange={handleVehChange} placeholder="Année (ex: 2016)" inputMode="numeric" />
-            <select name="energie" value={vehicle.energie} onChange={handleVehChange}>
-              {ENERGIES.map(e => <option key={e} value={e}>{e}</option>)}
-            </select>
-            <input name="immat" value={vehicle.immat} onChange={handleVehChange} placeholder="Immat (optionnel)" />
-            <input name="cp" value={vehicle.cp} onChange={handleVehChange} placeholder="Code postal (optionnel)" inputMode="numeric" />
-          </div>
-          <button type="submit" className="btn-veh-validate">
-            {vehValid ? 'Mettre à jour' : 'Valider le véhicule'}
-          </button>
-          {vehTouched && !vehValid && (
-            <p className="veh-error">Complète **marque**, **modèle**, **année (≥1998)** et **énergie** pour valider.</p>
-          )}
-        </form>
-
-        <div className="chat-and-button">
-          <div id="chat-window" className="chat-window">
-            {/* Badges véhicule */}
-            {vehValid && (
-              <div className="vehicle-chip bot-msg">
-                <strong>Véhicule :</strong> {vehicle.marque} {vehicle.modele} {vehicle.annee} • {vehicle.energie}
-                {vehicle.immat ? ` • ${vehicle.immat}` : ''}{vehicle.cp ? ` • ${vehicle.cp}` : ''}
-              </div>
-            )}
-
-            {messages.map((m, i) => (
-              <div key={i} className={m.from === 'user' ? 'user-msg' : 'bot-msg'}>
-                <strong>{m.from === 'user' ? 'Moi' : 'AutoAI'}:</strong>
-                <ReactMarkdown skipHtml>{m.text}</ReactMarkdown>
-              </div>
-            ))}
-
-            {loading && (
-              <div className="bot-msg typing-indicator">
-                <strong>AutoAI:</strong>
-                <span className="dots"><span>.</span><span>.</span><span>.</span></span>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Deux boutons permanents ; le 2e varie selon FAP vs non-FAP */}
-          <div className="garage-button-container">
-            <a
-              href="https://re-fap.fr/trouver_garage_partenaire/"
-              className="garage-button"
-              aria-label="Besoin qu’un garage s’occupe de tout ? Prendre RDV"
-            >
-              Besoin qu’un garage s’occupe de tout ? <span className="nowrap">Prendre RDV</span> 🔧
-            </a>
-
-            {isFap ? (
-              <a href="https://auto.re-fap.fr" className="carter-button">
-                FAP démonté ? Dépose Carter-Cash 🛠️
-              </a>
-            ) : (
-              <a
-                href="https://www.idgarages.com/fr-fr/prestations/diagnostic-electronique?utm_source=re-fap&utm_medium=partenariat&utm_campaign=diagnostic-electronique&ept-publisher=re-fap&ept-name=re-fap-diagnostic-electronique"
-                className="carter-button"
-              >
-                Diagnostic électronique proche 🔎
-              </a>
-            )}
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="chat-form">
-          <input
-            type="text"
-            placeholder={vehValid ? "Écris ta question ici..." : "Complète d’abord le formulaire véhicule ↑"}
-            value={input}
-            onChange={(e) => {
-              const val = e.target.value;
-              setInput(val);
-              setError(val.length > 600 ? '⚠️ Ton message ne peut pas dépasser 600 caractères.' : '');
-            }}
-            autoComplete="off"
-            id="user-input"
-            disabled={blocked || !vehValid}
-          />
-          <button type="submit" disabled={blocked || input.length > 600 || loading || !vehValid}>
-            {loading ? 'Envoi…' : 'Envoyer'}
-          </button>
-        </form>
-
-        {error && <p className="error-msg">{error}</p>}
-      </main>
-
-      <footer className="footer">
-        <p>⚠️ AutoAI peut faire des erreurs, envisage de vérifier les informations importantes.</p>
-      </footer>
-    </>
-  );
 }
+
+// NOUVEAU CODE (remplacer par) :
+if (diagnosis.includes('garage') || recommendation === 'garage') {
+  setNextAction({
+    type: 'garage',
+    url: 'https://refap.github.io/re-fap-landing/?route=garage&utm_source=bot&utm_medium=cta&utm_campaign=garage_direct#recommendation',
+    text: 'Voir ma solution garage personnalisée →'
+  });
+}
+
+// ========================================
+
+// 2. CHERCHEZ LA PARTIE OÙ VOUS RENDEZ LES BOUTONS CTA
+// Probablement dans le JSX, quelque chose comme :
+
+// ANCIEN CODE :
+{nextAction && nextAction.type === 'garage' && (
+  <a 
+    href={nextAction.url}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="btn-garage"
+  >
+    {nextAction.text}
+  </a>
+)}
+
+// NOUVEAU CODE (amélioration avec tracking) :
+{nextAction && nextAction.type === 'garage' && (
+  <a 
+    href={nextAction.url}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="btn-garage"
+    onClick={() => {
+      // Tracking optionnel
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'click', {
+          event_category: 'bot_cta',
+          event_label: 'garage_direct_recommendation',
+          value: 1
+        });
+      }
+      // Ou avec autre système de tracking
+      console.log('Bot CTA: Navigation vers recommandation garage');
+    }}
+  >
+    <span>🔧</span> {nextAction.text}
+  </a>
+)}
+
+// ========================================
+
+// 3. SI VOUS AVEZ PLUSIEURS ENDROITS AVEC DES LIENS GARAGE
+// Remplacez TOUTES les URLs IDGarages par la nouvelle URL :
+
+const GARAGE_DIRECT_URL = 'https://refap.github.io/re-fap-landing/?route=garage&utm_source=bot&utm_medium=cta&utm_campaign=garage_direct#recommendation';
+
+// Puis utilisez cette constante partout :
+// - Dans les boutons
+// - Dans les messages de recommandation
+// - Dans les liens texte
+
+// ========================================
+
+// 4. POUR LES MESSAGES DU BOT QUI RECOMMANDENT LE GARAGE
+// Modifiez le texte pour être plus précis :
+
+// ANCIEN MESSAGE :
+"Je vous recommande une prise en charge complète en garage partenaire Re-FAP."
+
+// NOUVEAU MESSAGE :
+"Je vous recommande une prise en charge complète en garage partenaire Re-FAP. 
+Cliquez sur le bouton ci-dessous pour accéder directement à votre recommandation personnalisée avec les étapes détaillées."
+
+// ========================================
+
+// 5. SI VOUS AVEZ UN BOUTON CARTER-CASH AUSSI
+// Pour l'option dépôt magasin :
+
+const CARTER_DIRECT_URL = 'https://refap.github.io/re-fap-landing/?route=depot&utm_source=bot&utm_medium=cta&utm_campaign=carter_direct#recommendation';
+
+// ========================================
+
+// 6. EXEMPLE COMPLET D'INTÉGRATION DANS VOTRE COMPOSANT :
+
+// Dans la partie logique (après l'analyse) :
+function generateRecommendation(analysis) {
+  if (analysis.needsFullService || !analysis.canDismount) {
+    return {
+      type: 'garage',
+      title: '✅ Solution recommandée : Garage partenaire',
+      description: 'Prise en charge complète avec diagnostic, démontage, nettoyage et remontage.',
+      cta: {
+        url: 'https://refap.github.io/re-fap-landing/?route=garage&utm_source=bot&utm_medium=cta&utm_campaign=garage_direct#recommendation',
+        text: 'Voir ma solution personnalisée →',
+        icon: '🔧'
+      }
+    };
+  } else if (analysis.hasRemovedDPF || analysis.isComfortable) {
+    return {
+      type: 'depot',
+      title: '✅ Solution recommandée : Dépôt Carter-Cash',
+      description: 'Dépôt de votre FAP déjà démonté dans l\'un des 94 magasins.',
+      cta: {
+        url: 'https://refap.github.io/carter-cash-refap/?utm_source=bot&utm_medium=cta&utm_campaign=carter_depot',
+        text: 'Trouver un magasin →',
+        icon: '📍'
+      }
+    };
+  }
+}
+
+// Dans le JSX :
+{recommendation && (
+  <div className="recommendation-card">
+    <h3>{recommendation.title}</h3>
+    <p>{recommendation.description}</p>
+    <a 
+      href={recommendation.cta.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`btn btn-${recommendation.type}`}
+      onClick={trackClick}
+    >
+      {recommendation.cta.icon} {recommendation.cta.text}
+    </a>
+  </div>
+)}
+
+// ========================================
+// URLS À UTILISER :
+// ========================================
+
+// GARAGE (solution clé en main) :
+// https://refap.github.io/re-fap-landing/?route=garage&utm_source=bot&utm_medium=cta&utm_campaign=garage_direct#recommendation
+
+// CARTER-CASH (dépôt magasin) :
+// https://refap.github.io/carter-cash-refap/?utm_source=bot&utm_medium=cta&utm_campaign=carter_depot
+
+// INFORMATION GÉNÉRALE (si indécis) :
+// https://refap.github.io/re-fap-landing/#quiz
+
+// ========================================
