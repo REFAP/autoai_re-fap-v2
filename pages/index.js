@@ -9,7 +9,6 @@ const RECOMMENDATION_URLS = {
   carter: '/landing/carter',  // URL locale Next.js
   quiz: 'https://refap.github.io/re-fap-landing/#quiz'
 };
-
   const [messages, setMessages] = useState([
     {
       from: 'bot',
@@ -331,4 +330,5 @@ const RECOMMENDATION_URLS = {
     </>
   );
 }
+
 
