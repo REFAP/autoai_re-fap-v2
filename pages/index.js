@@ -223,7 +223,7 @@ export default function Home() {
                     </div>
                     <div className="cta-content">
                       <span className="cta-title">FAP monté ?</span>
-                      <span className="cta-subtitle">Voir ma solution personnalisée</span>
+                      <span className="cta-subtitle">Prendre RDV diagnostic</span>
                     </div>
                     <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
                       <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -285,7 +285,7 @@ export default function Home() {
                     </div>
                     <div className="cta-content">
                       <span className="cta-title">Garage partenaire</span>
-                      <span className="cta-subtitle">Solution clé en main →</span>
+                      <span className="cta-subtitle">Prendre RDV diagnostic →</span>
                     </div>
                     <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
                       <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
