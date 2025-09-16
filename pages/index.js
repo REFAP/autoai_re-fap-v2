@@ -6,7 +6,7 @@ export default function Home() {
   // URLs pour les recommandations directes
   const RECOMMENDATION_URLS = {
     garage: 'https://refap.github.io/re-fap-landing/?route=garage&utm_source=bot&utm_medium=cta&utm_campaign=garage_direct#recommendation',
-    carter: 'https://refap.github.io/carter-cash-refap/?utm_source=bot&utm_medium=cta&utm_campaign=carter_depot',
+    carter: 'https://refap.github.io/re-fap-landing/?route=carter&utm_source=bot&utm_medium=cta&utm_campaign=carter_direct#recommendation',
     quiz: 'https://refap.github.io/re-fap-landing/#quiz'
   };
 
