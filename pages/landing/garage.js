@@ -282,7 +282,7 @@ export default function GarageLanding() {
               style={{marginTop: '3px'}}
             />
             <label htmlFor="understand" style={{color: '#666', fontSize: '14px', lineHeight: '1.5'}}>
-              J'ai compris que le diagnostic est sans engagement et que je reste libre de choisir mon garage
+              Je comprends l'importance du diagnostic préalable et je reste libre de choisir mon garage parmi les professionnels certifiés
             </label>
           </div>
 
