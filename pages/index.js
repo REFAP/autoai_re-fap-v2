@@ -566,30 +566,46 @@ export default function Home() {
   </a>
 )}
 
-// NOUVEAU CODE (amélioration avec tracking) :
-{nextAction && nextAction.type === 'garage' && (
-  <a 
-    href={nextAction.url}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="btn-garage"
-    onClick={() => {
-      // Tracking optionnel
-      if (typeof gtag !== 'undefined') {
-        gtag('event', 'click', {
-          event_category: 'bot_cta',
-          event_label: 'garage_direct_recommendation',
-          value: 1
-        });
-      }
-      // Ou avec autre système de tracking
-      console.log('Bot CTA: Navigation vers recommandation garage');
-    }}
-  >
-    <span>🔧</span> {nextAction.text}
-  </a>
+// SECTION CORRIGÉE - Remplacez cette partie dans votre code
+{nextAction && !blocked && (
+  <div className="sticky-cta">
+    <p style={{ marginBottom: '10px', color: '#666', fontSize: '14px' }}>
+      💡 Solution recommandée pour vous :
+    </p>
+    
+      href={nextAction.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => handleCTAClick(nextAction)}
+      className="main-cta-button"
+      style={{
+        backgroundColor: nextAction.color,
+        color: 'white',
+        padding: '14px 32px',
+        borderRadius: '8px',
+        textDecoration: 'none',
+        display: 'inline-block',
+        fontWeight: '600',
+        fontSize: '16px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        transition: 'all 0.3s',
+      }}
+      onMouseOver={(e) => {
+        e.currentTarget.style.transform = 'scale(1.05)';
+        e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
+      }}
+      onMouseOut={(e) => {
+        e.currentTarget.style.transform = 'scale(1)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+      }}
+    >
+      {nextAction.type === 'garage' ? '🔧 ' : ''}
+      {nextAction.type === 'carter' ? '📍 ' : ''}
+      {nextAction.type === 'quiz' ? '🎯 ' : ''}
+      {nextAction.text}
+    </a>
+  </div>
 )}
-
 // ========================================
 
 // 3. SI VOUS AVEZ PLUSIEURS ENDROITS AVEC DES LIENS GARAGE
@@ -957,5 +973,6 @@ function generateRecommendation(analysis) {
     </>
   );
 }
+
 
 
