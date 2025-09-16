@@ -3,37 +3,10 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 
 export default function CarterLanding() {
-  const [showModal, setShowModal] = useState(false);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('dontShowCarterModal');
-    if (stored === 'true') {
-      setDontShowAgain(true);
-    }
-  }, []);
-
-  const handleCTAClick = () => {
-    if (dontShowAgain || localStorage.getItem('dontShowCarterModal') === 'true') {
-      window.open('https://refap.github.io/carter-cash-refap/', '_blank');
-    } else {
-      setShowModal(true);
-    }
-  };
-
-  const handleCloseModal = () => {
-    if (dontShowAgain) {
-      localStorage.setItem('dontShowCarterModal', 'true');
-    }
-    setShowModal(false);
-  };
+  const [agreed, setAgreed] = useState(false);
 
   const handleContinue = () => {
-    if (dontShowAgain) {
-      localStorage.setItem('dontShowCarterModal', 'true');
-    }
     window.open('https://refap.github.io/carter-cash-refap/', '_blank');
-    setShowModal(false);
   };
 
   const styles = {
@@ -50,7 +23,7 @@ export default function CarterLanding() {
       background: 'white',
       borderRadius: '20px',
       padding: '40px',
-      maxWidth: '600px',
+      maxWidth: '700px',
       width: '100%',
       boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
     },
@@ -63,7 +36,7 @@ export default function CarterLanding() {
     title: {
       color: '#2ecc71',
       fontSize: '28px',
-      marginBottom: '20px',
+      marginBottom: '15px',
       display: 'flex',
       alignItems: 'center',
       gap: '10px'
@@ -84,22 +57,107 @@ export default function CarterLanding() {
       marginBottom: '30px',
       lineHeight: '1.5'
     },
-    benefit: {
+    section: {
+      marginBottom: '25px'
+    },
+    sectionTitle: {
+      fontSize: '20px',
+      fontWeight: '600',
+      color: '#333',
+      marginBottom: '15px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px'
+    },
+    sectionIcon: {
+      width: '24px',
+      height: '24px',
+      color: '#2ecc71'
+    },
+    optionCard: {
+      border: '2px solid #e0e0e0',
+      borderRadius: '10px',
+      padding: '20px',
+      marginBottom: '15px',
+      position: 'relative'
+    },
+    optionCardRecommended: {
+      border: '2px solid #2ecc71',
+      background: '#f0fdf4'
+    },
+    recommendedBadge: {
+      position: 'absolute',
+      top: '-12px',
+      right: '20px',
+      background: '#2ecc71',
+      color: 'white',
+      padding: '4px 12px',
+      borderRadius: '12px',
+      fontSize: '12px',
+      fontWeight: 'bold'
+    },
+    optionTitle: {
+      fontSize: '18px',
+      fontWeight: '600',
+      color: '#333',
+      marginBottom: '8px'
+    },
+    optionPrice: {
+      fontSize: '24px',
+      fontWeight: 'bold',
+      color: '#2ecc71',
+      marginBottom: '10px'
+    },
+    optionDetails: {
+      color: '#666',
+      fontSize: '14px',
+      lineHeight: '1.6'
+    },
+    warningBox: {
+      background: '#fff3cd',
+      borderLeft: '4px solid #ffc107',
+      padding: '15px',
+      borderRadius: '8px',
+      marginBottom: '20px'
+    },
+    infoBox: {
+      background: '#e3f2fd',
+      borderLeft: '4px solid #2196f3',
+      padding: '15px',
+      borderRadius: '8px',
+      marginBottom: '20px'
+    },
+    step: {
       display: 'flex',
       alignItems: 'flex-start',
       gap: '15px',
-      marginBottom: '20px'
+      marginBottom: '15px'
     },
-    benefitIcon: {
-      width: '24px',
-      height: '24px',
-      color: '#2ecc71',
-      flexShrink: 0,
-      marginTop: '2px'
+    stepNumber: {
+      width: '28px',
+      height: '28px',
+      background: '#2ecc71',
+      color: 'white',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontWeight: 'bold',
+      fontSize: '14px',
+      flexShrink: 0
     },
-    benefitText: {
-      color: '#555',
-      lineHeight: '1.6'
+    stepContent: {
+      flex: 1
+    },
+    stepTitle: {
+      fontWeight: '600',
+      color: '#333',
+      marginBottom: '4px'
+    },
+    stepText: {
+      color: '#666',
+      fontSize: '14px',
+      lineHeight: '1.5'
     },
     ctaButton: {
       display: 'block',
@@ -113,61 +171,40 @@ export default function CarterLanding() {
       fontWeight: '600',
       textAlign: 'center',
       cursor: 'pointer',
-      transition: 'all 0.3s ease'
+      transition: 'all 0.3s ease',
+      marginTop: '20px'
     },
-    storesInfo: {
-      background: '#e8f5e9',
-      padding: '15px',
-      borderRadius: '8px',
-      margin: '20px 0',
-      textAlign: 'center'
+    ctaButtonDisabled: {
+      background: '#95a5a6',
+      cursor: 'not-allowed'
     },
-    modal: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      background: 'rgba(0, 0, 0, 0.5)',
+    checkboxContainer: {
       display: 'flex',
+      alignItems: 'flex-start',
+      gap: '10px',
+      marginTop: '20px',
+      marginBottom: '10px',
+      padding: '15px',
+      background: '#f8f9fa',
+      borderRadius: '8px'
+    },
+    badge: {
+      display: 'inline-flex',
       alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    },
-    modalContent: {
-      background: 'white',
-      borderRadius: '20px',
-      maxWidth: '600px',
-      width: '100%',
-      maxHeight: '90vh',
-      overflowY: 'auto',
-      position: 'relative'
-    },
-    modalHeader: {
-      padding: '30px 30px 20px',
-      borderBottom: '1px solid #eee',
-      position: 'sticky',
-      top: 0,
-      background: 'white',
-      zIndex: 10
-    },
-    modalClose: {
-      position: 'absolute',
-      top: '20px',
-      right: '20px',
-      background: 'none',
-      border: 'none',
-      fontSize: '28px',
-      color: '#999',
-      cursor: 'pointer'
+      gap: '5px',
+      padding: '5px 10px',
+      background: '#e8f5e9',
+      borderRadius: '5px',
+      fontSize: '14px',
+      color: '#2e7d32',
+      marginRight: '10px'
     }
   };
 
   return (
     <>
       <Head>
-        <title>Re-FAP - Dépôt Carter-Cash</title>
+        <title>Re-FAP - Solution Carter-Cash</title>
       </Head>
 
       <div style={styles.container}>
@@ -176,153 +213,139 @@ export default function CarterLanding() {
 
           <h1 style={styles.title}>
             <span style={styles.checkIcon}>✓</span>
-            Vous être à l'aise en mécanique et vous pouvez démonter votre FAP
+            Solution recommandée pour vous
           </h1>
-          <div style={{marginBottom: '30px'}}>
-            <div style={styles.benefit}>
-              <svg style={styles.benefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 11l3 3L22 4"></path>
-                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
+
+          <p style={styles.subtitle}>
+            Vous avez déjà démonté votre FAP ou êtes capable de le faire.
+            Voici les options de nettoyage chez Carter-Cash.
+          </p>
+
+          {/* Section : Les deux options */}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              <svg style={styles.sectionIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
               </svg>
-              <div style={styles.benefitText}>
-                <strong>Solution économique (99-199€ pour le nettoyage)</strong>
+              Deux options selon votre Carter-Cash
+            </h2>
+            
+            <div style={{...styles.optionCard, ...styles.optionCardRecommended}}>
+              <span style={styles.recommendedBadge}>RECOMMANDÉ</span>
+              <div style={styles.optionTitle}>Option 1 : Carter-Cash équipé Re-FAP</div>
+              <div style={styles.optionPrice}>99-149€</div>
+              <div style={styles.optionDetails}>
+                <strong>⚡ Nettoyage express en 4 heures</strong><br/>
+                • Machine Re-FAP sur place<br/>
+                • Récupération le jour même<br/>
+                • Disponible dans certains magasins équipés<br/>
+                • Prix selon taille du FAP (petit/grand véhicule)
               </div>
             </div>
 
-            <div style={styles.benefit}>
-              <svg style={styles.benefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 11l3 3L22 4"></path>
-                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
-              </svg>
-              <div style={styles.benefitText}>
-                <strong>94 magasins Carter-Cash partout en France</strong>
-              </div>
-            </div>
-
-            <div style={styles.benefit}>
-              <svg style={styles.benefitIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 11l3 3L22 4"></path>
-                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
-              </svg>
-              <div style={styles.benefitText}>
-                <strong>Sans rendez-vous, dépôt immédiat</strong>
+            <div style={styles.optionCard}>
+              <div style={styles.optionTitle}>Option 2 : Autres Carter-Cash</div>
+              <div style={styles.optionPrice}>199€ port compris</div>
+              <div style={styles.optionDetails}>
+                <strong>📦 Nettoyage centralisé en 48h</strong><br/>
+                • FAP envoyé au centre Re-FAP<br/>
+                • Récupération sous 48-72h<br/>
+                • Disponible dans tous les Carter-Cash<br/>
+                • Prix unique tout compris (port inclus)
               </div>
             </div>
           </div>
 
-          <button style={styles.ctaButton} onClick={handleCTAClick}>
-            Voir les magasins Carter-Cash →
+          {/* Section : Prérequis */}
+          <div style={styles.warningBox}>
+            <strong>⚠️ Prérequis important :</strong> Vous devez démonter et remonter vous-même le FAP. Carter-Cash ne fait que le nettoyage de la pièce déposée. Des tutoriels YouTube existent pour chaque modèle de véhicule.
+          </div>
+
+          {/* Section : Comment ça marche */}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              <svg style={styles.sectionIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 11l3 3L22 4"></path>
+                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
+              </svg>
+              Comment ça fonctionne
+            </h2>
+
+            <div style={styles.step}>
+              <div style={styles.stepNumber}>1</div>
+              <div style={styles.stepContent}>
+                <div style={styles.stepTitle}>Démontez votre FAP</div>
+                <div style={styles.stepText}>Suivez un tutoriel YouTube pour votre modèle (1-2h de travail)</div>
+              </div>
+            </div>
+
+            <div style={styles.step}>
+              <div style={styles.stepNumber}>2</div>
+              <div style={styles.stepContent}>
+                <div style={styles.stepTitle}>Apportez-le chez Carter-Cash</div>
+                <div style={styles.stepText}>Sans rendez-vous, présentez-vous directement à l'accueil</div>
+              </div>
+            </div>
+
+            <div style={styles.step}>
+              <div style={styles.stepNumber}>3</div>
+              <div style={styles.stepContent}>
+                <div style={styles.stepTitle}>Récupérez votre FAP nettoyé</div>
+                <div style={styles.stepText}>4h si magasin équipé, 48-72h sinon</div>
+              </div>
+            </div>
+
+            <div style={styles.step}>
+              <div style={styles.stepNumber}>4</div>
+              <div style={styles.stepContent}>
+                <div style={styles.stepTitle}>Remontez-le sur votre véhicule</div>
+                <div style={styles.stepText}>Réinitialisez les codes défaut avec une valise diagnostic</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section : Info */}
+          <div style={styles.infoBox}>
+            <div style={{fontWeight: '600', marginBottom: '8px'}}>ℹ️ Bon à savoir :</div>
+            <div style={{fontSize: '14px', lineHeight: '1.6'}}>
+              • <strong>94 magasins</strong> Carter-Cash partout en France<br/>
+              • <strong>Garantie 1 an</strong> sur le nettoyage<br/>
+              • <strong>Économie</strong> : 600-1000€ par rapport à un remplacement<br/>
+              • <strong>Écologique</strong> : Évite le remplacement d'une pièce coûteuse
+            </div>
+          </div>
+
+          <div style={styles.checkboxContainer}>
+            <input 
+              type="checkbox" 
+              id="understand" 
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              style={{marginTop: '3px'}}
+            />
+            <label htmlFor="understand" style={{color: '#666', fontSize: '14px', lineHeight: '1.5'}}>
+              J'ai compris que je dois démonter/remonter moi-même le FAP et que Carter-Cash ne fait que le nettoyage
+            </label>
+          </div>
+
+          <button 
+            onClick={handleContinue}
+            style={{
+              ...styles.ctaButton,
+              ...(agreed ? {} : styles.ctaButtonDisabled)
+            }}
+            disabled={!agreed}
+          >
+            {agreed ? 'Trouver mon Carter-Cash →' : 'Cochez pour continuer'}
           </button>
 
-          <div style={styles.storesInfo}>
-            <strong style={{color: '#2e7d32'}}>94 magasins</strong> partout en France<br/>
-            Trouvez le plus proche de chez vous
-          </div>
-
-          <div style={{textAlign: 'center', marginTop: '20px', color: '#999', fontSize: '14px'}}>
-            Recommandation basée sur vos réponses (modifiable à tout moment)<br/>
+          <div style={{textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#999'}}>
+            Vous allez être redirigé vers notre site Carter-Cash Re-FAP<br/>
             <a href="/landing/garage" style={{color: '#2ecc71', textDecoration: 'none'}}>
-              Voir l'autre option
+              Je préfère la solution garage (FAP monté)
             </a>
           </div>
         </div>
-
-        {showModal && (
-          <div style={styles.modal} onClick={handleCloseModal}>
-            <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-              <div style={styles.modalHeader}>
-                <button style={styles.modalClose} onClick={handleCloseModal}>&times;</button>
-                <h2 style={{color: '#2ecc71', fontSize: '24px', fontWeight: '600', paddingRight: '40px'}}>
-                  📋 Questions fréquentes sur le dépôt
-                </h2>
-              </div>
-              
-              <div style={{padding: '30px'}}>
-                <div style={{margin: '30px 0'}}>
-                  <div style={{marginBottom: '25px'}}>
-                    <div style={{fontWeight: '600', color: '#333', marginBottom: '5px', fontSize: '18px'}}>
-                      Qui démonte/remonte ?
-                    </div>
-                    <div style={{color: '#666', lineHeight: '1.6'}}>
-                      Le client démonte et remonte lui-même le FAP. Le service Carter-Cash se limite au nettoyage de la pièce déposée. 
-                    </div>
-                  </div>
-                  
-                  <div style={{marginBottom: '25px'}}>
-                    <div style={{fontWeight: '600', color: '#333', marginBottom: '5px', fontSize: '18px'}}>
-                      Comment ça fonctionne ?
-                    </div>
-                    <div style={{color: '#666', lineHeight: '1.6'}}>
-                      1. Démontez votre FAP<br/>
-                      2. Apportez-le en magasin Carter-Cash<br/>
-                      3. Récupérez-le nettoyé et fonctionnant comme neuf<br/>
-                      4. Remontez-le sur votre véhicule et pensez à le réinitialiser par OBD
-                    </div>
-                  </div>
-                  
-                  <div style={{marginBottom: '25px'}}>
-                    <div style={{fontWeight: '600', color: '#333', marginBottom: '5px', fontSize: '18px'}}>
-                      Quel est le prix ?
-                    </div>
-                    <div style={{color: '#666', lineHeight: '1.6'}}>
-                      Entre 99€ et 199€. Prix fixe, pas de surprise. Service garanti 1 an.
-                    </div>
-                  </div>
-
-                  <div style={{marginBottom: '25px'}}>
-                    <div style={{fontWeight: '600', color: '#333', marginBottom: '5px', fontSize: '18px'}}>
-                      Besoin d'un rendez-vous ?
-                    </div>
-                    <div style={{color: '#666', lineHeight: '1.6'}}>
-                      Non, le dépôt se fait sans rendez-vous directement en magasin. Présentez-vous avec votre FAP démonté à l'accueil.
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{
-                  background: '#fff3cd',
-                  padding: '15px',
-                  borderRadius: '8px',
-                  margin: '20px 0',
-                  color: '#856404'
-                }}>
-                  ⚠️ <strong>Important :</strong> Cette solution nécessite de démonter et remonter soi-même le FAP. Si vous n'êtes pas à l'aise avec la mécanique, privilégiez la solution garage.
-                </div>
-
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '10px',
-                  margin: '20px 0',
-                  padding: '15px',
-                  background: '#f8f9fa',
-                  borderRadius: '8px'
-                }}>
-                  <input 
-                    type="checkbox" 
-                    id="dontShow" 
-                    checked={dontShowAgain}
-                    onChange={(e) => setDontShowAgain(e.target.checked)}
-                    style={{marginTop: '3px'}}
-                  />
-                  <label htmlFor="dontShow" style={{color: '#666', fontSize: '14px', lineHeight: '1.5'}}>
-                    Ne plus afficher ce message
-                  </label>
-                </div>
-
-                <button 
-                  onClick={handleContinue}
-                  style={{
-                    ...styles.ctaButton,
-                    marginTop: '20px'
-                  }}
-                >
-                  Continuer vers Carter-Cash →
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );
