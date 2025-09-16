@@ -3,12 +3,13 @@ import Head from 'next/head';
 import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
-  // URLs pour les recommandations directes - landing pages dédiées
-const RECOMMENDATION_URLS = {
-  garage: '/landing/garage',  // URL locale Next.js
-  carter: '/landing/carter',  // URL locale Next.js
-  quiz: 'https://refap.github.io/re-fap-landing/#quiz'
-};
+  // URLs pour les recommandations directes
+  const RECOMMENDATION_URLS = {
+    garage: '/landing/garage',  // Page Next.js
+    carter: '/landing/carter',  // Page Next.js
+    quiz: 'https://refap.github.io/re-fap-landing/#quiz'
+  };
+
   const [messages, setMessages] = useState([
     {
       from: 'bot',
@@ -330,5 +331,3 @@ const RECOMMENDATION_URLS = {
     </>
   );
 }
-
-
