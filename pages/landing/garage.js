@@ -190,18 +190,13 @@ export default function GarageLanding() {
               </svg>
               Pourquoi commencer par un diagnostic ?
             </h2>
-            
-            <div style={styles.warningBox}>
-              <strong>⚠️ Important :</strong> Dans 30% des cas, le problème ne vient pas du FAP mais d'un capteur ou de la vanne EGR (200-400€ au lieu de 800-1500€ pour un FAP).
-            </div>
-
+                    
             <div style={{color: '#666', lineHeight: '1.8'}}>
               Le diagnostic permet de :
               <ul style={{marginTop: '10px', paddingLeft: '25px'}}>
-                <li><strong>Confirmer l'origine exacte</strong> du problème (FAP, capteur, EGR)</li>
+                <li><strong>Confirmer l'origine exacte</strong> du problème (FAP, capteur, EGR...)</li>
                 <li><strong>Éviter des dépenses inutiles</strong> si ce n'est pas le FAP</li>
-                <li><strong>Obtenir un devis tout compris</strong> adapté à votre véhicule</li>
-                <li><strong>Préserver votre garantie</strong> avec une intervention certifiée</li>
+                <li><strong>Obtenir un devis tout compris (dépose du FAP, nettoyage re-fap, repose et réinitialisation</strong> adapté à votre véhicule</li>
               </ul>
             </div>
           </div>
@@ -213,7 +208,7 @@ export default function GarageLanding() {
                 <path d="M9 11l3 3L22 4"></path>
                 <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
               </svg>
-              Comment ça marche avec IDGarages
+              Comment ça marche pour obtenir rapidement un rdv près de chez vous
             </h2>
 
             <div style={styles.step}>
@@ -235,8 +230,7 @@ export default function GarageLanding() {
             <div style={styles.step}>
               <div style={styles.stepNumber}>3</div>
               <div style={styles.stepContent}>
-                <div style={styles.stepTitle}>Prenez RDV pour le diagnostic</div>
-                <div style={styles.stepText}>Sans engagement - Vous ne payez que si une intervention est nécessaire</div>
+                <div style={styles.stepTitle}>Prenez RDV pour le diagnostic près de chez vous</div>
               </div>
             </div>
 
@@ -253,10 +247,9 @@ export default function GarageLanding() {
           <div style={styles.successBox}>
             <div style={{fontWeight: '600', marginBottom: '8px'}}>✅ Vos avantages avec cette solution :</div>
             <div style={{fontSize: '14px', lineHeight: '1.6'}}>
-              • <strong>Sans engagement</strong> : RDV diagnostic gratuit si pas d'intervention<br/>
               • <strong>Prix garantis</strong> : Devis ferme avant toute intervention<br/>
-              • <strong>Garages certifiés</strong> : Professionnels agréés Re-FAP<br/>
-              • <strong>Garantie 1 an</strong> : Sur toutes les interventions
+              • <strong>Garages certifiés</strong> : Professionnels agréés<br/>
+              • <strong>Garantie 1 an</strong> : Sur nettoyage re-fap
             </div>
           </div>
 
