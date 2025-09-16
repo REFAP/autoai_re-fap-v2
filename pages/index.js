@@ -3,6 +3,13 @@ import Head from 'next/head';
 import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
+  // URLs pour les recommandations directes
+  const RECOMMENDATION_URLS = {
+    garage: 'https://refap.github.io/re-fap-landing/?route=garage&utm_source=bot&utm_medium=cta&utm_campaign=garage_direct#recommendation',
+    carter: 'https://refap.github.io/carter-cash-refap/?utm_source=bot&utm_medium=cta&utm_campaign=carter_depot',
+    quiz: 'https://refap.github.io/re-fap-landing/#quiz'
+  };
+
   const [messages, setMessages] = useState([
     {
       from: 'bot',
@@ -205,7 +212,10 @@ export default function Home() {
 
               {nextAction?.type === 'FAP' && (
                 <>
-                  <a href="https://re-fap.fr/trouver_garage_partenaire/" className="cta-button primary">
+                  <a href={RECOMMENDATION_URLS.garage} 
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     className="cta-button primary">
                     <div className="cta-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
@@ -213,14 +223,17 @@ export default function Home() {
                     </div>
                     <div className="cta-content">
                       <span className="cta-title">FAP monté ?</span>
-                      <span className="cta-subtitle">Prendre RDV en garage</span>
+                      <span className="cta-subtitle">Voir ma solution personnalisée</span>
                     </div>
                     <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
                       <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
                   </a>
 
-                  <a href="https://auto.re-fap.fr" className="cta-button secondary">
+                  <a href={RECOMMENDATION_URLS.carter}
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     className="cta-button secondary">
                     <div className="cta-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
@@ -239,7 +252,10 @@ export default function Home() {
               )}
 
               {nextAction?.type === 'DIAG' && (
-                <a href="https://re-fap.fr/trouver_garage_partenaire/" className="cta-button primary">
+                <a href={RECOMMENDATION_URLS.garage}
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   className="cta-button primary">
                   <div className="cta-icon">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                       <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
@@ -248,7 +264,7 @@ export default function Home() {
                   </div>
                   <div className="cta-content">
                     <span className="cta-title">Diagnostic complet</span>
-                    <span className="cta-subtitle">Garage proche de vous</span>
+                    <span className="cta-subtitle">Solution personnalisée garage</span>
                   </div>
                   <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -258,7 +274,10 @@ export default function Home() {
 
               {(!nextAction || nextAction.type === 'GEN') && (
                 <>
-                  <a href="https://re-fap.fr/trouver_garage_partenaire/" className="cta-button primary">
+                  <a href={RECOMMENDATION_URLS.garage}
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     className="cta-button primary">
                     <div className="cta-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
@@ -266,14 +285,17 @@ export default function Home() {
                     </div>
                     <div className="cta-content">
                       <span className="cta-title">Garage partenaire</span>
-                      <span className="cta-subtitle">Service complet</span>
+                      <span className="cta-subtitle">Solution clé en main →</span>
                     </div>
                     <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
                       <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
                   </a>
 
-                  <a href="https://auto.re-fap.fr" className="cta-button secondary">
+                  <a href={RECOMMENDATION_URLS.carter}
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     className="cta-button secondary">
                     <div className="cta-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
