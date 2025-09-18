@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 export default function Home() {
   // URLs pour les recommandations directes
   const RECOMMENDATION_URLS = {
-    garage: '/landing/garage',  // Page Next.js
+    garage: '/landing/garage',  // Page Next.js - PRIORITAIRE
     carter: '/landing/carter',  // Page Next.js
     quiz: 'https://refap.github.io/re-fap-landing/#quiz'
   };
@@ -21,6 +21,7 @@ export default function Home() {
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState('');
   const [nextAction, setNextAction] = useState(null);
+  const [showCTA, setShowCTA] = useState(false);
   const chatEndRef = useRef();
 
   useEffect(() => {
@@ -89,6 +90,11 @@ export default function Home() {
       };
       setMessages((msgs) => [...msgs, botMsg]);
       setNextAction(data.nextAction || { type: 'GEN' });
+      
+      // Afficher les CTAs après la première réponse du bot
+      if (userMessagesCount === 0) {
+        setShowCTA(true);
+      }
 
     } catch {
       setLoading(false);
@@ -103,230 +109,165 @@ export default function Home() {
     <>
       <Head>
         <title>AutoAI - Expert FAP par Re-FAP</title>
-        <link rel="stylesheet" href="/style.css" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+        <link rel="stylesheet" href="/style-mobile.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
-      <div className="app-container">
-        <main className="chat-container">
-          {/* Header */}
-          <div className="chat-header">
-            <div className="header-content">
-              <div className="logo-section">
-                <div className="logo-circle">
-                  <span className="logo-text">AI</span>
-                </div>
-                <div className="header-text">
-                  <h1>AutoAI par Re-FAP</h1>
-                  <p className="subtitle">Expert en diagnostic FAP • Service disponible partout en France</p>
-                </div>
+      <div className="mobile-container">
+        {/* Header compact pour mobile */}
+        <header className="mobile-header">
+          <div className="header-content">
+            <div className="logo-section">
+              <div className="logo-circle">
+                <span className="logo-text">AI</span>
               </div>
-              <div className="status-indicator">
-                <span className="status-dot"></span>
-                <span>En ligne</span>
+              <div className="header-text">
+                <h1>AutoAI</h1>
+                <p className="subtitle">Expert FAP • Re-FAP</p>
               </div>
+            </div>
+            <div className="status-indicator">
+              <span className="status-dot"></span>
             </div>
           </div>
+        </header>
 
-          <div className="chat-main">
-            {/* Zone de chat */}
-            <div className="chat-area">
-              <div className="messages-container">
-                {messages.map((m, i) => (
-                  <div key={i} className={`message ${m.from}`}>
-                    <div className="message-header">
-                      {m.from === 'user' ? (
-                        <span className="message-author user-author">Vous</span>
-                      ) : (
-                        <span className="message-author bot-author">AutoAI</span>
-                      )}
-                    </div>
-                    <div className="message-bubble">
-                      <ReactMarkdown>{m.text.replace(/\n{2,}/g, '\n')}</ReactMarkdown>
-                    </div>
-                  </div>
-                ))}
-
-                {loading && (
-                  <div className="message bot">
-                    <div className="message-header">
-                      <span className="message-author bot-author">AutoAI</span>
-                    </div>
-                    <div className="message-bubble">
-                      <div className="typing-indicator">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                    </div>
+        {/* Zone de chat principale */}
+        <main className="chat-main">
+          <div className="messages-container">
+            {messages.map((m, i) => (
+              <div key={i} className={`message ${m.from}`}>
+                <div className="message-bubble">
+                  <ReactMarkdown>{m.text.replace(/\n{2,}/g, '\n')}</ReactMarkdown>
+                </div>
+                {m.from === 'bot' && i === messages.length - 1 && showCTA && (
+                  <div className="inline-cta">
+                    {/* CTAs intégrés après le dernier message bot */}
+                    {nextAction?.type === 'FAP' && (
+                      <>
+                        <a href={RECOMMENDATION_URLS.garage} 
+                           className="cta-chip primary">
+                          🛠️ FAP monté ? → RDV Garage
+                        </a>
+                        <a href={RECOMMENDATION_URLS.carter}
+                           className="cta-chip secondary">
+                          📦 FAP démonté ? → Carter-Cash
+                        </a>
+                      </>
+                    )}
+                    {nextAction?.type === 'DIAG' && (
+                      <a href={RECOMMENDATION_URLS.garage}
+                         className="cta-chip primary">
+                        🔍 Diagnostic complet → Garage
+                      </a>
+                    )}
+                    {(!nextAction || nextAction.type === 'GEN') && (
+                      <>
+                        <a href={RECOMMENDATION_URLS.garage}
+                           className="cta-chip primary">
+                          🛠️ Prendre RDV → Garage
+                        </a>
+                        <a href={RECOMMENDATION_URLS.carter}
+                           className="cta-chip secondary">
+                          📦 Dépôt FAP → Carter-Cash
+                        </a>
+                      </>
+                    )}
                   </div>
                 )}
-
-                <div ref={chatEndRef} />
               </div>
+            ))}
 
-              {/* Zone de saisie */}
-              <form onSubmit={handleSubmit} className="input-form">
-                <div className="input-wrapper">
-                  <input
-                    type="text"
-                    placeholder="Décrivez votre problème de FAP..."
-                    value={input}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setInput(val);
-                      setError(val.length > 600 ? 'Message limité à 600 caractères' : '');
-                    }}
-                    autoComplete="off"
-                    className="message-input"
-                    disabled={blocked}
-                    maxLength={600}
-                  />
-                  <button 
-                    type="submit" 
-                    className="send-button"
-                    disabled={blocked || input.length > 600 || loading || !input.trim()}
-                  >
-                    {loading ? (
-                      <span className="button-loading">...</span>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
-                  </button>
+            {loading && (
+              <div className="message bot">
+                <div className="message-bubble">
+                  <div className="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
                 </div>
-                {error && <div className="error-message">{error}</div>}
-              </form>
-            </div>
-
-            {/* Zone CTA */}
-            <div className="cta-zone">
-              <div className="cta-header">
-                <h3>Actions rapides</h3>
-                <p>Choisissez selon votre situation</p>
               </div>
+            )}
 
-              {nextAction?.type === 'FAP' && (
-                <>
-                  <a href={RECOMMENDATION_URLS.garage} 
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="cta-button primary">
-                    <div className="cta-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
-                      </svg>
-                    </div>
-                    <div className="cta-content">
-                      <span className="cta-title">FAP monté ?</span>
-                      <span className="cta-subtitle">Prendre RDV diagnostic</span>
-                    </div>
-                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </a>
+            <div ref={chatEndRef} />
+          </div>
 
-                  <a href={RECOMMENDATION_URLS.carter}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="cta-button secondary">
-                    <div className="cta-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
-                        <path d="M14 2v6h6" stroke="white" strokeWidth="2"/>
-                      </svg>
-                    </div>
-                    <div className="cta-content">
-                      <span className="cta-title">FAP démonté ?</span>
-                      <span className="cta-subtitle">Dépôt Carter-Cash</span>
-                    </div>
-                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </a>
-                </>
-              )}
-
-              {nextAction?.type === 'DIAG' && (
-                <a href={RECOMMENDATION_URLS.garage}
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   className="cta-button primary">
-                  <div className="cta-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                      <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
+          {/* Boutons CTA flottants toujours visibles */}
+          <div className="floating-cta">
+            <button 
+              className="cta-toggle"
+              onClick={() => setShowCTA(!showCTA)}
+            >
+              {showCTA ? '✕' : '🛠️'} Solutions
+            </button>
+            
+            {showCTA && (
+              <div className="cta-panel">
+                <a href={RECOMMENDATION_URLS.garage} 
+                   className="quick-cta primary">
+                  <span className="cta-icon">🛠️</span>
+                  <div className="cta-text">
+                    <span className="cta-title">Garage partenaire</span>
+                    <span className="cta-desc">RDV diagnostic</span>
                   </div>
-                  <div className="cta-content">
-                    <span className="cta-title">Diagnostic complet</span>
-                    <span className="cta-subtitle">Solution personnalisée garage</span>
-                  </div>
-                  <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
                 </a>
-              )}
-
-              {(!nextAction || nextAction.type === 'GEN') && (
-                <>
-                  <a href={RECOMMENDATION_URLS.garage}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="cta-button primary">
-                    <div className="cta-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
-                      </svg>
-                    </div>
-                    <div className="cta-content">
-                      <span className="cta-title">Garage partenaire</span>
-                      <span className="cta-subtitle">Prendre RDV diagnostic →</span>
-                    </div>
-                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </a>
-
-                  <a href={RECOMMENDATION_URLS.carter}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="cta-button secondary">
-                    <div className="cta-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
-                        <path d="M14 2v6h6" stroke="white" strokeWidth="2"/>
-                      </svg>
-                    </div>
-                    <div className="cta-content">
-                      <span className="cta-title">Carter-Cash</span>
-                      <span className="cta-subtitle">Dépôt FAP démonté</span>
-                    </div>
-                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </a>
-                </>
-              )}
-
-              <div className="info-card">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                <span>Service garanti 1 an • Partout en France</span>
+                <a href={RECOMMENDATION_URLS.carter}
+                   className="quick-cta secondary">
+                  <span className="cta-icon">📦</span>
+                  <div className="cta-text">
+                    <span className="cta-title">Carter-Cash</span>
+                    <span className="cta-desc">Dépôt FAP</span>
+                  </div>
+                </a>
               </div>
-            </div>
+            )}
           </div>
         </main>
 
-        <footer className="footer">
-          <p>AutoAI peut faire des erreurs. Vérifiez les informations importantes auprès d'un professionnel.</p>
-        </footer>
+        {/* Zone de saisie fixe en bas */}
+        <div className="input-zone">
+          {error && <div className="error-message">{error}</div>}
+          <form onSubmit={handleSubmit} className="input-form">
+            <input
+              type="text"
+              placeholder="Décrivez votre problème..."
+              value={input}
+              onChange={(e) => {
+                const val = e.target.value;
+                setInput(val);
+                setError(val.length > 600 ? 'Message limité à 600 caractères' : '');
+              }}
+              autoComplete="off"
+              className="message-input"
+              disabled={blocked}
+              maxLength={600}
+            />
+            <button 
+              type="submit" 
+              className="send-button"
+              disabled={blocked || input.length > 600 || loading || !input.trim()}
+            >
+              {loading ? (
+                <span className="button-loading">...</span>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"/>
+                </svg>
+              )}
+            </button>
+          </form>
+          <p className="disclaimer">
+            Service garanti 1 an • Partout en France
+          </p>
+        </div>
       </div>
     </>
   );
