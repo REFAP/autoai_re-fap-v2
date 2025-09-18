@@ -33,23 +33,38 @@ export default function GarageLanding() {
       color: '#8BC34A',
       marginBottom: '30px'
     },
+    mainTitle: {
+      fontSize: '32px',
+      fontWeight: 'bold',
+      color: '#333',
+      marginBottom: '10px',
+      lineHeight: '1.2',
+      textAlign: 'center'
+    },
+    mainTitleHighlight: {
+      color: '#2ecc71',
+      display: 'block',
+      fontSize: '36px'
+    },
     title: {
       color: '#2ecc71',
-      fontSize: '28px',
+      fontSize: '24px',
       marginBottom: '15px',
+      marginTop: '25px',
       display: 'flex',
       alignItems: 'center',
       gap: '10px'
     },
     checkIcon: {
-      width: '32px',
-      height: '32px',
+      width: '28px',
+      height: '28px',
       background: '#2ecc71',
       borderRadius: '50%',
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      color: 'white'
+      color: 'white',
+      fontSize: '14px'
     },
     subtitle: {
       fontSize: '18px',
@@ -87,6 +102,45 @@ export default function GarageLanding() {
       padding: '15px',
       borderRadius: '8px',
       marginBottom: '20px'
+    },
+    highlightBox: {
+      background: 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)',
+      border: '2px solid #2ecc71',
+      borderRadius: '12px',
+      padding: '20px',
+      marginBottom: '25px',
+      marginTop: '20px',
+      textAlign: 'center'
+    },
+    priceComparison: {
+      display: 'flex',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      marginTop: '15px',
+      gap: '20px'
+    },
+    priceItem: {
+      textAlign: 'center'
+    },
+    oldPrice: {
+      fontSize: '24px',
+      color: '#e74c3c',
+      textDecoration: 'line-through',
+      opacity: '0.7'
+    },
+    newPrice: {
+      fontSize: '32px',
+      color: '#2ecc71',
+      fontWeight: 'bold'
+    },
+    priceLabel: {
+      fontSize: '12px',
+      color: '#666',
+      marginTop: '5px'
+    },
+    vsText: {
+      fontSize: '20px',
+      color: '#999'
     },
     step: {
       display: 'flex',
@@ -165,17 +219,41 @@ export default function GarageLanding() {
   return (
     <>
       <Head>
-        <title>Re-FAP - Solution Garage Partenaire</title>
+        <title>Re-FAP - Économisez 1000€ sur votre FAP</title>
       </Head>
 
       <div style={styles.container}>
         <div style={styles.content}>
           <div style={styles.logo}>re-fap</div>
 
-          <h1 style={styles.title}>
+          {/* Nouveau titre principal accrocheur */}
+          <h1 style={styles.mainTitle}>
+            <span style={styles.mainTitleHighlight}>Économisez 1000€</span>
+            Trouvez un garage FAP de confiance<br/>près de chez vous en 2 min
+          </h1>
+
+          {/* Box de comparaison de prix */}
+          <div style={styles.highlightBox}>
+            <div style={{fontWeight: '600', fontSize: '18px', marginBottom: '10px'}}>
+              💰 Pourquoi remplacer quand on peut nettoyer ?
+            </div>
+            <div style={styles.priceComparison}>
+              <div style={styles.priceItem}>
+                <div style={styles.oldPrice}>1500€</div>
+                <div style={styles.priceLabel}>Remplacement FAP</div>
+              </div>
+              <div style={styles.vsText}>VS</div>
+              <div style={styles.priceItem}>
+                <div style={styles.newPrice}>350€</div>
+                <div style={styles.priceLabel}>Nettoyage Re-FAP</div>
+              </div>
+            </div>
+          </div>
+
+          <h2 style={styles.title}>
             <span style={styles.checkIcon}>✓</span>
             Solution recommandée pour vous
-          </h1>
+          </h2>
 
           <p style={styles.subtitle}>
             Vous avez besoin d'un garage de confiance pour prendre en charge votre FAP tout compris (Dépose, nettoyage re-fap, repose, réinitialisation)
@@ -208,7 +286,7 @@ export default function GarageLanding() {
                 <path d="M9 11l3 3L22 4"></path>
                 <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
               </svg>
-              Comment ça marche pour obtenir rapidement un rdv près de chez vous
+              Comment obtenir rapidement un RDV près de chez vous
             </h2>
 
             <div style={styles.step}>
@@ -222,7 +300,7 @@ export default function GarageLanding() {
             <div style={styles.step}>
               <div style={styles.stepNumber}>2</div>
               <div style={styles.stepContent}>
-                <div style={styles.stepTitle}>Comparez les garages certifiés</div>
+                <div style={styles.stepTitle}>Comparez les garages certifiés proches</div>
                 <div style={styles.stepText}>Prix transparents, disponibilités en temps réel, avis clients vérifiés, distance</div>
               </div>
             </div>
@@ -231,6 +309,7 @@ export default function GarageLanding() {
               <div style={styles.stepNumber}>3</div>
               <div style={styles.stepContent}>
                 <div style={styles.stepTitle}>Prenez RDV pour le diagnostic près de chez vous</div>
+                <div style={styles.stepText}>Garages à moins de 20 min de votre position</div>
               </div>
             </div>
 
@@ -247,9 +326,11 @@ export default function GarageLanding() {
           <div style={styles.successBox}>
             <div style={{fontWeight: '600', marginBottom: '8px'}}>✅ Vos avantages avec cette solution :</div>
             <div style={{fontSize: '14px', lineHeight: '1.6'}}>
+              • <strong>Économie garantie</strong> : 1000€ de moins qu'un remplacement<br/>
+              • <strong>Proximité</strong> : Garages à moins de 20 min de chez vous<br/>
               • <strong>Prix garantis</strong> : Devis ferme avant toute intervention<br/>
-              • <strong>Garages certifiés</strong> : Professionnels agréés<br/>
-              • <strong>Garantie 1 an</strong> : Sur nettoyage re-fap
+              • <strong>Garages certifiés</strong> : Professionnels agréés et formés<br/>
+              • <strong>Garantie 1 an</strong> : Sur le nettoyage re-fap
             </div>
           </div>
 
@@ -269,6 +350,13 @@ export default function GarageLanding() {
                   <polyline points="12 6 12 12 16 14"/>
                 </svg>
                 2 minutes
+              </span>
+              <span style={styles.badge}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+                Proche de vous
               </span>
             </div>
           </div>
@@ -294,7 +382,7 @@ export default function GarageLanding() {
             }}
             disabled={!agreed}
           >
-            {agreed ? 'Accéder à IDGarages →' : 'Cochez pour continuer'}
+            {agreed ? '🚗 Trouver mon garage maintenant →' : 'Cochez pour continuer'}
           </button>
 
           <div style={{textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#999'}}>
