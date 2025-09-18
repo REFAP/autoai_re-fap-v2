@@ -46,26 +46,6 @@ export default function GarageLanding() {
       display: 'block',
       fontSize: '36px'
     },
-    title: {
-      color: '#2ecc71',
-      fontSize: '24px',
-      marginBottom: '15px',
-      marginTop: '25px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px'
-    },
-    checkIcon: {
-      width: '28px',
-      height: '28px',
-      background: '#2ecc71',
-      borderRadius: '50%',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: 'white',
-      fontSize: '14px'
-    },
     subtitle: {
       fontSize: '18px',
       color: '#333',
@@ -102,45 +82,6 @@ export default function GarageLanding() {
       padding: '15px',
       borderRadius: '8px',
       marginBottom: '20px'
-    },
-    highlightBox: {
-      background: 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)',
-      border: '2px solid #2ecc71',
-      borderRadius: '12px',
-      padding: '20px',
-      marginBottom: '25px',
-      marginTop: '20px',
-      textAlign: 'center'
-    },
-    priceComparison: {
-      display: 'flex',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      marginTop: '15px',
-      gap: '20px'
-    },
-    priceItem: {
-      textAlign: 'center'
-    },
-    oldPrice: {
-      fontSize: '24px',
-      color: '#e74c3c',
-      textDecoration: 'line-through',
-      opacity: '0.7'
-    },
-    newPrice: {
-      fontSize: '32px',
-      color: '#2ecc71',
-      fontWeight: 'bold'
-    },
-    priceLabel: {
-      fontSize: '12px',
-      color: '#666',
-      marginTop: '5px'
-    },
-    vsText: {
-      fontSize: '20px',
-      color: '#999'
     },
     step: {
       display: 'flex',
@@ -228,35 +169,17 @@ export default function GarageLanding() {
 
           {/* Nouveau titre principal accrocheur */}
           <h1 style={styles.mainTitle}>
-            <span style={styles.mainTitleHighlight}>Économisez 1000€</span>
+            <span style={styles.mainTitleHighlight}>Économisez 1000€*</span>
             Trouvez un garage FAP de confiance<br/>près de chez vous en 2 min
           </h1>
-
-          {/* Box de comparaison de prix */}
-          <div style={styles.highlightBox}>
-            <div style={{fontWeight: '600', fontSize: '18px', marginBottom: '10px'}}>
-              💰 Pourquoi remplacer quand on peut nettoyer ?
-            </div>
-            <div style={styles.priceComparison}>
-              <div style={styles.priceItem}>
-                <div style={styles.oldPrice}>1500€</div>
-                <div style={styles.priceLabel}>Remplacement FAP</div>
-              </div>
-              <div style={styles.vsText}>VS</div>
-              <div style={styles.priceItem}>
-                <div style={styles.newPrice}>350€</div>
-                <div style={styles.priceLabel}>Nettoyage Re-FAP</div>
-              </div>
-            </div>
+          
+          <div style={{textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '5px', marginBottom: '25px'}}>
+            *Économie moyenne constatée en choisissant le nettoyage vs remplacement. Varie selon le type de moteur et de véhicule.
           </div>
 
-          <h2 style={styles.title}>
-            <span style={styles.checkIcon}>✓</span>
-            Solution recommandée pour vous
-          </h2>
-
           <p style={styles.subtitle}>
-            Vous avez besoin d'un garage de confiance pour prendre en charge votre FAP tout compris (Dépose, nettoyage re-fap, repose, réinitialisation)
+            Vous avez besoin d'un garage de confiance pour prendre en charge votre FAP tout compris <strong>(Dépose, nettoyage re-fap, repose, réinitialisation)</strong>.
+            L'économie provient du choix du nettoyage comme neuf plutôt que du remplacement complet.
             Voici la solution clé en main que nous vous proposons.
           </p>
 
