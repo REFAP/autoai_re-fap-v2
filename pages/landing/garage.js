@@ -178,7 +178,7 @@ export default function GarageLanding() {
           </h1>
 
           <p style={styles.subtitle}>
-            D'après vos réponses, votre FAP nécessite une intervention professionnelle.
+            Vous avez besoin d'un garage de confiance pour prendre en charge votre FAP tout compris (Dépose, nettoyage re-fap, repose, réinitialisation)
             Voici la solution clé en main que nous vous proposons.
           </p>
 
