@@ -120,7 +120,7 @@ export default function Home() {
                 </div>
                 <div className="header-text">
                   <h1>AutoAI par Re-FAP</h1>
-                  <p className="subtitle">Expert en diagnostic FAP • Service disponible partout en France</p>
+                  <p className="subtitle">Expert FAP • Partout en France</p>
                 </div>
               </div>
               <div className="status-indicator">
@@ -172,7 +172,7 @@ export default function Home() {
                 <div className="input-wrapper">
                   <input
                     type="text"
-                    placeholder="Décrivez votre problème de FAP..."
+                    placeholder="Décrivez votre problème..."
                     value={input}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -203,14 +203,14 @@ export default function Home() {
               </form>
             </div>
 
-            {/* Zone CTA - FIXES */}
+            {/* Zone CTA - FIXES et OPTIMISÉS MOBILE */}
             <div className="cta-zone">
               <div className="cta-header">
                 <h3>Solutions rapides</h3>
-                <p>Choisissez selon votre situation</p>
+                <p>Choisissez votre situation</p>
               </div>
 
-              {/* CTA 1 - Garage partenaire (toujours affiché) */}
+              {/* CTA 1 - Garage partenaire */}
               <a href={RECOMMENDATION_URLS.garage}
                  target="_blank"
                  rel="noopener noreferrer"
@@ -221,15 +221,15 @@ export default function Home() {
                   </svg>
                 </div>
                 <div className="cta-content">
-                  <span className="cta-title">Trouver un garage partenaire</span>
-                  <span className="cta-subtitle">Prendre RDV diagnostic</span>
+                  <span className="cta-title">Garage partenaire</span>
+                  <span className="cta-subtitle">RDV diagnostic</span>
                 </div>
                 <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </a>
 
-              {/* CTA 2 - Carter-Cash (toujours affiché) */}
+              {/* CTA 2 - Carter-Cash */}
               <a href={RECOMMENDATION_URLS.carter}
                  target="_blank"
                  rel="noopener noreferrer"
@@ -241,8 +241,8 @@ export default function Home() {
                   </svg>
                 </div>
                 <div className="cta-content">
-                  <span className="cta-title">Trouver un Carter-Cash</span>
-                  <span className="cta-subtitle">Nettoyage FAP (FAP démonté)</span>
+                  <span className="cta-title">Carter-Cash</span>
+                  <span className="cta-subtitle">FAP démonté • 99€</span>
                 </div>
                 <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -254,14 +254,14 @@ export default function Home() {
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
                   <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-                <span>Service garanti 1 an • Partout en France</span>
+                <span>Garantie 1 an • Toute la France</span>
               </div>
             </div>
           </div>
         </main>
 
         <footer className="footer">
-          <p>AutoAI peut faire des erreurs. Vérifiez les informations importantes auprès d'un professionnel.</p>
+          <p>AutoAI peut faire des erreurs. Vérifiez auprès d'un professionnel.</p>
         </footer>
       </div>
     </>
