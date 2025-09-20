@@ -203,115 +203,51 @@ export default function Home() {
               </form>
             </div>
 
-            {/* Zone CTA */}
+            {/* Zone CTA - FIXES */}
             <div className="cta-zone">
               <div className="cta-header">
-                <h3>Actions rapides</h3>
+                <h3>Solutions rapides</h3>
                 <p>Choisissez selon votre situation</p>
               </div>
 
-              {nextAction?.type === 'FAP' && (
-                <>
-                  <a href={RECOMMENDATION_URLS.garage} 
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="cta-button primary">
-                    <div className="cta-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
-                      </svg>
-                    </div>
-                    <div className="cta-content">
-                      <span className="cta-title">FAP monté ?</span>
-                      <span className="cta-subtitle">Prendre RDV diagnostic</span>
-                    </div>
-                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </a>
-
-                  <a href={RECOMMENDATION_URLS.carter}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="cta-button secondary">
-                    <div className="cta-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
-                        <path d="M14 2v6h6" stroke="white" strokeWidth="2"/>
-                      </svg>
-                    </div>
-                    <div className="cta-content">
-                      <span className="cta-title">FAP démonté ?</span>
-                      <span className="cta-subtitle">Dépôt Carter-Cash</span>
-                    </div>
-                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </a>
-                </>
-              )}
-
-              {nextAction?.type === 'DIAG' && (
-                <a href={RECOMMENDATION_URLS.garage}
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   className="cta-button primary">
-                  <div className="cta-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                      <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                  <div className="cta-content">
-                    <span className="cta-title">Diagnostic complet</span>
-                    <span className="cta-subtitle">Solution personnalisée garage</span>
-                  </div>
-                  <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              {/* CTA 1 - Garage partenaire (toujours affiché) */}
+              <a href={RECOMMENDATION_URLS.garage}
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 className="cta-button primary">
+                <div className="cta-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
                   </svg>
-                </a>
-              )}
+                </div>
+                <div className="cta-content">
+                  <span className="cta-title">Trouver un garage partenaire</span>
+                  <span className="cta-subtitle">Prendre RDV diagnostic</span>
+                </div>
+                <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </a>
 
-              {(!nextAction || nextAction.type === 'GEN') && (
-                <>
-                  <a href={RECOMMENDATION_URLS.garage}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="cta-button primary">
-                    <div className="cta-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
-                      </svg>
-                    </div>
-                    <div className="cta-content">
-                      <span className="cta-title">Garage partenaire</span>
-                      <span className="cta-subtitle">Prendre RDV diagnostic →</span>
-                    </div>
-                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </a>
-
-                  <a href={RECOMMENDATION_URLS.carter}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     className="cta-button secondary">
-                    <div className="cta-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
-                        <path d="M14 2v6h6" stroke="white" strokeWidth="2"/>
-                      </svg>
-                    </div>
-                    <div className="cta-content">
-                      <span className="cta-title">Carter-Cash</span>
-                      <span className="cta-subtitle">Dépôt FAP démonté</span>
-                    </div>
-                    <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </a>
-                </>
-              )}
+              {/* CTA 2 - Carter-Cash (toujours affiché) */}
+              <a href={RECOMMENDATION_URLS.carter}
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 className="cta-button secondary">
+                <div className="cta-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
+                    <path d="M14 2v6h6" stroke="white" strokeWidth="2"/>
+                  </svg>
+                </div>
+                <div className="cta-content">
+                  <span className="cta-title">Trouver un Carter-Cash</span>
+                  <span className="cta-subtitle">Nettoyage FAP (FAP démonté)</span>
+                </div>
+                <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </a>
 
               <div className="info-card">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
