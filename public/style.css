@@ -11,7 +11,7 @@
   --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.16);
   --header-height: 60px;
-  --cta-height-mobile: 160px;
+  --cta-height-mobile: 170px;
   --input-height: 60px;
 }
 
@@ -122,7 +122,6 @@ body {
 .chat-main {
   display: flex;
   flex-direction: column;
-  /* Hauteur = 100vh - header - zone CTA */
   height: calc(100vh - var(--header-height) - var(--cta-height-mobile));
   position: relative;
   overflow: hidden;
@@ -142,7 +141,6 @@ body {
   padding: 16px;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  /* Important : prendre tout l'espace disponible sauf l'input */
   height: calc(100% - var(--input-height));
 }
 
@@ -187,7 +185,7 @@ body {
   max-width: 90%;
 }
 
-/* Input form - Position absolue en bas de la zone de chat */
+/* Input form - Position en bas de la zone de chat */
 .input-form {
   padding: 10px 12px;
   background: white;
@@ -263,6 +261,8 @@ body {
   z-index: 100;
   height: var(--cta-height-mobile);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .cta-header {
@@ -294,7 +294,7 @@ body {
   gap: 8px;
   background: white;
   border: 2px solid #e0e0e0;
-  min-height: 44px; /* Accessibilité tactile */
+  min-height: 44px;
 }
 
 .cta-button.primary {
@@ -376,9 +376,19 @@ body {
   flex-shrink: 0;
 }
 
-/* Footer - Mobile */
+.disclaimer-text {
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 8px;
+  padding: 0 4px;
+  opacity: 0.7;
+  line-height: 1.3;
+}
+
+/* Footer - Supprimé car intégré dans CTA */
 .footer {
-  display: none; /* Masqué sur mobile */
+  display: none;
 }
 
 /* Typing indicator */
@@ -409,7 +419,7 @@ body {
 /* Ajustements pour très petits écrans */
 @media (max-width: 380px) {
   :root {
-    --cta-height-mobile: 150px;
+    --cta-height-mobile: 160px;
   }
   
   .cta-title { font-size: 11px; }
@@ -429,6 +439,9 @@ body {
   .send-button {
     width: 34px;
     height: 34px;
+  }
+  .disclaimer-text {
+    font-size: 8px;
   }
 }
 
@@ -468,7 +481,6 @@ body {
   .chat-main {
     flex-direction: row;
     height: calc(100vh - var(--header-height));
-    padding-bottom: 0;
   }
 
   .chat-area {
@@ -549,10 +561,9 @@ body {
     padding: 10px 14px;
   }
 
-  .footer {
-    display: block;
-    font-size: 12px;
-    padding: 10px 16px;
+  .disclaimer-text {
+    font-size: 11px;
+    margin-top: 12px;
   }
 }
 
@@ -577,6 +588,13 @@ body {
 
   .cta-subtitle {
     font-size: 13px;
+  }
+  
+  .disclaimer-text {
+    font-size: 12px;
+    margin-top: 16px;
+    padding: 12px 8px 0;
+    border-top: 1px solid #e0e0e0;
   }
 }
 
@@ -658,6 +676,11 @@ body {
     background: #2a2a2a;
     color: #a0a0a0;
   }
+  
+  .disclaimer-text {
+    color: #808080;
+    border-color: #444;
+  }
 }
 
 /* Gestion spéciale pour les claviers virtuels sur mobile */
@@ -669,5 +692,26 @@ body {
   
   .cta-zone {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Focus visible pour accessibilité */
+.cta-button:focus-visible,
+.message-input:focus-visible,
+.send-button:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Amélioration contraste pour accessibilité */
+@media (prefers-contrast: high) {
+  .cta-button.primary,
+  .cta-button.secondary {
+    border: 2px solid currentColor;
+  }
+  
+  .disclaimer-text {
+    opacity: 1;
+    font-weight: 500;
   }
 }
