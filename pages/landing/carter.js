@@ -212,7 +212,7 @@ export default function CarterLanding() {
           <div style={styles.logo}>re-fap</div>
 
           <h1 style={styles.title}>
-            <span style={styles.checkIcon}>✓</span>
+            <span style={styles.checkIcon}>✔</span>
             Solution recommandée pour vous
           </h1>
 
@@ -341,7 +341,7 @@ export default function CarterLanding() {
 
           <div style={{textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#999'}}>
             Vous allez être redirigé vers notre site Carter-Cash Re-FAP<br/>
-            <a href="/landing/garage" style={{color: '#2ecc71', textDecoration: 'none'}}>
+            <a href="https://auto.re-fap.fr" style={{color: '#2ecc71', textDecoration: 'none'}}>
               Je préfère la solution garage (FAP monté)
             </a>
           </div>
