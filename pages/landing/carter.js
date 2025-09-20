@@ -6,7 +6,7 @@ export default function CarterLanding() {
   const [agreed, setAgreed] = useState(false);
 
   const handleContinue = () => {
-    window.open('https://refap.github.io/carter-cash-refap/', '_blank');
+    window.open('https://auto.re-fap.fr', '_blank');
   };
 
   const styles = {
@@ -340,8 +340,8 @@ export default function CarterLanding() {
           </button>
 
           <div style={{textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#999'}}>
-            Vous allez être redirigé vers notre site Carter-Cash Re-FAP<br/>
-            <a href="https://auto.re-fap.fr" style={{color: '#2ecc71', textDecoration: 'none'}}>
+            Vous allez être redirigé vers auto.re-fap.fr<br/>
+            <a href="https://autoai-re-fap-v2.vercel.app/landing/garage" style={{color: '#2ecc71', textDecoration: 'none'}}>
               Je préfère la solution garage (FAP monté)
             </a>
           </div>
