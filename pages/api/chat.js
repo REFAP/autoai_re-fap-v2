@@ -122,7 +122,7 @@ RÈGLES :
 RÉPONSES EXACTES :
 
 "fap" seul :
-"Bonjour. Un FAP encrassé empêche votre moteur de bien respirer. Notre nettoyage haute pression résout ce problème pour 99€ minimum. Pour vous orienter, quel symptôme observez-vous : voyant allumé, perte de puissance ou fumée noire ?"
+"Bonjour. Un FAP encrassé empêche votre moteur de bien respirer. Notre nettoyage haute pression résout ce problème pour 99-149€. Pour vous orienter, quel symptôme observez-vous : voyant allumé, perte de puissance ou fumée noire ?"
 
 Symptômes multiples FAP confirmés :
 "Votre FAP est clairement saturé. C'est comme un filtre complètement obstrué qui étouffe le moteur. Pouvez-vous démonter vous-même le filtre à particules ?"
@@ -225,7 +225,7 @@ ANALYSE :
     const reply = (data.choices?.[0]?.message?.content || '').trim();
     
     if (!reply) {
-      const defaultReply = `Bonjour. Problème de FAP détecté. Notre nettoyage haute pression restaure les performances pour 99€ minimum. Avez-vous un voyant FAP allumé ?`;
+      const defaultReply = `Bonjour. Problème de FAP détecté. Notre nettoyage haute pression restaure les performances pour 99-149€. Avez-vous un voyant FAP allumé ?`;
       
       return res.status(200).json({ 
         reply: defaultReply, 
