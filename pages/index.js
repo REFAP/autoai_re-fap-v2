@@ -13,7 +13,7 @@ export default function Home() {
   const [messages, setMessages] = useState([
     {
       from: 'bot',
-      text: "Bonjour ! Je suis AutoAI, votre expert Re-FAP. Je diagnostique vos problèmes de FAP et vous oriente vers la solution adaptée. Décrivez votre problème."
+      text: "Bonjour ! Je suis FAPexpert, votre spécialiste Re-FAP. Je diagnostique vos problèmes de FAP et vous oriente vers la solution adaptée. Décrivez votre problème."
     },
   ]);
   const [input, setInput] = useState('');
@@ -30,7 +30,7 @@ export default function Home() {
   function getHistoriqueText() {
     const lastMessages = messages.slice(-5);
     return lastMessages
-      .map((m) => (m.from === 'user' ? `Moi: ${m.text}` : `AutoAI: ${m.text}`))
+      .map((m) => (m.from === 'user' ? `Moi: ${m.text}` : `FAPexpert: ${m.text}`))
       .join('\n');
   }
 
@@ -102,7 +102,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>AutoAI - Expert FAP par Re-FAP</title>
+        <title>FAPexpert - Diagnostic FAP par Re-FAP</title>
         <link rel="stylesheet" href="/style.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin />
@@ -116,10 +116,10 @@ export default function Home() {
             <div className="header-content">
               <div className="logo-section">
                 <div className="logo-circle">
-                  <span className="logo-text">AI</span>
+                  <span className="logo-text">FE</span>
                 </div>
                 <div className="header-text">
-                  <h1>AutoAI par Re-FAP</h1>
+                  <h1>FAPexpert par Re-FAP</h1>
                   <p className="subtitle">Expert FAP • Partout en France</p>
                 </div>
               </div>
@@ -140,7 +140,7 @@ export default function Home() {
                       {m.from === 'user' ? (
                         <span className="message-author user-author">Vous</span>
                       ) : (
-                        <span className="message-author bot-author">AutoAI</span>
+                        <span className="message-author bot-author">FAPexpert</span>
                       )}
                     </div>
                     <div className="message-bubble">
@@ -152,7 +152,7 @@ export default function Home() {
                 {loading && (
                   <div className="message bot">
                     <div className="message-header">
-                      <span className="message-author bot-author">AutoAI</span>
+                      <span className="message-author bot-author">FAPexpert</span>
                     </div>
                     <div className="message-bubble">
                       <div className="typing-indicator">
@@ -256,13 +256,13 @@ export default function Home() {
                 </svg>
                 <span>Garantie 1 an • Toute la France</span>
               </div>
+
+              <div className="disclaimer-text">
+                FAPexpert peut faire des erreurs. Vérifiez auprès d'un professionnel.
+              </div>
             </div>
           </div>
         </main>
-
-        <footer className="footer">
-          <p>AutoAI peut faire des erreurs. Vérifiez auprès d'un professionnel.</p>
-        </footer>
       </div>
     </>
   );
