@@ -95,7 +95,7 @@ APPROCHE EN 3 PHASES :
 
 PHASE 1 (Messages 1-2) : EXPLORER ET EXPLIQUER
 - Comprendre les symptômes décrits
-- Expliquer avec des analogies simples (filtre cafetière, cheminée, aspirateur...)
+- Expliquer avec des analogies simples
 - Mentionner plusieurs causes possibles
 - Poser des questions ciblées pour affiner
 
@@ -214,3 +214,4 @@ Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.`;
     });
   }
 }
+
