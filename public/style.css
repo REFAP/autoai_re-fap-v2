@@ -19,15 +19,6 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  /* Prévenir le scroll horizontal sur iOS */
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Fix iOS pour éviter le scroll horizontal */
-html, body {
-  overflow-x: hidden;
-  width: 100%;
-  position: relative;
 }
 
 body {
@@ -37,8 +28,6 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  /* Empêche le scroll horizontal sur iOS */
-  max-width: 100vw;
   overflow-x: hidden;
 }
 
@@ -47,11 +36,9 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  width: 100%;
   max-width: 100vw;
   background: white;
   position: relative;
-  overflow: hidden; /* Empêche débordement */
 }
 
 .chat-container {
@@ -61,7 +48,6 @@ body {
   background: white;
   overflow: hidden;
   height: 100vh;
-  width: 100%;
 }
 
 /* Header - Optimisé mobile */
@@ -74,7 +60,6 @@ body {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  width: 100%;
 }
 
 .header-content {
@@ -88,14 +73,11 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 1;
-  min-width: 0; /* Empêche débordement */
 }
 
 .logo-circle {
   width: 36px;
   height: 36px;
-  min-width: 36px;
   background: white;
   border-radius: 50%;
   display: flex;
@@ -104,30 +86,18 @@ body {
   font-weight: 700;
   color: #667eea;
   font-size: 14px;
-  flex-shrink: 0;
-}
-
-.header-text {
-  min-width: 0;
-  flex: 1;
 }
 
 .header-text h1 {
   font-size: 16px;
   font-weight: 600;
   margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .subtitle {
   font-size: 11px;
   opacity: 0.9;
   margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .status-indicator {
@@ -138,8 +108,6 @@ body {
   background: rgba(255,255,255,0.2);
   padding: 4px 10px;
   border-radius: 20px;
-  flex-shrink: 0;
-  white-space: nowrap;
 }
 
 .status-dot {
@@ -157,7 +125,6 @@ body {
   height: calc(100vh - var(--header-height) - var(--cta-height-mobile));
   position: relative;
   overflow: hidden;
-  width: 100%;
 }
 
 .chat-area {
@@ -165,26 +132,26 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  width: 100%;
 }
 
-/* Messages - Mobile optimized CORRIGÉ POUR iOS */
+/* Messages - Mobile optimized */
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px 12px; /* Padding réduit pour éviter débordement */
+  overflow-x: hidden; /* Empêche le scroll horizontal */
+  padding: 16px;
+  padding-right: 12px; /* Réduit pour éviter débordement */
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   height: calc(100% - var(--input-height));
   width: 100%;
+  max-width: 100vw;
 }
 
 .message {
   margin-bottom: 16px;
   animation: fadeInUp 0.3s ease;
-  width: 100%;
-  overflow: hidden;
+  max-width: 100%; /* Assure que rien ne dépasse */
 }
 
 .message-header {
@@ -203,39 +170,38 @@ body {
 .bot-author { color: #764ba2; }
 
 .message-bubble {
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-radius: var(--border-radius);
   background: #f5f5f5;
   font-size: 14px;
   line-height: 1.5;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  hyphens: auto;
+  max-width: 100%;
+  word-wrap: break-word; /* Force le retour à la ligne */
+  overflow-wrap: break-word; /* Support iOS */
 }
 
 .message.user .message-bubble {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   margin-left: auto;
-  max-width: 75%; /* Réduit pour éviter que ça touche le bord */
+  max-width: 80%; /* Réduit pour éviter débordement */
 }
 
 .message.bot .message-bubble {
   background: #f8f9fa;
-  max-width: 85%;
+  max-width: 85%; /* Réduit pour éviter débordement */
 }
 
-/* Input form - CORRIGÉ POUR iOS */
+/* Input form - Position en bas de la zone de chat */
 .input-form {
-  padding: 10px;
-  padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  padding: 10px 12px;
+  padding-bottom: env(safe-area-inset-bottom, 10px); /* Support iPhone X+ */
   background: white;
   border-top: 1px solid #e0e0e0;
-  min-height: var(--input-height);
+  height: var(--input-height);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  width: 100%;
   position: relative;
   z-index: 10;
 }
@@ -245,35 +211,31 @@ body {
   gap: 8px;
   align-items: center;
   width: 100%;
-  padding: 0 2px; /* Petit padding pour éviter que ça touche les bords */
+  max-width: 100%;
 }
 
 .message-input {
   flex: 1;
-  min-width: 0;
+  min-width: 0; /* Important pour iOS */
   padding: 10px 14px;
   border: 2px solid #e0e0e0;
   border-radius: 24px;
-  font-size: 16px; /* IMPORTANT: 16px minimum pour éviter le zoom sur iOS */
+  font-size: 16px; /* 16px minimum évite le zoom sur iOS */
   font-family: inherit;
   outline: none;
   transition: all 0.2s;
   background: white;
-  -webkit-appearance: none; /* Supprime le style iOS par défaut */
-  -webkit-border-radius: 24px; /* Pour iOS */
+  -webkit-appearance: none; /* Évite les styles iOS par défaut */
 }
 
 .message-input:focus {
   border-color: #667eea;
-  /* Empêche le zoom sur iOS */
-  font-size: 16px;
 }
 
 .send-button {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px; /* Empêche la compression sur iOS */
   border-radius: 50%;
   border: none;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -284,9 +246,7 @@ body {
   justify-content: center;
   transition: transform 0.2s;
   flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  z-index: 10;
+  -webkit-tap-highlight-color: transparent; /* Enlève le highlight iOS */
 }
 
 .send-button:active {
@@ -301,7 +261,6 @@ body {
 .send-button svg {
   width: 18px;
   height: 18px;
-  pointer-events: none; /* Évite les problèmes de clic sur iOS */
 }
 
 /* CTA Zone - Position fixe en bas sur mobile */
@@ -314,7 +273,6 @@ body {
   background: white;
   border-top: 1px solid #e0e0e0;
   padding: 10px 12px;
-  padding-bottom: calc(10px + env(safe-area-inset-bottom));
   box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
   z-index: 100;
   height: var(--cta-height-mobile);
@@ -353,7 +311,6 @@ body {
   background: white;
   border: 2px solid #e0e0e0;
   min-height: 44px;
-  width: 100%;
 }
 
 .cta-button.primary {
@@ -426,7 +383,6 @@ body {
   margin-top: 6px;
   font-size: 10px;
   color: #4a5568;
-  width: 100%;
 }
 
 .info-card svg {
@@ -476,31 +432,6 @@ body {
   padding: 0 14px;
 }
 
-/* Ajustements spécifiques iOS pour éviter le scroll horizontal */
-@supports (-webkit-touch-callout: none) {
-  /* iOS Safari */
-  .app-container {
-    position: fixed;
-    width: 100%;
-    height: 100vh;
-    overflow: hidden;
-  }
-  
-  .chat-main {
-    height: calc(100vh - var(--header-height) - var(--cta-height-mobile) - env(safe-area-inset-bottom));
-  }
-  
-  .message-input {
-    font-size: 16px !important; /* Force 16px sur iOS */
-  }
-  
-  /* Évite le rebond élastique */
-  .messages-container {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
-  }
-}
-
 /* Ajustements pour très petits écrans */
 @media (max-width: 380px) {
   :root {
@@ -518,26 +449,16 @@ body {
     min-height: 40px;
   }
   .message-input { 
-    font-size: 16px; /* Toujours 16px minimum sur iOS */
+    font-size: 16px; /* CORRIGÉ : 16px au lieu de 13px pour éviter le zoom iOS */
     padding: 8px 12px;
   }
   .send-button {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
+    width: 34px;
+    height: 34px;
   }
   .disclaimer-text {
     font-size: 8px;
   }
-}
-
-/* Viewport meta fix pour iOS */
-@viewport {
-  width: device-width;
-  initial-scale: 1;
-  maximum-scale: 1;
-  user-scalable: no;
 }
 
 /* Tablette (iPad) */
@@ -554,7 +475,6 @@ body {
     max-width: 1400px;
     margin: 0 auto;
     height: 100vh;
-    position: relative;
   }
 
   .chat-container {
@@ -607,8 +527,6 @@ body {
   .send-button {
     width: 44px;
     height: 44px;
-    min-width: 44px;
-    min-height: 44px;
   }
 
   /* CTA zone en sidebar sur tablette */
@@ -778,6 +696,18 @@ body {
   .disclaimer-text {
     color: #808080;
     border-color: #444;
+  }
+}
+
+/* Gestion spéciale pour les claviers virtuels sur mobile */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari */
+  .chat-main {
+    height: calc(100vh - var(--header-height) - var(--cta-height-mobile) - env(safe-area-inset-bottom));
+  }
+  
+  .cta-zone {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 }
 
