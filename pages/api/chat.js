@@ -9,107 +9,129 @@ const STOPWORDS_FR = new Set([
   'mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet','cette','ses','son','leurs'
 ]);
 
-function normalize(s='') {
-  return s.toLowerCase()
-    .normalize('NFD').replace(/\p{Diacritic}+/gu,'')
-    .replace(/[^\p{L}\p{N}\s\-]/gu,' ')
-    .replace(/\s+/g,' ')
+function normalize(s = '') {
+  return s
+    .toLowerCase()
+    .normalize('NFD').replace(/\p{Diacritic}+/gu, '')
+    .replace(/[^\p{L}\p{N}\s\-]/gu, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 function tokenize(s) {
-  return normalize(s).split(' ').filter(t => t && t.length>2 && !STOPWORDS_FR.has(t));
+  return normalize(s)
+    .split(' ')
+    .filter(t => t && t.length > 2 && !STOPWORDS_FR.has(t));
 }
 
 function parseBlocks(raw) {
   const parts = raw.split(/\n(?=\[[^\]]*\]\s*)/g);
-  return parts.map(p => {
-    const m = p.match(/^\[([^\]]*)\]\s*([\s\S]*)$/);
-    if (!m) return null;
-    const title = m[1] || '';
-    const body  = (m[2] || '').trim();
-    const synLine = body.match(/^Synonymes:\s*(.+)$/mi);
-    const synonyms = synLine ? synLine[1].split(/[,|]/).map(s=>s.trim()).filter(Boolean) : [];
-    return { title, body, synonyms };
-  }).filter(Boolean);
+  return parts
+    .map(p => {
+      const m = p.match(/^\[([^\]]*)\]\s*([\s\S]*)$/);
+      if (!m) return null;
+      const title = m[1] || '';
+      const body = (m[2] || '').trim();
+      const synLine = body.match(/^Synonymes:\s*(.+)$/mi);
+      const synonyms = synLine
+        ? synLine[1].split(/[,|]/).map(s => s.trim()).filter(Boolean)
+        : [];
+      return { title, body, synonyms };
+    })
+    .filter(Boolean);
 }
 
 function scoreBlock(block, queryTokens) {
-  const bag = tokenize(block.title + ' ' + block.body + ' ' + (block.synonyms||[]).join(' '));
+  const bag = tokenize(
+    `${block.title} ${block.body} ${(block.synonyms || []).join(' ')}`
+  );
   if (!bag.length) return 0;
+
   let hits = 0;
   for (const t of queryTokens) if (bag.includes(t)) hits++;
-  const titleHits = tokenize(block.title).filter(t=>queryTokens.includes(t)).length;
-  const synHits   = tokenize((block.synonyms||[]).join(' ')).filter(t=>queryTokens.includes(t)).length;
-  return hits + 1.5*titleHits + 1.2*synHits;
+
+  const titleHits = tokenize(block.title).filter(t => queryTokens.includes(t)).length;
+  const synHits = tokenize((block.synonyms || []).join(' ')).filter(t => queryTokens.includes(t)).length;
+
+  return hits + 1.5 * titleHits + 1.2 * synHits;
 }
 
 function classify(text) {
   const txt = normalize(text);
-  
-  if (/voyant.*clignotant|urgent|arrêt.*immédiat|danger/.test(txt)) return { type:'URGENT' };
-  if (/\bfap\b|\bdpf\b|\bfiltre.*particule|saturé|encrassé|colmaté/.test(txt)) return { type:'FAP' };
-  if (/\begr\b|vanne.*egr|recirculation.*gaz/.test(txt)) return { type:'EGR' };
-  if (/\badblue\b|niveau.*adblue|def\b/.test(txt)) return { type:'ADBLUE' };
-  if (/\bdiag(nostic)?\b|\brdv\b|\brendez.?vous|garage.*partenaire|carter.*cash/.test(txt)) return { type:'DIAG' };
-  
-  return { type:'GEN' };
+
+  if (/voyant.*clignotant|urgent|arrêt.*immédiat|danger/.test(txt)) return { type: 'URGENT' };
+  if (/\bfap\b|\bdpf\b|\bfiltre.*particule|satur[ée]|encrass[ée]|colmat[ée]/.test(txt)) return { type: 'FAP' };
+  if (/\begr\b|vanne.*egr|recirculation.*gaz/.test(txt)) return { type: 'EGR' };
+  if (/\badblue\b|niveau.*adblue|def\b/.test(txt)) return { type: 'ADBLUE' };
+  if (/\bdiag(nostic)?\b|\brdv\b|\brendez.?vous|garage.*partenaire|carter.*cash/.test(txt)) return { type: 'DIAG' };
+
+  return { type: 'GEN' };
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error:'Méthode non autorisée' });
-  if (!process.env.MISTRAL_API_KEY) return res.status(500).json({ error:'MISTRAL_API_KEY manquante' });
+  // 1) Méthode
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
 
-const { question, historique, session_id } = req.body || {};
-  if (!question || typeof question !== 'string') return res.status(400).json({ error:'Question invalide' });
-// --- Supabase: ensure conversation exists ---
-try {
-  if (session_id) {
-    const { data: existing, error: selectError } = await supabaseAdmin
-      .from('conversations')
-      .select('id')
-      .eq('session_id', session_id)
-      .maybeSingle();
+  // 2) Variables requises
+  if (!process.env.MISTRAL_API_KEY) {
+    return res.status(500).json({ error: 'MISTRAL_API_KEY manquante' });
+  }
 
-    if (!existing) {
-      const { error: insertError } = await supabaseAdmin
+  // 3) Payload
+  const { question, historique, session_id } = req.body || {};
+  if (!question || typeof question !== 'string') {
+    return res.status(400).json({ error: 'Question invalide' });
+  }
+
+  // 4) Supabase: upsert conversation (robuste + compatible first/last seen)
+  try {
+    if (session_id) {
+      const now = new Date().toISOString();
+
+      const { error: upsertError } = await supabaseAdmin
         .from('conversations')
-        .insert({
-          session_id,
-          source: 'chatbot'
-        });
+        .upsert(
+          {
+            session_id,
+            source: 'chatbot',
+            first_seen_at: now,
+            last_seen_at: now,
+          },
+          { onConflict: 'session_id' }
+        );
 
-      if (insertError) {
-        console.error('Supabase insert conversation error:', insertError);
+      if (upsertError) {
+        console.error('Supabase upsert conversation error:', upsertError);
       }
     }
+  } catch (err) {
+    console.error('Supabase conversation exception:', err);
   }
-} catch (err) {
-  console.error('Supabase conversation exception:', err);
-}
-// --- end Supabase ---
 
+  // 5) Charger data.txt
   let raw;
   try {
-    raw = fs.readFileSync(path.join(process.cwd(),'data','data.txt'),'utf-8');
-  } catch {
-    return res.status(500).json({ error:'Erreur de lecture des données' });
+    raw = fs.readFileSync(path.join(process.cwd(), 'data', 'data.txt'), 'utf-8');
+  } catch (e) {
+    console.error('Erreur lecture data.txt:', e);
+    return res.status(500).json({ error: 'Erreur de lecture des données' });
   }
 
+  // 6) RAG simple
   const blocks = parseBlocks(raw);
-  const queryTokens = tokenize(`${historique||''} ${question}`);
+  const queryTokens = tokenize(`${historique || ''} ${question}`);
 
   const ranked = blocks
     .map(b => ({ b, s: scoreBlock(b, queryTokens) }))
-    .sort((a,b) => b.s - a.s)
+    .sort((a, b) => b.s - a.s)
     .slice(0, 3)
     .map(x => x.b);
 
   const contextText = ranked.length
     ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
-    : "Utilise tes connaissances sur les problèmes moteur et FAP.";
+    : 'Utilise tes connaissances sur les problèmes moteur et FAP.';
 
-  // PROMPT avec LOGIQUE DE FIN CLAIRE
+  // 7) Prompt
   const system = `
 Tu es FAPexpert, l'assistant mécanique pédagogue de Re-FAP. Tu expliques ET tu orientes vers les solutions.
 
@@ -164,7 +186,8 @@ FAP + NE PEUT PAS démonter :
 Problème NON-FAP :
 "D'après vos symptômes, ce n'est pas le FAP mais plutôt [problème]. Un diagnostic électronique est nécessaire. Nos garages partenaires ont l'équipement pour identifier et résoudre votre problème. Utilisez le bouton Garage partenaire pour obtenir un RDV rapidement."
 
-APRÈS AVOIR DONNÉ UNE CONCLUSION : NE PLUS ARGUMENTER`;
+APRÈS AVOIR DONNÉ UNE CONCLUSION : NE PLUS ARGUMENTER
+`.trim();
 
   const userContent = `
 Historique : ${historique || '(Première interaction)'}
@@ -183,64 +206,59 @@ SINON :
 4. Orienter vers la solution appropriée
 5. TERMINER - ne plus argumenter après
 
-Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.`;
+Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.
+`.trim();
 
+  // 8) Appel Mistral
   try {
-    const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
+    const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "mistral-medium-latest",
+        model: process.env.MISTRAL_MODEL || 'mistral-medium-latest',
         temperature: 0.3,
         top_p: 0.7,
-        max_tokens: 300,  // Augmenté pour éviter les coupures
+        max_tokens: 300,
         messages: [
-          { role: "system", content: system },
-          { role: "user", content: userContent }
-        ]
-      })
+          { role: 'system', content: system },
+          { role: 'user', content: userContent },
+        ],
+      }),
     });
 
+    // Fallback si API Mistral KO
     if (!r.ok) {
-      const fallbackMessage = `Bonjour, je suis FAPexpert. Je vais vous aider à comprendre votre problème moteur. Décrivez-moi les symptômes : fumée, bruit, voyant, perte de puissance ? Chaque détail compte.`;
-      
-      return res.status(200).json({ 
-        reply: fallbackMessage, 
-        nextAction: { type: 'DIAG' } 
+      const fallbackMessage =
+        "Bonjour, je suis FAPexpert. Je vais vous aider à comprendre votre problème moteur. Décrivez-moi les symptômes : fumée, bruit, voyant, perte de puissance ? Chaque détail compte.";
+      return res.status(200).json({
+        reply: fallbackMessage,
+        nextAction: { type: 'DIAG' },
       });
     }
 
     const data = await r.json();
     const reply = (data.choices?.[0]?.message?.content || '').trim();
-    
+
     if (!reply) {
-      const defaultReply = `Bonjour, je suis FAPexpert. Racontez-moi ce qui vous amène.`;
-      
-      return res.status(200).json({ 
-        reply: defaultReply, 
-        nextAction: { type: 'GEN' } 
+      return res.status(200).json({
+        reply: 'Bonjour, je suis FAPexpert. Racontez-moi ce qui vous amène.',
+        nextAction: { type: 'GEN' },
       });
     }
 
-    return res.status(200).json({ 
-      reply, 
-      nextAction: classify(reply) 
+    return res.status(200).json({
+      reply,
+      nextAction: classify(reply),
     });
-
   } catch (error) {
-    console.error('Erreur API:', error);
-    
-    const backupMessage = `Bonjour, je suis FAPexpert. Décrivez votre problème et je vous orienterai vers la meilleure solution.`;
-    
-    return res.status(200).json({ 
-      reply: backupMessage, 
-      nextAction: { type: 'GEN' } 
+    console.error('Erreur API Mistral:', error);
+
+    return res.status(200).json({
+      reply: 'Bonjour, je suis FAPexpert. Décrivez votre problème et je vous orienterai vers la meilleure solution.',
+      nextAction: { type: 'GEN' },
     });
   }
 }
-
-
-
