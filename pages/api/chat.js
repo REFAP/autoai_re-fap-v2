@@ -4,8 +4,8 @@ import path from 'path';
 import { supabaseAdmin } from '../../lib/supabaseAdmin';
 
 const STOPWORDS_FR = new Set([
-  'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a','d\'','l\'',
-  'pour','avec','sur','est','c\'est','il','elle','on','tu','te','ton','ta','tes','vos','votre',
+  'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a',"d'","l'",
+  'pour','avec','sur','est',"c'est",'il','elle','on','tu','te','ton','ta','tes','vos','votre',
   'mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet','cette','ses','son','leurs'
 ]);
 
@@ -68,7 +68,9 @@ function classify(text) {
 
 export default async function handler(req, res) {
   // 1) Méthode
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Méthode non autorisée' });
+  }
 
   // 2) Variables requises
   if (!process.env.MISTRAL_API_KEY) {
@@ -76,47 +78,98 @@ export default async function handler(req, res) {
   }
 
   // 3) Payload
-  const { question, historique, session_id } = req.body || {};
+  const {
+    question,
+    historique,
+    session_id,
+
+    // (optionnel) si tu les ajoutes plus tard depuis le front
+    page_url,
+    page_slug,
+    page_type,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_content,
+    utm_term,
+    referrer,
+    user_agent,
+    ip_hash
+  } = req.body || {};
+
   if (!question || typeof question !== 'string') {
     return res.status(400).json({ error: 'Question invalide' });
   }
 
-  // DEBUG (visible seulement dans les logs Vercel)
-  console.log('[chat] session_id received:', session_id ? String(session_id).slice(0, 32) : null);
+  const now = new Date().toISOString();
 
-  // 4) Supabase: upsert conversation (et on remonte l'erreur si ça échoue)
-  let supabaseDebug = { attempted: false, ok: false, error: null };
+  // 4) Supabase: upsert conversation + récupérer conversation_id
+  let conversationId = null;
 
   try {
     if (session_id) {
-      supabaseDebug.attempted = true;
-
-      const now = new Date().toISOString();
       const payload = {
         session_id,
         source: 'chatbot',
+
+        // first_seen_at ne doit pas s’écraser si la ligne existe déjà,
+        // mais comme on ne sait pas si ta table a un trigger, on fait simple :
+        // -> on met first_seen_at seulement à la création via coalesce côté DB (si tu as),
+        // sinon ça va le remettre à now à chaque fois (pas dramatique pour le moment).
         first_seen_at: now,
         last_seen_at: now,
+
+        // champs optionnels (si colonnes existent chez toi : d’après ton JSON oui)
+        page_url: page_url ?? null,
+        page_slug: page_slug ?? null,
+        page_type: page_type ?? null,
+        utm_source: utm_source ?? null,
+        utm_medium: utm_medium ?? null,
+        utm_campaign: utm_campaign ?? null,
+        utm_content: utm_content ?? null,
+        utm_term: utm_term ?? null,
+        referrer: referrer ?? null,
+        user_agent: user_agent ?? null,
+        ip_hash: ip_hash ?? null
       };
 
-      const { error: upsertError } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from('conversations')
-        .upsert(payload, { onConflict: 'session_id' });
+        .upsert(payload, { onConflict: 'session_id' })
+        .select('id')
+        .single();
 
-      if (upsertError) {
-        supabaseDebug.error = upsertError.message || String(upsertError);
-        console.error('[chat] Supabase upsertError:', upsertError);
+      if (error) {
+        console.error('[chat] Supabase upsertError:', error);
       } else {
-        supabaseDebug.ok = true;
+        conversationId = data?.id || null;
       }
     }
   } catch (err) {
-    supabaseDebug.attempted = true;
-    supabaseDebug.error = err?.message || String(err);
-    console.error('[chat] Supabase exception:', err);
+    console.error('[chat] Supabase conversation exception:', err);
   }
 
-  // 5) Charger data.txt
+  // 5) Log message USER dans Supabase (si on a conversationId)
+  try {
+    if (conversationId) {
+      const { error } = await supabaseAdmin
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'user',
+          content: question,
+          created_at: now
+        });
+
+      if (error) {
+        console.error('[chat] Supabase insert user message error:', error);
+      }
+    }
+  } catch (err) {
+    console.error('[chat] Supabase insert user message exception:', err);
+  }
+
+  // 6) Charger data.txt (RAG)
   let raw;
   try {
     raw = fs.readFileSync(path.join(process.cwd(), 'data', 'data.txt'), 'utf-8');
@@ -125,7 +178,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Erreur de lecture des données' });
   }
 
-  // 6) RAG simple
   const blocks = parseBlocks(raw);
   const queryTokens = tokenize(`${historique || ''} ${question}`);
 
@@ -218,6 +270,7 @@ Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.
 `.trim();
 
   // 8) Appel Mistral
+  let reply = '';
   try {
     const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
@@ -238,37 +291,42 @@ Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.
     });
 
     if (!r.ok) {
-      return res.status(200).json({
-        reply:
-          "Bonjour, je suis FAPexpert. Je vais vous aider à comprendre votre problème moteur. Décrivez-moi les symptômes : fumée, bruit, voyant, perte de puissance ? Chaque détail compte.",
-        nextAction: { type: 'DIAG' },
-        debug: { supabase: supabaseDebug },
-      });
+      reply =
+        "Bonjour, je suis FAPexpert. Décrivez-moi les symptômes : fumée, bruit, voyant, perte de puissance ? Chaque détail compte.";
+    } else {
+      const data = await r.json();
+      reply = (data.choices?.[0]?.message?.content || '').trim();
+      if (!reply) reply = 'Bonjour, je suis FAPexpert. Racontez-moi ce qui vous amène.';
     }
-
-    const data = await r.json();
-    const reply = (data.choices?.[0]?.message?.content || '').trim();
-
-    if (!reply) {
-      return res.status(200).json({
-        reply: 'Bonjour, je suis FAPexpert. Racontez-moi ce qui vous amène.',
-        nextAction: { type: 'GEN' },
-        debug: { supabase: supabaseDebug },
-      });
-    }
-
-    return res.status(200).json({
-      reply,
-      nextAction: classify(reply),
-      debug: { supabase: supabaseDebug },
-    });
   } catch (error) {
     console.error('Erreur API Mistral:', error);
-
-    return res.status(200).json({
-      reply: 'Bonjour, je suis FAPexpert. Décrivez votre problème et je vous orienterai vers la meilleure solution.',
-      nextAction: { type: 'GEN' },
-      debug: { supabase: supabaseDebug },
-    });
+    reply = 'Bonjour, je suis FAPexpert. Décrivez votre problème et je vous orienterai vers la meilleure solution.';
   }
+
+  // 9) Log message BOT dans Supabase
+  try {
+    if (conversationId) {
+      const { error } = await supabaseAdmin
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'bot',
+          content: reply,
+          created_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('[chat] Supabase insert bot message error:', error);
+      }
+    }
+  } catch (err) {
+    console.error('[chat] Supabase insert bot message exception:', err);
+  }
+
+  // 10) Réponse au front
+  return res.status(200).json({
+    reply,
+    nextAction: classify(reply),
+    conversation_id: conversationId || null
+  });
 }
