@@ -60,8 +60,34 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error:'Méthode non autorisée' });
   if (!process.env.MISTRAL_API_KEY) return res.status(500).json({ error:'MISTRAL_API_KEY manquante' });
 
-  const { question, historique } = req.body || {};
+const { question, historique, session_id } = req.body || {};
   if (!question || typeof question !== 'string') return res.status(400).json({ error:'Question invalide' });
+// --- Supabase: ensure conversation exists ---
+try {
+  if (session_id) {
+    const { data: existing, error: selectError } = await supabaseAdmin
+      .from('conversations')
+      .select('id')
+      .eq('session_id', session_id)
+      .maybeSingle();
+
+    if (!existing) {
+      const { error: insertError } = await supabaseAdmin
+        .from('conversations')
+        .insert({
+          session_id,
+          source: 'chatbot'
+        });
+
+      if (insertError) {
+        console.error('Supabase insert conversation error:', insertError);
+      }
+    }
+  }
+} catch (err) {
+  console.error('Supabase conversation exception:', err);
+}
+// --- end Supabase ---
 
   let raw;
   try {
@@ -215,5 +241,6 @@ Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.`;
     });
   }
 }
+
 
 
