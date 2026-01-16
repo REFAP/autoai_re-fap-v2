@@ -10,6 +10,27 @@ export default function Home() {
     quiz: 'https://refap.github.io/re-fap-landing/#quiz'
   };
 
+  // --- Session ID (persistant) ---
+  const [sessionId, setSessionId] = useState(null);
+
+  useEffect(() => {
+    try {
+      const key = 'refap_session_id';
+      let sid = localStorage.getItem(key);
+
+      if (!sid) {
+        sid = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`).toString();
+        localStorage.setItem(key, sid);
+      }
+
+      setSessionId(sid);
+    } catch {
+      // si localStorage indispo, on continue sans sessionId
+      setSessionId(null);
+    }
+  }, []);
+  // --- fin session ---
+
   const [messages, setMessages] = useState([
     {
       from: 'bot',
@@ -62,6 +83,7 @@ export default function Home() {
         body: JSON.stringify({
           question: trimmedInput,
           historique: historiqueText,
+          session_id: sessionId, // ✅ ajout
         }),
       });
 
@@ -184,8 +206,8 @@ export default function Home() {
                     disabled={blocked}
                     maxLength={600}
                   />
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="send-button"
                     disabled={blocked || input.length > 600 || loading || !input.trim()}
                   >
@@ -211,10 +233,12 @@ export default function Home() {
               </div>
 
               {/* CTA 1 - Garage partenaire */}
-              <a href={RECOMMENDATION_URLS.garage}
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 className="cta-button primary">
+              <a
+                href={RECOMMENDATION_URLS.garage}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cta-button primary"
+              >
                 <div className="cta-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
@@ -230,10 +254,12 @@ export default function Home() {
               </a>
 
               {/* CTA 2 - Carter-Cash */}
-              <a href={RECOMMENDATION_URLS.carter}
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 className="cta-button secondary">
+              <a
+                href={RECOMMENDATION_URLS.carter}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cta-button secondary"
+              >
                 <div className="cta-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
