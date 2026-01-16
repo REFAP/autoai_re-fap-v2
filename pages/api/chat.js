@@ -1,6 +1,7 @@
 // pages/api/chat.js
 import fs from 'fs';
 import path from 'path';
+import { supabaseAdmin } from '../../lib/supabaseAdmin';
 
 const STOPWORDS_FR = new Set([
   'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a','d\'','l\'',
@@ -214,4 +215,5 @@ Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.`;
     });
   }
 }
+
 
