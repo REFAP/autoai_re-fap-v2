@@ -5,8 +5,8 @@ import ReactMarkdown from 'react-markdown';
 export default function Home() {
   // URLs pour les recommandations directes
   const RECOMMENDATION_URLS = {
-    garage: '/landing/garage',  // Page Next.js
-    carter: '/landing/carter',  // Page Next.js
+    garage: '/landing/garage', // Page Next.js
+    carter: '/landing/carter', // Page Next.js
     quiz: 'https://refap.github.io/re-fap-landing/#quiz'
   };
 
@@ -19,13 +19,13 @@ export default function Home() {
       let sid = localStorage.getItem(key);
 
       if (!sid) {
-        sid = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`).toString();
+        sid = (crypto?.randomUUID?.() || `sid_${Date.now()}_${Math.random().toString(16).slice(2)}`);
         localStorage.setItem(key, sid);
       }
 
       setSessionId(sid);
     } catch {
-      // si localStorage indispo, on continue sans sessionId
+      // Si localStorage indispo, on continue sans sessionId
       setSessionId(null);
     }
   }, []);
@@ -34,8 +34,9 @@ export default function Home() {
   const [messages, setMessages] = useState([
     {
       from: 'bot',
-      text: "Bonjour ! Je suis FAPexpert, votre spécialiste Re-FAP. Je diagnostique vos problèmes de FAP et vous oriente vers la solution adaptée. Décrivez votre problème."
-    },
+      text:
+        "Bonjour ! Je suis FAPexpert, votre spécialiste Re-FAP. Je diagnostique vos problèmes de FAP et vous oriente vers la solution adaptée. Décrivez votre problème."
+    }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,15 +59,21 @@ export default function Home() {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    const userMessagesCount = messages.filter(m => m.from === 'user').length;
+    const userMessagesCount = messages.filter((m) => m.from === 'user').length;
     if (userMessagesCount >= 10) {
       setBlocked(true);
-      setError("Session limitée à 10 messages. Veuillez rafraîchir la page pour une nouvelle conversation.");
+      setError('Session limitée à 10 messages. Veuillez rafraîchir la page pour une nouvelle conversation.');
       return;
     }
 
     const trimmedInput = input.trim();
     if (!trimmedInput) return;
+
+    // Si sessionId pas encore prêt, on évite un call bancal
+    if (sessionId === null) {
+      setError("Initialisation en cours… réessayez dans 1 seconde.");
+      return;
+    }
 
     const userMsg = { from: 'user', text: trimmedInput };
     setMessages((msgs) => [...msgs, userMsg]);
@@ -83,8 +90,8 @@ export default function Home() {
         body: JSON.stringify({
           question: trimmedInput,
           historique: historiqueText,
-          session_id: sessionId, // ✅ ajout
-        }),
+          session_id: sessionId
+        })
       });
 
       setLoading(false);
@@ -93,13 +100,10 @@ export default function Home() {
         if (res.status === 429) {
           setMessages((msgs) => [
             ...msgs,
-            { from: 'bot', text: "Service temporairement saturé. Veuillez réessayer dans quelques instants." },
+            { from: 'bot', text: 'Service temporairement saturé. Veuillez réessayer dans quelques instants.' }
           ]);
         } else {
-          setMessages((msgs) => [
-            ...msgs,
-            { from: 'bot', text: `Erreur serveur ${res.status}` },
-          ]);
+          setMessages((msgs) => [...msgs, { from: 'bot', text: `Erreur serveur ${res.status}` }]);
         }
         return;
       }
@@ -107,17 +111,13 @@ export default function Home() {
       const data = await res.json();
       const botMsg = {
         from: 'bot',
-        text: data.reply || "Service temporairement indisponible. Veuillez réessayer.",
+        text: data.reply || 'Service temporairement indisponible. Veuillez réessayer.'
       };
       setMessages((msgs) => [...msgs, botMsg]);
       setNextAction(data.nextAction || { type: 'GEN' });
-
     } catch {
       setLoading(false);
-      setMessages((msgs) => [
-        ...msgs,
-        { from: 'bot', text: "Erreur de connexion. Veuillez actualiser la page." },
-      ]);
+      setMessages((msgs) => [...msgs, { from: 'bot', text: 'Erreur de connexion. Veuillez actualiser la page.' }]);
     }
   }
 
@@ -127,8 +127,11 @@ export default function Home() {
         <title>FAPexpert - Diagnostic FAP par Re-FAP</title>
         <link rel="stylesheet" href="/style.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
       </Head>
 
       <div className="app-container">
@@ -215,8 +218,20 @@ export default function Home() {
                       <span className="button-loading">...</span>
                     ) : (
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path
+                          d="M22 2L11 13"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M22 2L15 22L11 13L2 9L22 2Z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     )}
                   </button>
@@ -241,7 +256,7 @@ export default function Home() {
               >
                 <div className="cta-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor"/>
+                    <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor" />
                   </svg>
                 </div>
                 <div className="cta-content">
@@ -249,7 +264,7 @@ export default function Home() {
                   <span className="cta-subtitle">RDV diagnostic</span>
                 </div>
                 <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </a>
 
@@ -262,8 +277,11 @@ export default function Home() {
               >
                 <div className="cta-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" fill="currentColor"/>
-                    <path d="M14 2v6h6" stroke="white" strokeWidth="2"/>
+                    <path
+                      d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                      fill="currentColor"
+                    />
+                    <path d="M14 2v6h6" stroke="white" strokeWidth="2" />
                   </svg>
                 </div>
                 <div className="cta-content">
@@ -271,21 +289,19 @@ export default function Home() {
                   <span className="cta-subtitle">FAP démonté • 99-149€</span>
                 </div>
                 <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </a>
 
               <div className="info-card">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                  <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
                 <span>Garantie 1 an • Toute la France</span>
               </div>
 
-              <div className="disclaimer-text">
-                FAPexpert peut faire des erreurs. Vérifiez auprès d'un professionnel.
-              </div>
+              <div className="disclaimer-text">FAPexpert peut faire des erreurs. Vérifiez auprès d'un professionnel.</div>
             </div>
           </div>
         </main>
