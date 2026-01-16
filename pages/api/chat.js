@@ -42,9 +42,7 @@ function parseBlocks(raw) {
 }
 
 function scoreBlock(block, queryTokens) {
-  const bag = tokenize(
-    `${block.title} ${block.body} ${(block.synonyms || []).join(' ')}`
-  );
+  const bag = tokenize(`${block.title} ${block.body} ${(block.synonyms || []).join(' ')}`);
   if (!bag.length) return 0;
 
   let hits = 0;
@@ -83,29 +81,39 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Question invalide' });
   }
 
-  // 4) Supabase: upsert conversation (robuste + compatible first/last seen)
+  // DEBUG (visible seulement dans les logs Vercel)
+  console.log('[chat] session_id received:', session_id ? String(session_id).slice(0, 32) : null);
+
+  // 4) Supabase: upsert conversation (et on remonte l'erreur si ça échoue)
+  let supabaseDebug = { attempted: false, ok: false, error: null };
+
   try {
     if (session_id) {
+      supabaseDebug.attempted = true;
+
       const now = new Date().toISOString();
+      const payload = {
+        session_id,
+        source: 'chatbot',
+        first_seen_at: now,
+        last_seen_at: now,
+      };
 
       const { error: upsertError } = await supabaseAdmin
         .from('conversations')
-        .upsert(
-          {
-            session_id,
-            source: 'chatbot',
-            first_seen_at: now,
-            last_seen_at: now,
-          },
-          { onConflict: 'session_id' }
-        );
+        .upsert(payload, { onConflict: 'session_id' });
 
       if (upsertError) {
-        console.error('Supabase upsert conversation error:', upsertError);
+        supabaseDebug.error = upsertError.message || String(upsertError);
+        console.error('[chat] Supabase upsertError:', upsertError);
+      } else {
+        supabaseDebug.ok = true;
       }
     }
   } catch (err) {
-    console.error('Supabase conversation exception:', err);
+    supabaseDebug.attempted = true;
+    supabaseDebug.error = err?.message || String(err);
+    console.error('[chat] Supabase exception:', err);
   }
 
   // 5) Charger data.txt
@@ -229,13 +237,12 @@ Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.
       }),
     });
 
-    // Fallback si API Mistral KO
     if (!r.ok) {
-      const fallbackMessage =
-        "Bonjour, je suis FAPexpert. Je vais vous aider à comprendre votre problème moteur. Décrivez-moi les symptômes : fumée, bruit, voyant, perte de puissance ? Chaque détail compte.";
       return res.status(200).json({
-        reply: fallbackMessage,
+        reply:
+          "Bonjour, je suis FAPexpert. Je vais vous aider à comprendre votre problème moteur. Décrivez-moi les symptômes : fumée, bruit, voyant, perte de puissance ? Chaque détail compte.",
         nextAction: { type: 'DIAG' },
+        debug: { supabase: supabaseDebug },
       });
     }
 
@@ -246,12 +253,14 @@ Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.
       return res.status(200).json({
         reply: 'Bonjour, je suis FAPexpert. Racontez-moi ce qui vous amène.',
         nextAction: { type: 'GEN' },
+        debug: { supabase: supabaseDebug },
       });
     }
 
     return res.status(200).json({
       reply,
       nextAction: classify(reply),
+      debug: { supabase: supabaseDebug },
     });
   } catch (error) {
     console.error('Erreur API Mistral:', error);
@@ -259,6 +268,7 @@ Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.
     return res.status(200).json({
       reply: 'Bonjour, je suis FAPexpert. Décrivez votre problème et je vous orienterai vers la meilleure solution.',
       nextAction: { type: 'GEN' },
+      debug: { supabase: supabaseDebug },
     });
   }
 }
