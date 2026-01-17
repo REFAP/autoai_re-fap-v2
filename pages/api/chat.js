@@ -1,8 +1,10 @@
 // /pages/api/chat.js
 import { createClient } from "@supabase/supabase-js";
 
+/**
+ * Whitelist meta fields to avoid poisoning upsert with unexpected keys.
+ */
 function pickMeta(meta = {}) {
-  // ✅ whitelist : uniquement des champs "safe" (pas d'id, pas de created_at)
   return {
     page_url: meta.page_url ?? null,
     page_slug: meta.page_slug ?? null,
@@ -49,7 +51,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
 
   try {
-    // ✅ Vars EXACTES (comme sur ton screenshot Vercel)
+    // ✅ Vars (comme sur ton Vercel)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const mistralKey = process.env.MISTRAL_API_KEY;
@@ -71,7 +73,7 @@ export default async function handler(req, res) {
     if (!session_id) return res.status(400).json({ error: "Missing session_id" });
     if (!message.trim()) return res.status(400).json({ error: "Missing message" });
 
-    // 1) Upsert conversation
+    // 1) Upsert conversation (NE PAS envoyer id/created_at/etc.)
     const convoPayload = {
       session_id,
       source: "chatbot",
@@ -93,7 +95,7 @@ export default async function handler(req, res) {
     const conversation_id = convo?.id;
     if (!conversation_id) return res.status(500).json({ error: "Missing conversation_id after upsert" });
 
-    // 2) Insert message user (role = "user")
+    // 2) Insert message user (role CHECK -> "user")
     const { error: userMsgErr } = await supabaseAdmin.from("messages").insert({
       conversation_id,
       role: "user",
@@ -118,19 +120,35 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Load history failed", details: historyErr.message });
     }
 
-    // 4) Mistral
-    const mistralMessages = (history || []).map((m) => ({
-      role: m.role, // IMPORTANT : "user" / "assistant"
-      content: m.content,
-    }));
+    // ✅ 4) System prompt ULTRA IMPORTANT : "FAP" = Filtre à Particules (auto), jamais le slang
+    const systemPrompt = {
+      role: "system",
+      content: [
+        "Tu es FAPexpert, assistant automobile de Re-FAP (France).",
+        'Contexte: "FAP" signifie TOUJOURS "Filtre à Particules" diesel (automobile). Jamais le slang.',
+        "Objectif: diagnostiquer un problème FAP (symptômes / codes OBD) et orienter vers la meilleure solution.",
+        "Style: français, clair, direct, questions courtes, étapes actionnables.",
+        "À demander si manque d'info: marque/modèle/année/moteur/km, voyant FAP, perte puissance, mode dégradé, codes P2002/P2463, type de trajets (ville/autoroute), dernier entretien.",
+        'Si l’utilisateur dit juste "fap", tu réponds en demandant ces infos (pas de santé/sexualité).',
+      ].join("\n"),
+    };
 
+    const mistralMessages = [
+      systemPrompt,
+      ...(history || []).map((m) => ({
+        role: m.role, // "user" / "assistant"
+        content: m.content,
+      })),
+    ];
+
+    // 5) Call Mistral
     const reply = await callMistral({
       apiKey: mistralKey,
       model: mistralModel,
       messages: mistralMessages,
     });
 
-    // 5) Insert message assistant (role = "assistant")  ✅ (évite ton ancien 23514)
+    // 6) Insert assistant message (role CHECK -> "assistant")
     const { error: botMsgErr } = await supabaseAdmin.from("messages").insert({
       conversation_id,
       role: "assistant",
@@ -142,7 +160,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Insert assistant message failed", details: botMsgErr.message });
     }
 
-    // 6) Update last_seen_at
+    // 7) Touch last_seen_at
     await supabaseAdmin
       .from("conversations")
       .update({ last_seen_at: new Date().toISOString() })
