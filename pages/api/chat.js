@@ -1,332 +1,148 @@
-// pages/api/chat.js
-import fs from 'fs';
-import path from 'path';
-import { supabaseAdmin } from '../../lib/supabaseAdmin';
+// /pages/api/chat.js
+import { createClient } from "@supabase/supabase-js";
 
-const STOPWORDS_FR = new Set([
-  'le','la','les','de','des','du','un','une','et','ou','au','aux','en','à','a',"d'","l'",
-  'pour','avec','sur','est',"c'est",'il','elle','on','tu','te','ton','ta','tes','vos','votre',
-  'mes','mon','ma','mais','plus','moins','que','qui','dans','ce','cet','cette','ses','son','leurs'
-]);
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
+);
 
-function normalize(s = '') {
-  return s
-    .toLowerCase()
-    .normalize('NFD').replace(/\p{Diacritic}+/gu, '')
-    .replace(/[^\p{L}\p{N}\s\-]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
+const MISTRAL_MODEL = process.env.MISTRAL_MODEL || "mistral-large-latest";
+
+function pickConvoMeta(meta = {}) {
+  // ✅ WHITELIST STRICTE = UNIQUEMENT colonnes existantes dans conversations
+  return {
+    page_url: meta.page_url ?? null,
+    page_slug: meta.page_slug ?? null,
+    page_type: meta.page_type ?? null,
+
+    utm_source: meta.utm_source ?? null,
+    utm_medium: meta.utm_medium ?? null,
+    utm_campaign: meta.utm_campaign ?? null,
+    utm_content: meta.utm_content ?? null,
+    utm_term: meta.utm_term ?? null,
+
+    referrer: meta.referrer ?? null,
+    user_agent: meta.user_agent ?? null,
+    ip_hash: meta.ip_hash ?? null,
+  };
 }
 
-function tokenize(s) {
-  return normalize(s)
-    .split(' ')
-    .filter(t => t && t.length > 2 && !STOPWORDS_FR.has(t));
-}
+async function callMistral(messages) {
+  if (!MISTRAL_API_KEY) throw new Error("Missing MISTRAL_API_KEY");
 
-function parseBlocks(raw) {
-  const parts = raw.split(/\n(?=\[[^\]]*\]\s*)/g);
-  return parts
-    .map(p => {
-      const m = p.match(/^\[([^\]]*)\]\s*([\s\S]*)$/);
-      if (!m) return null;
-      const title = m[1] || '';
-      const body = (m[2] || '').trim();
-      const synLine = body.match(/^Synonymes:\s*(.+)$/mi);
-      const synonyms = synLine
-        ? synLine[1].split(/[,|]/).map(s => s.trim()).filter(Boolean)
-        : [];
-      return { title, body, synonyms };
-    })
-    .filter(Boolean);
-}
+  const resp = await fetch("https://api.mistral.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${MISTRAL_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MISTRAL_MODEL,
+      messages,
+      temperature: 0.2,
+    }),
+  });
 
-function scoreBlock(block, queryTokens) {
-  const bag = tokenize(`${block.title} ${block.body} ${(block.synonyms || []).join(' ')}`);
-  if (!bag.length) return 0;
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Mistral error ${resp.status}: ${text}`);
+  }
 
-  let hits = 0;
-  for (const t of queryTokens) if (bag.includes(t)) hits++;
-
-  const titleHits = tokenize(block.title).filter(t => queryTokens.includes(t)).length;
-  const synHits = tokenize((block.synonyms || []).join(' ')).filter(t => queryTokens.includes(t)).length;
-
-  return hits + 1.5 * titleHits + 1.2 * synHits;
-}
-
-function classify(text) {
-  const txt = normalize(text);
-
-  if (/voyant.*clignotant|urgent|arrêt.*immédiat|danger/.test(txt)) return { type: 'URGENT' };
-  if (/\bfap\b|\bdpf\b|\bfiltre.*particule|satur[ée]|encrass[ée]|colmat[ée]/.test(txt)) return { type: 'FAP' };
-  if (/\begr\b|vanne.*egr|recirculation.*gaz/.test(txt)) return { type: 'EGR' };
-  if (/\badblue\b|niveau.*adblue|def\b/.test(txt)) return { type: 'ADBLUE' };
-  if (/\bdiag(nostic)?\b|\brdv\b|\brendez.?vous|garage.*partenaire|carter.*cash/.test(txt)) return { type: 'DIAG' };
-
-  return { type: 'GEN' };
+  const data = await resp.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content || typeof content !== "string") throw new Error("Mistral reply empty/invalid");
+  return content;
 }
 
 export default async function handler(req, res) {
-  // 1) Méthode
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Méthode non autorisée' });
-  }
-
-  // 2) Variables requises
-  if (!process.env.MISTRAL_API_KEY) {
-    return res.status(500).json({ error: 'MISTRAL_API_KEY manquante' });
-  }
-
-  // 3) Payload
-  const {
-    question,
-    historique,
-    session_id,
-
-    // (optionnel) si tu les ajoutes plus tard depuis le front
-    page_url,
-    page_slug,
-    page_type,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    utm_content,
-    utm_term,
-    referrer,
-    user_agent,
-    ip_hash
-  } = req.body || {};
-
-  if (!question || typeof question !== 'string') {
-    return res.status(400).json({ error: 'Question invalide' });
-  }
-
-  const now = new Date().toISOString();
-
-  // 4) Supabase: upsert conversation + récupérer conversation_id
-  let conversationId = null;
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    if (session_id) {
-      const payload = {
-        session_id,
-        source: 'chatbot',
+    const body = req.body || {};
+    const session_id = body.session_id ? String(body.session_id) : "";
+    const userText = body.message ? String(body.message) : "";
+    const meta = body.meta || {};
 
-        // first_seen_at ne doit pas s’écraser si la ligne existe déjà,
-        // mais comme on ne sait pas si ta table a un trigger, on fait simple :
-        // -> on met first_seen_at seulement à la création via coalesce côté DB (si tu as),
-        // sinon ça va le remettre à now à chaque fois (pas dramatique pour le moment).
-        first_seen_at: now,
-        last_seen_at: now,
+    // ✅ logs utiles (tu les enlèveras après)
+    console.log("BODY_KEYS", Object.keys(body));
+    console.log("SESSION_ID", session_id);
 
-        // champs optionnels (si colonnes existent chez toi : d’après ton JSON oui)
-        page_url: page_url ?? null,
-        page_slug: page_slug ?? null,
-        page_type: page_type ?? null,
-        utm_source: utm_source ?? null,
-        utm_medium: utm_medium ?? null,
-        utm_campaign: utm_campaign ?? null,
-        utm_content: utm_content ?? null,
-        utm_term: utm_term ?? null,
-        referrer: referrer ?? null,
-        user_agent: user_agent ?? null,
-        ip_hash: ip_hash ?? null
-      };
+    if (!session_id) return res.status(400).json({ error: "Missing session_id" });
+    if (!userText) return res.status(400).json({ error: "Missing message" });
 
-      const { data, error } = await supabaseAdmin
-        .from('conversations')
-        .upsert(payload, { onConflict: 'session_id' })
-        .select('id')
-        .single();
+    // 1) UPSERT conversation (ne JAMAIS passer id/created_at/first_seen_at)
+    const convoPayload = {
+      session_id,
+      source: "chatbot",
+      last_seen_at: new Date().toISOString(),
+      ...pickConvoMeta(meta),
+    };
 
-      if (error) {
-        console.error('[chat] Supabase upsertError:', error);
-      } else {
-        conversationId = data?.id || null;
-      }
+    const { data: convo, error: upsertError } = await supabaseAdmin
+      .from("conversations")
+      .upsert(convoPayload, { onConflict: "session_id" })
+      .select("id")
+      .single();
+
+    if (upsertError) {
+      console.log("UPSERT_ERR", upsertError);
+      return res.status(500).json({ error: "Conversation upsert failed", details: upsertError.message });
     }
-  } catch (err) {
-    console.error('[chat] Supabase conversation exception:', err);
-  }
 
-  // 5) Log message USER dans Supabase (si on a conversationId)
-  try {
-    if (conversationId) {
-      const { error } = await supabaseAdmin
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          role: 'user',
-          content: question,
-          created_at: now
-        });
+    const conversation_id = convo?.id;
+    if (!conversation_id) return res.status(500).json({ error: "Missing conversation_id after upsert" });
 
-      if (error) {
-        console.error('[chat] Supabase insert user message error:', error);
-      }
-    }
-  } catch (err) {
-    console.error('[chat] Supabase insert user message exception:', err);
-  }
-
-  // 6) Charger data.txt (RAG)
-  let raw;
-  try {
-    raw = fs.readFileSync(path.join(process.cwd(), 'data', 'data.txt'), 'utf-8');
-  } catch (e) {
-    console.error('Erreur lecture data.txt:', e);
-    return res.status(500).json({ error: 'Erreur de lecture des données' });
-  }
-
-  const blocks = parseBlocks(raw);
-  const queryTokens = tokenize(`${historique || ''} ${question}`);
-
-  const ranked = blocks
-    .map(b => ({ b, s: scoreBlock(b, queryTokens) }))
-    .sort((a, b) => b.s - a.s)
-    .slice(0, 3)
-    .map(x => x.b);
-
-  const contextText = ranked.length
-    ? ranked.map(b => `[${b.title}]\n${b.body}`).join('\n\n')
-    : 'Utilise tes connaissances sur les problèmes moteur et FAP.';
-
-  // 7) Prompt
-  const system = `
-Tu es FAPexpert, l'assistant mécanique pédagogue de Re-FAP. Tu expliques ET tu orientes vers les solutions.
-
-RÈGLE ABSOLUE DE FIN DE CONVERSATION :
-Une fois que tu as dirigé vers un bouton (Carter-Cash ou Garage partenaire), tu TERMINES.
-Si le client répond après, tu dis UNIQUEMENT : "Avec plaisir ! N'hésitez pas si vous avez d'autres questions. Bonne route !"
-NE JAMAIS réargumenter ou redonner la solution après l'avoir déjà donnée.
-
-APPROCHE EN 3 PHASES :
-
-PHASE 1 (Messages 1-2) : EXPLORER ET EXPLIQUER
-- Comprendre les symptômes décrits
-- Expliquer avec des analogies simples
-- Mentionner plusieurs causes possibles
-- Poser des questions ciblées pour affiner
-
-PHASE 2 (Messages 3-4) : DIAGNOSTIQUER
-- Recouper les indices
-- Écarter progressivement certaines pistes
-- Converger vers le diagnostic le plus probable
-- Continuer à expliquer pédagogiquement
-
-PHASE 3 (Message 4-5) : ORIENTER PUIS TERMINER
-SI FAP PROBABLE :
-- Demander : "Êtes-vous capable de démonter vous-même le FAP ?"
-- Si OUI → Diriger vers Carter-Cash (99-149€ ou 199€)
-- Si NON → Diriger vers Garage partenaire (tout compris)
-- TERMINER après avoir dirigé vers le bouton
-
-SI AUTRE PROBLÈME :
-- Diriger vers Garage partenaire pour diagnostic
-- TERMINER après avoir dirigé vers le bouton
-
-DÉTECTION DE FIN :
-Si l'historique contient déjà "Cliquez sur" ou "Utilisez le bouton", répondre UNIQUEMENT :
-"Avec plaisir ! N'hésitez pas si vous avez d'autres questions. Bonne route !"
-
-STYLE :
-- Maximum 120 mots par réponse
-- Utilise des métaphores simples
-- Ton de mécanicien bienveillant
-- Pas d'emojis, pas de listes
-
-CONCLUSIONS À UTILISER (puis STOP) :
-
-FAP + PEUT démonter :
-"Parfait ! Vous économiserez sur la main d'œuvre. Chez Carter-Cash : magasin équipé Re-FAP, nettoyage 4h pour 99-149€. Autres magasins, 48h pour 199€ port compris. Utilisez le bouton Carter-Cash pour trouver le plus proche. Le nettoyage haute pression restaure les performances. Garantie 1 an."
-
-FAP + NE PEUT PAS démonter :
-"Je comprends. Nos garages partenaires s'occupent de tout : diagnostic, démontage, nettoyage Re-FAP, remontage et réinitialisation. Comptez 99-149€ pour le nettoyage plus la main d'œuvre. Cliquez sur Garage partenaire pour prendre RDV près de chez vous. Garantie 1 an."
-
-Problème NON-FAP :
-"D'après vos symptômes, ce n'est pas le FAP mais plutôt [problème]. Un diagnostic électronique est nécessaire. Nos garages partenaires ont l'équipement pour identifier et résoudre votre problème. Utilisez le bouton Garage partenaire pour obtenir un RDV rapidement."
-
-APRÈS AVOIR DONNÉ UNE CONCLUSION : NE PLUS ARGUMENTER
-`.trim();
-
-  const userContent = `
-Historique : ${historique || '(Première interaction)'}
-Question : ${question}
-
-Contexte technique : ${contextText}
-
-RÈGLE CRITIQUE :
-Vérifie l'historique. Si tu as DÉJÀ dirigé vers un bouton (présence de "Cliquez sur" ou "Utilisez le bouton"), réponds UNIQUEMENT :
-"Avec plaisir ! N'hésitez pas si vous avez d'autres questions. Bonne route !"
-
-SINON :
-1. Explorer et expliquer pédagogiquement
-2. Diagnostiquer en convergeant
-3. Si FAP probable, demander capacité démontage
-4. Orienter vers la solution appropriée
-5. TERMINER - ne plus argumenter après
-
-Note : Tu es FAPexpert. Une fois la solution donnée, tu ARRÊTES.
-`.trim();
-
-  // 8) Appel Mistral
-  let reply = '';
-  try {
-    const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: process.env.MISTRAL_MODEL || 'mistral-medium-latest',
-        temperature: 0.3,
-        top_p: 0.7,
-        max_tokens: 300,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userContent },
-        ],
-      }),
+    // 2) INSERT user message
+    const { error: userInsertError } = await supabaseAdmin.from("messages").insert({
+      conversation_id,
+      role: "user",
+      content: userText,
     });
 
-    if (!r.ok) {
-      reply =
-        "Bonjour, je suis FAPexpert. Décrivez-moi les symptômes : fumée, bruit, voyant, perte de puissance ? Chaque détail compte.";
-    } else {
-      const data = await r.json();
-      reply = (data.choices?.[0]?.message?.content || '').trim();
-      if (!reply) reply = 'Bonjour, je suis FAPexpert. Racontez-moi ce qui vous amène.';
+    if (userInsertError) {
+      console.log("USER_INSERT_ERR", userInsertError);
+      return res.status(500).json({ error: "Insert user message failed", details: userInsertError.message });
     }
-  } catch (error) {
-    console.error('Erreur API Mistral:', error);
-    reply = 'Bonjour, je suis FAPexpert. Décrivez votre problème et je vous orienterai vers la meilleure solution.';
-  }
 
-  // 9) Log message BOT dans Supabase
-  try {
-    if (conversationId) {
-      const { error } = await supabaseAdmin
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          role: 'bot',
-          content: reply,
-          created_at: new Date().toISOString()
-        });
+    // 3) Load last 20 messages for context
+    const { data: history, error: historyError } = await supabaseAdmin
+      .from("messages")
+      .select("role, content")
+      .eq("conversation_id", conversation_id)
+      .order("created_at", { ascending: true })
+      .limit(20);
 
-      if (error) {
-        console.error('[chat] Supabase insert bot message error:', error);
-      }
+    if (historyError) {
+      console.log("HISTORY_ERR", historyError);
+      return res.status(500).json({ error: "Load history failed", details: historyError.message });
     }
-  } catch (err) {
-    console.error('[chat] Supabase insert bot message exception:', err);
-  }
 
-  // 10) Réponse au front
-  return res.status(200).json({
-    reply,
-    nextAction: classify(reply),
-    conversation_id: conversationId || null
-  });
+    // 4) Call Mistral
+    const assistantReply = await callMistral(history || [{ role: "user", content: userText }]);
+
+    // 5) INSERT bot message
+    const { error: botInsertError } = await supabaseAdmin.from("messages").insert({
+      conversation_id,
+      role: "assistant",
+      content: assistantReply,
+    });
+
+    if (botInsertError) {
+      console.log("BOT_INSERT_ERR", botInsertError);
+      return res.status(500).json({ error: "Insert bot message failed", details: botInsertError.message });
+    }
+
+    // 6) update last_seen_at (propre)
+    await supabaseAdmin
+      .from("conversations")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", conversation_id);
+
+    return res.status(200).json({ reply: assistantReply, conversation_id });
+  } catch (e) {
+    console.log("API_ERROR", e);
+    return res.status(500).json({ error: "Server error", details: e?.message || String(e) });
+  }
 }
