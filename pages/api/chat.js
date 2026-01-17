@@ -1,6 +1,6 @@
 // /pages/api/chat.js
 // FAPexpert Re-FAP - API Chat avec Mistral + Supabase
-// VERSION 2.5 - Production Ready + Auth cookie signé + Garde-fous (UI short + DATA repair)
+// VERSION 2.6 - Production Ready + Auth cookie signé + Garde-fous robustes (UI hard-cap + DATA repair)
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -19,10 +19,11 @@ COMPORTEMENT
 - Si l'entrée est courte ou ambiguë, pose une question factuelle sur ce qui s'est passé, pas sur le problème en général.
 - Si la réponse est émotionnelle ou non factuelle, ramène calmement vers un fait observable (voyant, comportement, moment).
 - Cherche la précision, pas l'explication.
-- Accepte les réponses floues, incomplètes, contradictoires.
+- Accepte les réponses floues, incomplètes, contradictoire.
 - Ne corrige jamais son vocabulaire.
 - Ne reformule jamais en jargon technique.
 - Ne conclus jamais sans qu'il valide.
+- Termine toujours ta réponse par un point ou un point d'interrogation avant la ligne DATA.
 
 INTERDITS
 - Listes, tableaux, checklists.
@@ -96,7 +97,7 @@ function verifySignedCookie(value, secret) {
 }
 
 // ============================================================
-// FONCTION : Normaliser la position de DATA (force \n avant)
+// FONCTION : Normaliser la position de DATA (force \\n avant)
 // ============================================================
 function normalizeDataPosition(reply) {
   if (!reply) return "";
@@ -174,24 +175,42 @@ const DEFAULT_DATA = {
 };
 
 // ============================================================
-// GARDE-FOU #1 : Enforcer réponse courte côté UI
-// - 2 phrases max
+// GARDE-FOU #1 : Enforcer réponse courte côté UI (ROBUSTE)
+// - 2 phrases max si ponctuation
 // - 1 question max
+// - hard-cap mots + caractères si pas de ponctuation
 // ============================================================
 function enforceShortUI(text) {
   if (!text) return "";
 
+  // Normaliser espaces
   let t = String(text).replace(/\s+/g, " ").trim();
 
-  // Garder au plus 2 "phrases" (split naïf mais efficace)
-  const parts = t.match(/[^.!?]+[.!?]?/g) || [t];
-  t = parts.slice(0, 2).join(" ").trim();
-
-  // Garder au plus 1 question
-  const qCount = (t.match(/\?/g) || []).length;
-  if (qCount > 1) {
-    const firstQ = t.indexOf("?");
+  // 1) Si plusieurs questions => garder jusqu'à la 1ère
+  const firstQ = t.indexOf("?");
+  if (firstQ !== -1) {
     t = t.slice(0, firstQ + 1).trim();
+  }
+
+  // 2) 2 phrases max si ponctuation exploitable
+  const parts = t.match(/[^.!?]+[.!?]?/g);
+  if (parts && parts.length > 2) {
+    t = parts.slice(0, 2).join(" ").trim();
+  }
+
+  // 3) Hard cap mots (si pas de ponctuation => une phrase énorme)
+  const MAX_WORDS = 35;
+  const words = t.split(" ").filter(Boolean);
+  if (words.length > MAX_WORDS) {
+    t = words.slice(0, MAX_WORDS).join(" ").trim();
+    if (!/[.!?]$/.test(t)) t += ".";
+  }
+
+  // 4) Hard cap caractères (ultime)
+  const MAX_CHARS = 240;
+  if (t.length > MAX_CHARS) {
+    t = t.slice(0, MAX_CHARS).trim();
+    if (!/[.!?]$/.test(t)) t += ".";
   }
 
   return t;
@@ -385,8 +404,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: mistralModel,
         messages: messagesForMistral,
-        temperature: 0.5,
-        max_tokens: 180,
+        temperature: 0.3, // plus stable
+        max_tokens: 120,  // réduit : cohérent avec "2 phrases"
       }),
     });
 
@@ -405,7 +424,7 @@ export default async function handler(req, res) {
 
     // --------------------------------------------------------
     // 5. GARDE-FOUS
-    // - UI: always short
+    // - UI: always short (hard-cap)
     // - DATA: repair if missing
     // --------------------------------------------------------
     const replyCleanRaw = cleanReplyForUI(replyFull);
@@ -429,7 +448,7 @@ export default async function handler(req, res) {
       conversation_id: conversationId,
       role: "assistant",
       content: replyFull,
-      // Optionnel (si tu ajoutes la colonne) : data_json: extractedData,
+      // Optionnel si tu ajoutes la colonne : data_json: extractedData,
     });
 
     if (assistantMsgError) {
@@ -440,11 +459,11 @@ export default async function handler(req, res) {
     // 7. RÉPONDRE AU FRONT
     // --------------------------------------------------------
     return res.status(200).json({
-      reply: replyClean,       // UI conforme
-      reply_full: replyFull,   // historique modèle (raw)
+      reply: replyClean,      // UI conforme
+      reply_full: replyFull,  // historique modèle (raw)
       session_id: session_id,
       conversation_id: conversationId,
-      extracted_data: extractedData, // toujours non-null (ou default)
+      extracted_data: extractedData,
     });
   } catch (error) {
     console.error("❌ Erreur handler chat:", error);
