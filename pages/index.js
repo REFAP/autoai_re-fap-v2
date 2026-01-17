@@ -1,45 +1,27 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 2.4 - Production Ready + Auth cookie signé
+// VERSION 4.2 - Avec modal formulaire
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
 
 // ============================================================
-// FONCTION : Normaliser la position de DATA (force \n avant)
+// HELPERS
 // ============================================================
 function normalizeDataPosition(content) {
   if (!content) return "";
   return content.replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
 }
 
-// ============================================================
-// FONCTION : Nettoyer les messages (retirer DATA:) - REGEX ROBUSTE
-// ============================================================
 function cleanMessageForDisplay(content) {
   if (!content || typeof content !== "string") return "";
-  
   const normalized = normalizeDataPosition(content);
-  
   const match = normalized.match(/^([\s\S]*?)(?:\nDATA:\s*\{[\s\S]*\})\s*$/);
-  if (match) {
-    return match[1].trim();
-  }
-  
-  const lines = normalized.split("\n");
-  const cleanLines = [];
-  for (const line of lines) {
-    if (line.trim().startsWith("DATA:")) break;
-    cleanLines.push(line);
-  }
-  
-  const result = cleanLines.join("\n").trim();
-  return result || content.trim();
+  if (match) return match[1].trim();
+  const idx = normalized.indexOf("\nDATA:");
+  return idx === -1 ? normalized.trim() : normalized.slice(0, idx).trim();
 }
 
-// ============================================================
-// FONCTION : Générer un session_id unique
-// ============================================================
 function generateSessionId() {
   return "session_" + Date.now() + "_" + Math.random().toString(36).substring(2, 11);
 }
@@ -53,9 +35,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [formUrl, setFormUrl] = useState("");
   const messagesEndRef = useRef(null);
 
-  // Initialiser session_id + bootstrap cookie au montage
+  // Init session + bootstrap cookie
   useEffect(() => {
     let storedSessionId = localStorage.getItem("fapexpert_session_id");
     if (!storedSessionId) {
@@ -64,11 +48,10 @@ export default function Home() {
     }
     setSessionId(storedSessionId);
 
-    // Bootstrap : récupère le cookie signé httpOnly
     fetch("/api/bootstrap", { method: "POST", credentials: "include" }).catch(() => {});
   }, []);
 
-  // Auto-scroll vers le bas
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -78,7 +61,6 @@ export default function Home() {
   // --------------------------------------------------------
   const sendMessage = async (e) => {
     e.preventDefault();
-    
     if (!input.trim() || isLoading || !sessionId) return;
 
     const userMessage = input.trim();
@@ -98,10 +80,8 @@ export default function Home() {
 
       const response = await fetch("/api/chat", {
         method: "POST",
-        credentials: "include", // ← CRITIQUE : envoie le cookie
-        headers: {
-          "Content-Type": "application/json",
-        },
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage,
           session_id: sessionId,
@@ -118,20 +98,26 @@ export default function Home() {
       }
 
       const cleanedReply = cleanMessageForDisplay(data.reply);
-
-      const assistantMessage = { 
-        role: "assistant", 
+      const assistantMessage = {
+        role: "assistant",
         content: cleanedReply,
         raw: data.reply_full,
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
+      // --------------------------------------------------------
+      // HANDLE ACTION : OPEN_FORM → ouvre la modal
+      // --------------------------------------------------------
+      if (data.action?.type === "OPEN_FORM" && data.action?.url) {
+        setFormUrl(data.action.url);
+        setTimeout(() => setShowModal(true), 500); // petit délai pour lire le message
+      }
+
     } catch (err) {
       console.error("❌ Erreur fetch:", err);
-      setError(JSON.stringify({ 
-        error: "Erreur de connexion", 
+      setError(JSON.stringify({
+        error: "Erreur de connexion",
         details: err.message,
-        stack: err.stack 
       }, null, 2));
     } finally {
       setIsLoading(false);
@@ -147,6 +133,7 @@ export default function Home() {
     setSessionId(newSessionId);
     setMessages([]);
     setError(null);
+    setShowModal(false);
   };
 
   // --------------------------------------------------------
@@ -156,9 +143,9 @@ export default function Home() {
     <>
       <Head>
         <title>FAPexpert - Diagnostic FAP en ligne | Re-FAP</title>
-        <meta 
-          name="description" 
-          content="Diagnostic gratuit de votre Filtre à Particules (FAP). Voyant allumé ? Perte de puissance ? Notre expert vous guide." 
+        <meta
+          name="description"
+          content="Diagnostic gratuit de votre Filtre à Particules (FAP). Voyant allumé ? Perte de puissance ? Notre expert vous guide."
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -169,8 +156,8 @@ export default function Home() {
         <header className="chat-header">
           <h1>FAPexpert</h1>
           <p>Diagnostic de votre Filtre à Particules</p>
-          <button 
-            onClick={startNewConversation} 
+          <button
+            onClick={startNewConversation}
             className="new-chat-btn"
             title="Nouvelle conversation"
           >
@@ -228,8 +215,8 @@ export default function Home() {
             disabled={isLoading || !sessionId}
             className="chat-input"
           />
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={isLoading || !input.trim() || !sessionId}
             className="send-btn"
           >
@@ -238,7 +225,29 @@ export default function Home() {
         </form>
       </div>
 
-      {/* STYLES - INCHANGÉ */}
+      {/* ============================================================ */}
+      {/* MODAL FORMULAIRE                                             */}
+      {/* ============================================================ */}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowModal(false)}>
+              ✕
+            </button>
+            <div className="modal-header">
+              <h2>Demande de rappel</h2>
+              <p>Laissez vos coordonnées, on vous rappelle rapidement.</p>
+            </div>
+            <iframe
+              src={formUrl}
+              className="modal-iframe"
+              title="Formulaire de contact"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* STYLES */}
       <style jsx>{`
         .chat-container {
           display: flex;
@@ -355,27 +364,13 @@ export default function Home() {
           animation: typing 1.4s infinite ease-in-out;
         }
 
-        .typing-indicator span:nth-child(1) {
-          animation-delay: 0s;
-        }
-
-        .typing-indicator span:nth-child(2) {
-          animation-delay: 0.2s;
-        }
-
-        .typing-indicator span:nth-child(3) {
-          animation-delay: 0.4s;
-        }
+        .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
         @keyframes typing {
-          0%, 60%, 100% {
-            transform: translateY(0);
-            opacity: 0.4;
-          }
-          30% {
-            transform: translateY(-8px);
-            opacity: 1;
-          }
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+          30% { transform: translateY(-8px); opacity: 1; }
         }
 
         .error-message {
@@ -449,44 +444,100 @@ export default function Home() {
           cursor: not-allowed;
         }
 
+        /* ============================================================ */
+        /* MODAL STYLES                                                  */
+        /* ============================================================ */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .modal-content {
+          background: white;
+          border-radius: 16px;
+          width: 100%;
+          max-width: 500px;
+          max-height: 90vh;
+          overflow: hidden;
+          position: relative;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-close {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          background: #f5f5f5;
+          border: none;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.2s;
+          z-index: 10;
+        }
+
+        .modal-close:hover {
+          background: #e5e5e5;
+        }
+
+        .modal-header {
+          padding: 24px 24px 16px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .modal-header h2 {
+          margin: 0 0 8px 0;
+          font-size: 20px;
+          color: #1e3a5f;
+        }
+
+        .modal-header p {
+          margin: 0;
+          color: #666;
+          font-size: 14px;
+        }
+
+        .modal-iframe {
+          width: 100%;
+          height: 500px;
+          border: none;
+        }
+
         @media (max-width: 600px) {
-          .chat-header {
-            padding: 15px;
+          .chat-header { padding: 15px; }
+          .chat-header h1 { font-size: 20px; }
+          .chat-messages { padding: 15px; }
+          .message-content { max-width: 85%; }
+          .chat-input-form { padding: 15px; }
+          .send-btn { padding: 14px 20px; }
+
+          .modal-content {
+            max-height: 80vh;
           }
 
-          .chat-header h1 {
-            font-size: 20px;
-          }
-
-          .chat-messages {
-            padding: 15px;
-          }
-
-          .message-content {
-            max-width: 85%;
-          }
-
-          .chat-input-form {
-            padding: 15px;
-          }
-
-          .send-btn {
-            padding: 14px 20px;
+          .modal-iframe {
+            height: 400px;
           }
         }
       `}</style>
 
       <style jsx global>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        html,
-        body {
-          margin: 0;
-          padding: 0;
-          background: #f5f7fa;
-        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: #f5f7fa; }
       `}</style>
     </>
   );
