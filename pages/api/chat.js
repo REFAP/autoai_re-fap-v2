@@ -1,37 +1,45 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 3.0 (convergence forcée)
+// FAPexpert Re-FAP — VERSION 3.1 (convergence maîtrisée)
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 // ============================================================
-// SYSTEM PROMPT FAPEXPERT V3 — CONVERGENT
+// SYSTEM PROMPT FAPEXPERT V3.1
 // ============================================================
 const SYSTEM_PROMPT = `
 Tu es FAPexpert, assistant Re-FAP.
 
 OBJECTIF
-Comprendre rapidement un problème de Filtre à Particules (FAP) et guider l'utilisateur vers une solution concrète.
+Comprendre un problème de Filtre à Particules (FAP) à partir des mots du client et l’aider à avancer sans jamais conclure trop tôt.
 
-RÈGLE MAJEURE
-Tu ne poses PAS de questions indéfiniment.
-Dès que les éléments clés sont présents, tu DOIS proposer une action claire.
+RÈGLES FONDAMENTALES
+- Tu ne poses jamais plus d’UNE question par message.
+- Tu ne conclus jamais sans faits observables.
+- Tu n’emploies jamais : “probablement”, “très probablement”, “il faut”.
+- Tu ne mentionnes jamais “régénération forcée”.
 
-COMPORTEMENT
-- Maximum 2 questions consécutives sans proposition.
-- Dès que voyant + perte de puissance OU répétition de symptômes → convergence.
-- Tu peux reformuler brièvement ce que tu as compris AVANT de proposer une action.
-- Ton ton est direct, rassurant, orienté solution.
+GESTION DES MESSAGES COURTS
+Si le message est court ou ambigu (ex: “fap”, “fap bouché”, “problème fap”) :
+→ Tu DOIS poser UNE question factuelle sur ce qui s’est passé.
+→ Tu ne proposes aucune solution à ce stade.
 
-INTERDITS
-- Interrogatoire sans fin.
-- Jargon technique inutile.
-- Listes longues.
-- Diagnostic flou sans action.
+FAITS OBSERVABLES VALIDES
+Voyant allumé, perte de puissance, mode dégradé, coupure/reprise après redémarrage, code défaut.
 
-FORMAT DE RÉPONSE
-- 2 phrases max.
-- 1 question max OU 1 proposition claire (diagnostic / RDV / centre).
+CONVERGENCE
+- Tant que tu n’as PAS au moins 2 faits observables, tu continues à poser des questions.
+- Dès que 2 faits observables sont présents :
+  → Tu reformules brièvement ce que tu as compris.
+  → Tu proposes UNE action possible.
+  → Tu termines par UNE question de validation.
+
+TON
+Calme, direct, rassurant, orienté aide. Pas professoral.
+
+FORMAT
+- 2 phrases maximum.
+- 1 question maximum.
 
 DATA (OBLIGATOIRE)
 Ajoute TOUJOURS en dernière ligne :
@@ -53,7 +61,7 @@ const supabase = createClient(
 );
 
 // ============================================================
-// HELPERS DATA
+// DATA HELPERS
 // ============================================================
 const DEFAULT_DATA = {
   symptome: "inconnu",
@@ -81,17 +89,20 @@ function extractData(reply) {
 
 function cleanForUI(reply) {
   const n = normalize(reply);
-  const idx = n.indexOf("\nDATA:");
-  return idx === -1 ? n.trim() : n.slice(0, idx).trim();
+  const i = n.indexOf("\nDATA:");
+  return i === -1 ? n.trim() : n.slice(0, i).trim();
 }
 
 // ============================================================
 // API HANDLER
 // ============================================================
 export default async function handler(req, res) {
-  // --- Auth cookie ---
+  // ----------------------------------------------------------
+  // AUTH COOKIE SIGNÉ
+  // ----------------------------------------------------------
   const cookieName = process.env.CHAT_COOKIE_NAME || "re_fap_chat";
   const secret = process.env.CHAT_API_TOKEN;
+
   const cookie = req.headers.cookie || "";
   const found = cookie.split(";").find(c => c.trim().startsWith(cookieName + "="));
   if (!found) return res.status(401).json({ error: "Unauthorized" });
@@ -106,10 +117,15 @@ export default async function handler(req, res) {
   const { message, session_id, history = [] } = req.body;
   if (!message || !session_id) return res.status(400).end();
 
-  // --- Conversation ---
+  // ----------------------------------------------------------
+  // CONVERSATION
+  // ----------------------------------------------------------
   const { data: conv } = await supabase
     .from("conversations")
-    .upsert({ session_id, last_seen_at: new Date().toISOString() }, { onConflict: "session_id" })
+    .upsert(
+      { session_id, last_seen_at: new Date().toISOString() },
+      { onConflict: "session_id" }
+    )
     .select("id")
     .single();
 
@@ -119,7 +135,9 @@ export default async function handler(req, res) {
     content: message,
   });
 
-  // --- Build prompt ---
+  // ----------------------------------------------------------
+  // BUILD PROMPT
+  // ----------------------------------------------------------
   const messages = [{ role: "system", content: SYSTEM_PROMPT }];
 
   history.forEach(m => {
@@ -131,7 +149,9 @@ export default async function handler(req, res) {
 
   messages.push({ role: "user", content: message });
 
-  // --- Mistral ---
+  // ----------------------------------------------------------
+  // MISTRAL
+  // ----------------------------------------------------------
   const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -141,13 +161,16 @@ export default async function handler(req, res) {
     body: JSON.stringify({
       model: process.env.MISTRAL_MODEL || "mistral-small-latest",
       messages,
-      temperature: 0.3,
-      max_tokens: 160,
+      temperature: 0.35,
+      max_tokens: 180,
     }),
   });
 
   const j = await r.json();
-  const replyFull = j.choices?.[0]?.message?.content || "Je te propose un diagnostic FAP pour avancer.";
+  const replyFull =
+    j.choices?.[0]?.message?.content ||
+    "Dis-moi ce que tu observes exactement sur la voiture.";
+
   const replyClean = cleanForUI(replyFull);
   const extracted = extractData(replyFull);
 
