@@ -1,6 +1,6 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 4.2
-// Base v2.4 + closing auto + limite tours + action type
+// FAPexpert Re-FAP — VERSION 4.3
+// Closing progressif : question d'abord, formulaire ensuite
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -9,7 +9,7 @@ import crypto from "crypto";
 // CONFIG
 // ============================================================
 const FORM_URL = "https://auto.re-fap.fr/#devis";
-const MAX_USER_TURNS = 3;
+const MAX_USER_TURNS = 4; // +1 car on ajoute un tour pour la question closing
 
 // ============================================================
 // SYSTEM PROMPT V2.1 (validé)
@@ -141,15 +141,24 @@ function userWantsFormNow(text) {
 
 function userSaysYes(text) {
   const t = String(text || "").toLowerCase().trim();
-  return ["oui", "ouais", "ok", "d'accord", "go", "yes", "yep", "ouep"].includes(t);
+  const yesWords = ["oui", "ouais", "ok", "d'accord", "go", "yes", "yep", "ouep", "volontiers", "je veux bien", "avec plaisir", "carrément", "bien sûr", "pourquoi pas"];
+  return yesWords.some((w) => t.includes(w)) || t === "o";
 }
 
-function lastAssistantProposedForm(history) {
+function userSaysNo(text) {
+  const t = String(text || "").toLowerCase().trim();
+  const noWords = ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci"];
+  return noWords.some((w) => t.includes(w));
+}
+
+// Vérifie si le dernier message assistant était la question closing
+function lastAssistantAskedClosingQuestion(history) {
   if (!Array.isArray(history)) return false;
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("coordonnées") || content.includes("on te rappelle") || content.includes("formulaire")) {
+      // Marqueur de la question closing
+      if (content.includes("trouver le bon pro") || content.includes("t'aider à trouver")) {
         return true;
       }
       return false;
@@ -173,7 +182,10 @@ function hasEnoughToClose(extracted) {
   return Boolean(hasSymptome && hasVehicule);
 }
 
-function buildClosingCTA(extracted) {
+// ============================================================
+// MESSAGE CLOSING : Question (sans ouvrir le formulaire)
+// ============================================================
+function buildClosingQuestion(extracted) {
   const symptome = extracted?.symptome || "inconnu";
   const vehicule = extracted?.vehicule ? ` sur ta ${extracted.vehicule}` : "";
   
@@ -194,7 +206,38 @@ function buildClosingCTA(extracted) {
     next_best_action: "proposer_devis",
   };
 
-  const replyClean = `Au vu de ce que tu décris${vehicule}, ça ressemble à ${hint}. Tu as bien fait de nous contacter : laisse tes coordonnées ici et on te rappelle pour t'orienter vers la meilleure solution près de chez toi.`;
+  const replyClean = `Au vu de ce que tu décris${vehicule}, ça ressemble à ${hint}. On connaît les meilleurs pros partout en France pour ce type de problème. Tu veux qu'on t'aide à trouver le bon pro près de chez toi ?`;
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================================
+// MESSAGE FORMULAIRE : Après accord utilisateur
+// ============================================================
+function buildFormCTA(extracted) {
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "rdv",
+    next_best_action: "clore",
+  };
+
+  const replyClean = `Super ! Laisse tes coordonnées ici et on te rappelle rapidement pour t'orienter vers la meilleure solution près de chez toi.`;
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================================
+// MESSAGE SI USER DIT NON
+// ============================================================
+function buildDeclinedResponse(extracted) {
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    next_best_action: "clore",
+  };
+
+  const replyClean = `Pas de souci ! Si tu changes d'avis ou si tu as d'autres questions, je suis là. Bonne route 👋`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
   return { replyClean, replyFull, extracted: data };
@@ -216,6 +259,21 @@ function verifySignedCookie(value, secret) {
   if (!nonce || !sig) return false;
   const expected = crypto.createHmac("sha256", secret).update(nonce).digest("hex");
   return sig === expected;
+}
+
+// ============================================================
+// HELPER : Récupérer la dernière DATA extraite de l'historique
+// ============================================================
+function extractLastExtractedData(history) {
+  if (!Array.isArray(history)) return DEFAULT_DATA;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = history[i].raw || history[i].content || "";
+      const extracted = extractDataFromReply(content);
+      if (extracted) return extracted;
+    }
+  }
+  return DEFAULT_DATA;
 }
 
 // ============================================================
@@ -276,36 +334,79 @@ export default async function handler(req, res) {
       content: message,
     });
 
+    const lastExtracted = extractLastExtractedData(history);
+
     // --------------------------------------------------------
-    // OVERRIDE 1 : User demande explicitement formulaire/rdv
+    // OVERRIDE 1 : User a reçu la question closing et répond OUI
     // --------------------------------------------------------
-    if (userWantsFormNow(message) || (userSaysYes(message) && lastAssistantProposedForm(history))) {
-      const lastExtracted = extractLastExtractedData(history);
-      const closing = buildClosingCTA(lastExtracted);
+    if (lastAssistantAskedClosingQuestion(history) && userSaysYes(message)) {
+      const formResponse = buildFormCTA(lastExtracted);
 
       await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "assistant",
-        content: closing.replyFull,
+        content: formResponse.replyFull,
       });
 
       return res.status(200).json({
-        reply: closing.replyClean,
-        reply_full: closing.replyFull,
+        reply: formResponse.replyClean,
+        reply_full: formResponse.replyFull,
         session_id,
         conversation_id: conversationId,
-        extracted_data: closing.extracted,
+        extracted_data: formResponse.extracted,
         action: { type: "OPEN_FORM", url: FORM_URL },
       });
     }
 
     // --------------------------------------------------------
-    // OVERRIDE 2 : Trop de tours → CTA forcé
+    // OVERRIDE 2 : User a reçu la question closing et répond NON
     // --------------------------------------------------------
-    const userTurns = countUserTurns(history) + 1; // +1 pour le message actuel
-    if (userTurns >= MAX_USER_TURNS) {
-      const lastExtracted = extractLastExtractedData(history);
-      const closing = buildClosingCTA(lastExtracted);
+    if (lastAssistantAskedClosingQuestion(history) && userSaysNo(message)) {
+      const declinedResponse = buildDeclinedResponse(lastExtracted);
+
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: declinedResponse.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: declinedResponse.replyClean,
+        reply_full: declinedResponse.replyFull,
+        session_id,
+        conversation_id: conversationId,
+        extracted_data: declinedResponse.extracted,
+      });
+    }
+
+    // --------------------------------------------------------
+    // OVERRIDE 3 : User demande explicitement formulaire/rdv
+    // --------------------------------------------------------
+    if (userWantsFormNow(message)) {
+      const formResponse = buildFormCTA(lastExtracted);
+
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: formResponse.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: formResponse.replyClean,
+        reply_full: formResponse.replyFull,
+        session_id,
+        conversation_id: conversationId,
+        extracted_data: formResponse.extracted,
+        action: { type: "OPEN_FORM", url: FORM_URL },
+      });
+    }
+
+    // --------------------------------------------------------
+    // OVERRIDE 4 : Trop de tours → question closing forcée
+    // --------------------------------------------------------
+    const userTurns = countUserTurns(history) + 1;
+    if (userTurns >= MAX_USER_TURNS && !lastAssistantAskedClosingQuestion(history)) {
+      const closing = buildClosingQuestion(lastExtracted);
 
       await supabase.from("messages").insert({
         conversation_id: conversationId,
@@ -319,7 +420,6 @@ export default async function handler(req, res) {
         session_id,
         conversation_id: conversationId,
         extracted_data: closing.extracted,
-        action: { type: "OPEN_FORM", url: FORM_URL },
       });
     }
 
@@ -364,10 +464,10 @@ export default async function handler(req, res) {
     const replyClean = cleanReplyForUI(replyFull);
 
     // --------------------------------------------------------
-    // AUTO-CLOSE : symptôme + véhicule → CTA
+    // AUTO-CLOSE : symptôme + véhicule → question closing
     // --------------------------------------------------------
     if (hasEnoughToClose(extracted)) {
-      const closing = buildClosingCTA(extracted);
+      const closing = buildClosingQuestion(extracted);
 
       await supabase.from("messages").insert({
         conversation_id: conversationId,
@@ -381,7 +481,6 @@ export default async function handler(req, res) {
         session_id,
         conversation_id: conversationId,
         extracted_data: closing.extracted,
-        action: { type: "OPEN_FORM", url: FORM_URL },
       });
     }
 
@@ -406,19 +505,4 @@ export default async function handler(req, res) {
     console.error("❌ Erreur handler chat:", error);
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
-}
-
-// ============================================================
-// HELPER : Récupérer la dernière DATA extraite de l'historique
-// ============================================================
-function extractLastExtractedData(history) {
-  if (!Array.isArray(history)) return DEFAULT_DATA;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i]?.role === "assistant") {
-      const content = history[i].raw || history[i].content || "";
-      const extracted = extractDataFromReply(content);
-      if (extracted) return extracted;
-    }
-  }
-  return DEFAULT_DATA;
 }
