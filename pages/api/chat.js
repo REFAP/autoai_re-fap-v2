@@ -1,6 +1,6 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 4.5
-// Flow ultra minimal : 1 question ouverte + 1 véhicule + closing affirmé
+// FAPexpert Re-FAP — VERSION 4.6
+// Flow progressif : question ouverte → véhicule → closing doux → formulaire
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -9,63 +9,50 @@ import crypto from "crypto";
 // CONFIG
 // ============================================================
 const FORM_URL = "https://auto.re-fap.fr/#devis";
-const MAX_USER_TURNS = 3; // ouverte + véhicule + confirmation = 3 max
+const MAX_USER_TURNS = 4;
 
 // ============================================================
-// SYSTEM PROMPT V4.5
-// Ultra minimal : 1 question ouverte, 1 véhicule, c'est tout
+// SYSTEM PROMPT V4.6
+// Question ouverte obligatoire, pas de présupposition
 // ============================================================
-const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP, spécialiste du nettoyage de Filtre à Particules.
+const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP. Tu collectes les mots du client pour comprendre son problème.
 
 DÉFINITION
-"FAP" = Filtre à Particules automobile. Aucune autre interprétation.
+"FAP" = Filtre à Particules automobile uniquement.
 
-TON RÔLE
-Collecter le verbatim brut du client et identifier son véhicule. C'est TOUT.
-Tu n'es pas là pour diagnostiquer, expliquer ou éduquer.
-
-FLOW STRICT (2 questions max)
-
-TOUR 1 - QUESTION OUVERTE (obligatoire)
-Pose UNE question ouverte pour laisser le client s'exprimer librement.
-Exemples :
+RÈGLE ABSOLUE POUR LE PREMIER MESSAGE
+Si c'est le premier échange (pas d'historique), pose UNE question 100% ouverte et neutre :
 - "Qu'est-ce qui se passe avec votre voiture ?"
 - "Racontez-moi ce qui vous arrive."
-- "Décrivez-moi le problème."
-NE POSE PAS de question fermée (oui/non, choix multiple).
-NE DEMANDE PAS "c'est quel voyant" ou "depuis quand".
-Laisse le client parler.
+- "Décrivez-moi le souci."
 
-TOUR 2 - VÉHICULE (si pas encore donné)
-Une seule question simple :
-- "C'est quelle voiture ?"
-- "Quel véhicule ?"
+NE PRÉSUPPOSE JAMAIS le problème. Ne dis pas "qu'est-ce qui vous fait dire que..." ou "pourquoi pensez-vous que...".
 
-ENSUITE : STOP
-Ne pose plus de questions. Attends que le système prenne le relais.
+MESSAGES SUIVANTS
+- Si tu n'as pas le véhicule : "C'est quelle voiture ?"
+- Sinon : ne pose plus de questions, le système prend le relais.
 
 STYLE
+- 1 phrase max.
+- 1 question max.
 - Ton naturel, court, direct.
-- Jamais de liste, jamais de parenthèses, jamais de jargon.
-- 1 phrase max. 1 question max.
+- Jamais de liste, jamais de jargon technique.
+- Jamais de diagnostic ou d'explication.
 
-INTERDITS ABSOLUS
-- Poser plusieurs questions dans un message
+INTERDITS
+- Poser plusieurs questions
+- Présupposer un diagnostic
+- Utiliser des termes techniques (régénération, mode dégradé, etc.)
 - Demander kilométrage, année, code postal
-- Expliquer ce qu'est un FAP
-- Donner des conseils techniques
-- Utiliser "mode dégradé", "régénération", "anti-pollution" en premier
-- Diagnostiquer ou suggérer une cause
 
 DATA
-À la fin de chaque message, ajoute :
+À la fin de chaque message :
 DATA: {"symptome":"<enum>","codes":[],"vehicule":<string|null>,"intention":"<enum>","urgence":"<enum>","next_best_action":"<enum>"}
 
-Enums :
-- symptome : "voyant_fap" | "perte_puissance" | "mode_degrade" | "fumee" | "odeur" | "autre" | "inconnu"
-- intention : "diagnostic" | "devis" | "rdv" | "info_generale" | "urgence" | "inconnu"
-- urgence : "haute" | "moyenne" | "basse" | "inconnue"
-- next_best_action : "poser_question" | "proposer_devis" | "clore"`;
+Enums symptome : voyant_fap | perte_puissance | mode_degrade | fumee | odeur | autre | inconnu
+Enums intention : diagnostic | devis | rdv | info_generale | urgence | inconnu
+Enums urgence : haute | moyenne | basse | inconnue
+Enums next_best_action : poser_question | proposer_devis | clore`;
 
 // ============================================================
 // SUPABASE
@@ -85,7 +72,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 // ============================================================
-// SCHÉMA DATA ENRICHI
+// DEFAULT DATA
 // ============================================================
 const DEFAULT_DATA = {
   symptome: "inconnu",
@@ -102,117 +89,56 @@ const DEFAULT_DATA = {
 };
 
 // ============================================================
-// INFÉRENCE : Urgence perçue
+// INFÉRENCES (identiques à v4.5)
 // ============================================================
 function inferUrgencePercue(text) {
   const t = String(text || "").toLowerCase();
-  
-  const highUrgency = [
-    "bloqué", "bloquée", "immobilisé", "immobilisée", "plus rouler", "peux plus",
-    "peut plus", "arrêté", "panne", "sos", "urgence", "urgent", "clignotant",
-    "clignote", "danger", "fume beaucoup", "calé", "calée", "dépanneuse",
-    "bord de la route", "autoroute", "sécurité"
-  ];
-  if (highUrgency.some(w => t.includes(w))) return "haute";
-  
-  const mediumUrgency = [
-    "voyant", "allumé", "perte de puissance", "tire moins", "accélère mal",
-    "fume", "fumée", "depuis quelques jours", "depuis hier", "ce matin",
-    "mode dégradé", "dégradé"
-  ];
-  if (mediumUrgency.some(w => t.includes(w))) return "moyenne";
-  
-  const lowUrgency = [
-    "question", "renseignement", "info", "savoir", "comprendre",
-    "depuis longtemps", "depuis des mois", "de temps en temps"
-  ];
-  if (lowUrgency.some(w => t.includes(w))) return "basse";
-  
+  const high = ["bloqué", "bloquée", "immobilisé", "plus rouler", "peux plus", "panne", "urgent", "clignotant", "calé", "dépanneuse", "autoroute"];
+  if (high.some(w => t.includes(w))) return "haute";
+  const medium = ["voyant", "allumé", "perte de puissance", "tire moins", "fume", "fumée", "mode dégradé"];
+  if (medium.some(w => t.includes(w))) return "moyenne";
+  const low = ["question", "renseignement", "info", "savoir", "comprendre"];
+  if (low.some(w => t.includes(w))) return "basse";
   return "inconnue";
 }
 
-// ============================================================
-// INFÉRENCE : Immobilisation
-// ============================================================
 function inferImmobilisation(text) {
   const t = String(text || "").toLowerCase();
-  
-  const immobilise = [
-    "bloqué", "bloquée", "immobilisé", "immobilisée", "plus rouler",
-    "peux plus rouler", "peut plus rouler", "ne roule plus", "roule plus",
-    "en panne", "calé", "calée", "ne démarre plus", "démarre plus"
-  ];
-  if (immobilise.some(w => t.includes(w))) return "oui";
-  
-  const rouleEncore = [
-    "roule encore", "je roule", "peux rouler", "peut rouler",
-    "marche encore", "fonctionne encore", "ça roule"
-  ];
-  if (rouleEncore.some(w => t.includes(w))) return "non";
-  
+  const oui = ["bloqué", "bloquée", "immobilisé", "plus rouler", "peux plus rouler", "en panne", "calé", "démarre plus"];
+  if (oui.some(w => t.includes(w))) return "oui";
+  const non = ["roule encore", "je roule", "marche encore", "fonctionne"];
+  if (non.some(w => t.includes(w))) return "non";
   return "inconnu";
 }
 
-// ============================================================
-// INFÉRENCE : Stade du parcours
-// ============================================================
 function inferIntentStage(text, history, acceptedCTA) {
   const t = String(text || "").toLowerCase();
-  
-  const actionWords = [
-    "rdv", "rendez-vous", "devis", "rappel", "rappelez", "contact",
-    "combien", "prix", "tarif", "réserver", "où", "garage"
-  ];
-  if (actionWords.some(w => t.includes(w)) || acceptedCTA) return "action";
-  
-  const solutionWords = [
-    "comment faire", "que faire", "quoi faire", "solution", "réparer",
-    "nettoyer", "nettoyage", "changer", "remplacer", "résoudre"
-  ];
-  if (solutionWords.some(w => t.includes(w))) return "solution";
-  
-  if (Array.isArray(history) && history.filter(m => m.role === "user").length >= 2) {
-    return "solution";
-  }
-  
+  const action = ["rdv", "devis", "rappel", "combien", "prix", "tarif", "garage"];
+  if (action.some(w => t.includes(w)) || acceptedCTA) return "action";
+  const solution = ["comment faire", "que faire", "solution", "réparer", "nettoyer"];
+  if (solution.some(w => t.includes(w))) return "solution";
+  if (Array.isArray(history) && history.filter(m => m.role === "user").length >= 2) return "solution";
   return "info";
 }
 
-// ============================================================
-// INFÉRENCE : Extraction mots-clés SEO
-// ============================================================
-function extractMotsClesSEO(text, vehicule, symptome) {
+function extractMotsClesSEO(text, vehicule) {
   const keywords = [];
   const t = String(text || "").toLowerCase();
-  
-  const symptomesMap = {
-    "voyant": "voyant fap allumé",
-    "perte de puissance": "perte puissance fap",
-    "fume": "fumée fap",
-    "fumée": "fumée noire fap",
-    "bouché": "fap bouché",
-    "encrassé": "fap encrassé",
-  };
-  
-  for (const [pattern, keyword] of Object.entries(symptomesMap)) {
-    if (t.includes(pattern)) keywords.push(keyword);
-  }
-  
-  const codeMatch = t.match(/p[0-9]{4}/gi);
-  if (codeMatch) {
-    codeMatch.forEach(code => keywords.push(`code ${code.toUpperCase()}`));
-  }
-  
+  if (t.includes("voyant")) keywords.push("voyant fap allumé");
+  if (t.includes("puissance") || t.includes("tire")) keywords.push("perte puissance fap");
+  if (t.includes("fume") || t.includes("fumée")) keywords.push("fumée fap");
+  if (t.includes("bouché")) keywords.push("fap bouché");
+  const codes = t.match(/p[0-9]{4}/gi);
+  if (codes) codes.forEach(c => keywords.push(`code ${c.toUpperCase()}`));
   if (vehicule) {
     keywords.push(`${vehicule} fap`.toLowerCase());
     keywords.push(`nettoyage fap ${vehicule}`.toLowerCase());
   }
-  
   return [...new Set(keywords)].slice(0, 10);
 }
 
 // ============================================================
-// HELPERS : Normalisation & Extraction DATA
+// HELPERS DATA
 // ============================================================
 function normalizeDataPosition(reply) {
   if (!reply) return "";
@@ -221,54 +147,77 @@ function normalizeDataPosition(reply) {
 
 function cleanReplyForUI(fullReply) {
   if (!fullReply) return "";
-  const normalized = normalizeDataPosition(fullReply);
-  const match = normalized.match(/^([\s\S]*?)(?:\nDATA:\s*\{[\s\S]*\})\s*$/);
-  if (match) return match[1].trim();
-  const idx = normalized.indexOf("\nDATA:");
-  return idx === -1 ? normalized.trim() : normalized.slice(0, idx).trim();
+  const n = normalizeDataPosition(fullReply);
+  const m = n.match(/^([\s\S]*?)(?:\nDATA:\s*\{[\s\S]*\})\s*$/);
+  if (m) return m[1].trim();
+  const i = n.indexOf("\nDATA:");
+  return i === -1 ? n.trim() : n.slice(0, i).trim();
 }
 
 function extractDataFromReply(fullReply) {
   if (!fullReply) return null;
-  const normalized = normalizeDataPosition(fullReply);
-  const match = normalized.match(/\nDATA:\s*(\{[\s\S]*\})\s*$/);
-  if (match) {
-    try { return JSON.parse(match[1]); } catch { return null; }
-  }
+  const n = normalizeDataPosition(fullReply);
+  const m = n.match(/\nDATA:\s*(\{[\s\S]*\})\s*$/);
+  if (m) { try { return JSON.parse(m[1]); } catch { return null; } }
   return null;
 }
 
-function safeJsonStringify(obj) {
+function safeJson(obj) {
   try { return JSON.stringify(obj); } catch { return JSON.stringify(DEFAULT_DATA); }
 }
 
 // ============================================================
-// HELPERS : Intent Detection
+// HELPERS INTENT
 // ============================================================
 function userWantsFormNow(text) {
-  const t = String(text || "").toLowerCase().trim();
-  const triggers = ["rdv", "rendez", "rendez-vous", "devis", "contact", "rappel", "rappelez", "formulaire"];
-  return triggers.some((k) => t.includes(k));
+  const t = String(text || "").toLowerCase();
+  return ["rdv", "rendez-vous", "devis", "contact", "rappel", "formulaire"].some(k => t.includes(k));
 }
 
 function userSaysYes(text) {
   const t = String(text || "").toLowerCase().trim();
-  const yesWords = ["oui", "ouais", "ok", "d'accord", "go", "yes", "yep", "ouep", "volontiers", "je veux bien", "avec plaisir", "carrément", "bien sûr", "pourquoi pas"];
-  return yesWords.some((w) => t.includes(w)) || t === "o";
+  const yes = ["oui", "ouais", "ok", "d'accord", "go", "yes", "yep", "volontiers", "je veux bien", "avec plaisir", "carrément", "bien sûr", "pourquoi pas"];
+  return yes.some(w => t.includes(w)) || t === "o";
 }
 
 function userSaysNo(text) {
   const t = String(text || "").toLowerCase().trim();
-  const noWords = ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci"];
-  return noWords.some((w) => t.includes(w));
+  return ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci"].some(w => t.includes(w));
 }
 
+// ============================================================
+// DÉTECTION : Le bot a-t-il posé la question closing ?
+// ============================================================
 function lastAssistantAskedClosingQuestion(history) {
   if (!Array.isArray(history)) return false;
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
-      const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("on vous rappelle") || content.includes("laissez vos coordonnées") || content.includes("prise en charge")) {
+      const c = String(history[i].raw || history[i].content || "").toLowerCase();
+      // Marqueurs de la question closing
+      if (
+        c.includes("t'aider à trouver") ||
+        c.includes("vous aider à trouver") ||
+        c.includes("qu'on t'aide") ||
+        c.includes("qu'on vous aide") ||
+        c.includes("trouver le bon pro")
+      ) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+// ============================================================
+// DÉTECTION : Le bot a-t-il déjà envoyé le CTA formulaire ?
+// ============================================================
+function lastAssistantSentFormCTA(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const c = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (c.includes("laisse tes coordonnées") || c.includes("laissez vos coordonnées")) {
         return true;
       }
       return false;
@@ -279,11 +228,11 @@ function lastAssistantAskedClosingQuestion(history) {
 
 function countUserTurns(history) {
   if (!Array.isArray(history)) return 0;
-  return history.filter((m) => m?.role === "user").length;
+  return history.filter(m => m?.role === "user").length;
 }
 
 // ============================================================
-// HELPERS : Closing Detection
+// CLOSING : Assez d'infos ?
 // ============================================================
 function hasEnoughToClose(extracted) {
   if (!extracted) return false;
@@ -293,126 +242,90 @@ function hasEnoughToClose(extracted) {
 }
 
 // ============================================================
-// MESSAGE CLOSING : Positionnement Re-FAP fort
+// MESSAGES CLOSING (flow progressif)
 // ============================================================
 function buildClosingQuestion(extracted, allUserMessages) {
-  const symptome = extracted?.symptome || "inconnu";
-  const vehicule = extracted?.vehicule || "";
-  const verbatim = allUserMessages[0] || "";
+  const vehicule = extracted?.vehicule ? ` sur ta ${extracted.vehicule}` : "";
+  const verbatim = (allUserMessages[0] || "").toLowerCase();
   
-  // Construire la synthèse basée sur le verbatim
-  let synthese = "";
-  const v = verbatim.toLowerCase();
-  
-  if (v.includes("voyant") && v.includes("puissance")) {
-    synthese = "voyant allumé + perte de puissance";
-  } else if (v.includes("voyant")) {
+  // Synthèse basée sur le verbatim (sans jargon)
+  let synthese = "un souci";
+  if (verbatim.includes("voyant") && (verbatim.includes("puissance") || verbatim.includes("tire"))) {
+    synthese = "voyant + manque de puissance";
+  } else if (verbatim.includes("voyant")) {
     synthese = "voyant allumé";
-  } else if (v.includes("puissance") || v.includes("tire")) {
-    synthese = "perte de puissance";
-  } else if (v.includes("fume") || v.includes("fumée")) {
+  } else if (verbatim.includes("puissance") || verbatim.includes("tire") || verbatim.includes("avance")) {
+    synthese = "manque de puissance";
+  } else if (verbatim.includes("fume") || verbatim.includes("fumée")) {
     synthese = "fumée";
-  } else if (v.includes("bloqué") || v.includes("panne")) {
+  } else if (verbatim.includes("bloqué") || verbatim.includes("panne")) {
     synthese = "véhicule bloqué";
-  } else {
-    synthese = "problème FAP/antipollution";
   }
 
-  const vehiculeStr = vehicule ? ` sur ${vehicule}` : "";
+  const data = { ...extracted, intention: "diagnostic", next_best_action: "proposer_devis" };
 
-  const data = {
-    ...extracted,
-    intention: "diagnostic",
-    next_best_action: "proposer_devis",
-  };
-
-  // MESSAGE REPOSITIONNÉ : Re-FAP = LA solution, pas un annuaire
-  const replyClean = `D'après ce que vous décrivez (${synthese}${vehiculeStr}), il s'agit très probablement d'un encrassement FAP. Chez Re-FAP, on traite ce type de problème sans remplacement et sans suppression. Vous voulez qu'on vérifie si votre cas est pris en charge ?`;
-  
-  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  // Message DOUX et PROGRESSIF (pas de saut brutal vers le formulaire)
+  const replyClean = `Au vu de ce que tu décris (${synthese}${vehicule}), ça ressemble à un problème de FAP encrassé. Chez Re-FAP, on traite ce type de souci sans remplacement et sans suppression. Tu veux qu'on t'aide à trouver le bon pro près de chez toi ?`;
+  const replyFull = `${replyClean}\nDATA: ${safeJson(data)}`;
 
   return { replyClean, replyFull, extracted: data };
 }
 
-// ============================================================
-// MESSAGE FORMULAIRE : Après accord
-// ============================================================
 function buildFormCTA(extracted) {
-  const data = {
-    ...extracted,
-    intention: "rdv",
-    intent_stage: "action",
-    next_best_action: "clore",
-  };
-
-  const replyClean = `Parfait. Laissez vos coordonnées ici, on vous rappelle rapidement pour confirmer la prise en charge et vous donner une estimation.`;
-  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-
+  const data = { ...extracted, intention: "rdv", intent_stage: "action", next_best_action: "clore" };
+  const replyClean = `Super ! Laisse tes coordonnées ici et on te rappelle rapidement pour t'orienter vers la meilleure solution.`;
+  const replyFull = `${replyClean}\nDATA: ${safeJson(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
 
-// ============================================================
-// MESSAGE SI USER DIT NON
-// ============================================================
 function buildDeclinedResponse(extracted) {
-  const data = {
-    ...extracted,
-    next_best_action: "clore",
-  };
-
-  const replyClean = `Pas de souci. Si vous changez d'avis ou si vous avez d'autres questions, je suis là. Bonne route 👋`;
-  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-
+  const data = { ...extracted, next_best_action: "clore" };
+  const replyClean = `Pas de souci ! Si tu changes d'avis, je suis là. Bonne route 👋`;
+  const replyFull = `${replyClean}\nDATA: ${safeJson(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
 
 // ============================================================
-// AUTH : Cookie signé
+// AUTH
 // ============================================================
 function getCookie(req, name) {
-  const cookieHeader = req.headers.cookie || "";
-  const found = cookieHeader.split(";").find((c) => c.trim().startsWith(name + "="));
-  if (!found) return null;
-  return decodeURIComponent(found.split("=").slice(1).join("="));
+  const h = req.headers.cookie || "";
+  const f = h.split(";").find(c => c.trim().startsWith(name + "="));
+  if (!f) return null;
+  return decodeURIComponent(f.split("=").slice(1).join("="));
 }
 
 function verifySignedCookie(value, secret) {
   if (!value || !secret) return false;
   const [nonce, sig] = value.split(".");
   if (!nonce || !sig) return false;
-  const expected = crypto.createHmac("sha256", secret).update(nonce).digest("hex");
-  return sig === expected;
+  return sig === crypto.createHmac("sha256", secret).update(nonce).digest("hex");
 }
 
 // ============================================================
-// HELPER : Récupérer la dernière DATA extraite
+// HELPERS
 // ============================================================
 function extractLastExtractedData(history) {
   if (!Array.isArray(history)) return { ...DEFAULT_DATA };
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
-      const content = history[i].raw || history[i].content || "";
-      const extracted = extractDataFromReply(content);
+      const extracted = extractDataFromReply(history[i].raw || history[i].content || "");
       if (extracted) return { ...DEFAULT_DATA, ...extracted };
     }
   }
   return { ...DEFAULT_DATA };
 }
 
-// ============================================================
-// ENRICHIR DATA avec inférences
-// ============================================================
-function enrichDataWithInferences(baseData, allUserMessages, history, acceptedCTA = false) {
-  const concatenatedText = allUserMessages.join(" ");
-  const firstMessage = allUserMessages[0] || "";
-  
+function enrichData(baseData, allUserMessages, history, acceptedCTA = false) {
+  const all = allUserMessages.join(" ");
+  const first = allUserMessages[0] || "";
   return {
     ...baseData,
-    verbatim_brut: firstMessage,
-    urgence_percue: inferUrgencePercue(concatenatedText),
-    immobilise: inferImmobilisation(concatenatedText),
-    intent_stage: inferIntentStage(concatenatedText, history, acceptedCTA),
-    mots_cles_seo: extractMotsClesSEO(concatenatedText, baseData.vehicule, baseData.symptome),
+    verbatim_brut: first,
+    urgence_percue: inferUrgencePercue(all),
+    immobilise: inferImmobilisation(all),
+    intent_stage: inferIntentStage(all, history, acceptedCTA),
+    mots_cles_seo: extractMotsClesSEO(all, baseData.vehicule),
   };
 }
 
@@ -420,17 +333,15 @@ function enrichDataWithInferences(baseData, allUserMessages, history, acceptedCT
 // HANDLER
 // ============================================================
 export default async function handler(req, res) {
-  const origin = req.headers.origin;
-
   // AUTH
   const cookieName = process.env.CHAT_COOKIE_NAME || "re_fap_chat";
   const secret = process.env.CHAT_API_TOKEN;
-  const cookieValue = getCookie(req, cookieName);
-  if (!verifySignedCookie(cookieValue, secret)) {
+  if (!verifySignedCookie(getCookie(req, cookieName), secret)) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
   // CORS
+  const origin = req.headers.origin;
   if (origin) {
     if (ALLOWED_ORIGINS.includes(origin)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
@@ -447,83 +358,52 @@ export default async function handler(req, res) {
 
   try {
     const { message, session_id, history = [] } = req.body;
+    if (!message || typeof message !== "string") return res.status(400).json({ error: "Message requis" });
+    if (!session_id || typeof session_id !== "string") return res.status(400).json({ error: "session_id requis" });
 
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "Message requis" });
-    }
-    if (!session_id || typeof session_id !== "string") {
-      return res.status(400).json({ error: "session_id requis" });
-    }
+    const allUserMessages = [...history.filter(m => m.role === "user").map(m => m.content), message];
 
-    // Collecter tous les messages user
-    const allUserMessages = [
-      ...history.filter(m => m.role === "user").map(m => m.content),
-      message
-    ];
-
-    // DB : upsert conversation
-    const { data: convData, error: convError } = await supabase
+    // DB
+    const { data: conv, error: convErr } = await supabase
       .from("conversations")
       .upsert({ session_id, last_seen_at: new Date().toISOString() }, { onConflict: "session_id" })
-      .select("id")
-      .single();
+      .select("id").single();
+    if (convErr) return res.status(500).json({ error: "Erreur DB", details: convErr.message });
 
-    if (convError) {
-      return res.status(500).json({ error: "Erreur DB conversation", details: convError.message });
-    }
-    const conversationId = convData.id;
-
-    // DB : insert message user
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      role: "user",
-      content: message,
-    });
+    await supabase.from("messages").insert({ conversation_id: conv.id, role: "user", content: message });
 
     const lastExtracted = extractLastExtractedData(history);
 
     // --------------------------------------------------------
-    // OVERRIDE 1 : User répond OUI au closing
+    // OVERRIDE 1 : User dit OUI après question closing
     // --------------------------------------------------------
     if (lastAssistantAskedClosingQuestion(history) && userSaysYes(message)) {
-      const enrichedData = enrichDataWithInferences(lastExtracted, allUserMessages, history, true);
-      const formResponse = buildFormCTA(enrichedData);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: formResponse.replyFull,
-      });
-
+      const enriched = enrichData(lastExtracted, allUserMessages, history, true);
+      const formCTA = buildFormCTA(enriched);
+      await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: formCTA.replyFull });
       return res.status(200).json({
-        reply: formResponse.replyClean,
-        reply_full: formResponse.replyFull,
+        reply: formCTA.replyClean,
+        reply_full: formCTA.replyFull,
         session_id,
-        conversation_id: conversationId,
-        extracted_data: formResponse.extracted,
+        conversation_id: conv.id,
+        extracted_data: formCTA.extracted,
         action: { type: "OPEN_FORM", url: FORM_URL },
       });
     }
 
     // --------------------------------------------------------
-    // OVERRIDE 2 : User répond NON au closing
+    // OVERRIDE 2 : User dit NON après question closing
     // --------------------------------------------------------
     if (lastAssistantAskedClosingQuestion(history) && userSaysNo(message)) {
-      const enrichedData = enrichDataWithInferences(lastExtracted, allUserMessages, history, false);
-      const declinedResponse = buildDeclinedResponse(enrichedData);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: declinedResponse.replyFull,
-      });
-
+      const enriched = enrichData(lastExtracted, allUserMessages, history, false);
+      const declined = buildDeclinedResponse(enriched);
+      await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: declined.replyFull });
       return res.status(200).json({
-        reply: declinedResponse.replyClean,
-        reply_full: declinedResponse.replyFull,
+        reply: declined.replyClean,
+        reply_full: declined.replyFull,
         session_id,
-        conversation_id: conversationId,
-        extracted_data: declinedResponse.extracted,
+        conversation_id: conv.id,
+        extracted_data: declined.extracted,
       });
     }
 
@@ -531,44 +411,32 @@ export default async function handler(req, res) {
     // OVERRIDE 3 : User demande explicitement rdv/devis
     // --------------------------------------------------------
     if (userWantsFormNow(message)) {
-      const enrichedData = enrichDataWithInferences(lastExtracted, allUserMessages, history, true);
-      const formResponse = buildFormCTA(enrichedData);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: formResponse.replyFull,
-      });
-
+      const enriched = enrichData(lastExtracted, allUserMessages, history, true);
+      const formCTA = buildFormCTA(enriched);
+      await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: formCTA.replyFull });
       return res.status(200).json({
-        reply: formResponse.replyClean,
-        reply_full: formResponse.replyFull,
+        reply: formCTA.replyClean,
+        reply_full: formCTA.replyFull,
         session_id,
-        conversation_id: conversationId,
-        extracted_data: formResponse.extracted,
+        conversation_id: conv.id,
+        extracted_data: formCTA.extracted,
         action: { type: "OPEN_FORM", url: FORM_URL },
       });
     }
 
     // --------------------------------------------------------
-    // OVERRIDE 4 : Trop de tours → closing forcé
+    // OVERRIDE 4 : Trop de tours → question closing
     // --------------------------------------------------------
     const userTurns = countUserTurns(history) + 1;
-    if (userTurns >= MAX_USER_TURNS && !lastAssistantAskedClosingQuestion(history)) {
-      const enrichedData = enrichDataWithInferences(lastExtracted, allUserMessages, history, false);
-      const closing = buildClosingQuestion(enrichedData, allUserMessages);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: closing.replyFull,
-      });
-
+    if (userTurns >= MAX_USER_TURNS && !lastAssistantAskedClosingQuestion(history) && !lastAssistantSentFormCTA(history)) {
+      const enriched = enrichData(lastExtracted, allUserMessages, history, false);
+      const closing = buildClosingQuestion(enriched, allUserMessages);
+      await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: closing.replyFull });
       return res.status(200).json({
         reply: closing.replyClean,
         reply_full: closing.replyFull,
         session_id,
-        conversation_id: conversationId,
+        conversation_id: conv.id,
         extracted_data: closing.extracted,
       });
     }
@@ -576,63 +444,42 @@ export default async function handler(req, res) {
     // --------------------------------------------------------
     // LLM PATH
     // --------------------------------------------------------
-    const messagesForMistral = [{ role: "system", content: SYSTEM_PROMPT }];
-    if (Array.isArray(history)) {
-      for (const msg of history) {
-        if (msg.role === "user") {
-          messagesForMistral.push({ role: "user", content: msg.content });
-        } else if (msg.role === "assistant") {
-          messagesForMistral.push({ role: "assistant", content: msg.raw || msg.content });
-        }
-      }
+    const msgs = [{ role: "system", content: SYSTEM_PROMPT }];
+    for (const m of history) {
+      msgs.push({ role: m.role, content: m.raw || m.content });
     }
-    messagesForMistral.push({ role: "user", content: message });
+    msgs.push({ role: "user", content: message });
 
-    const mistralResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
+    const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.MISTRAL_API_KEY}` },
       body: JSON.stringify({
         model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-        messages: messagesForMistral,
+        messages: msgs,
         temperature: 0.3,
-        max_tokens: 120,
+        max_tokens: 100,
       }),
     });
 
-    if (!mistralResponse.ok) {
-      const errText = await mistralResponse.text();
-      return res.status(500).json({ error: "Erreur Mistral API", details: errText });
-    }
+    if (!r.ok) return res.status(500).json({ error: "Erreur Mistral", details: await r.text() });
 
-    const mistralData = await mistralResponse.json();
-    const replyFull = mistralData.choices?.[0]?.message?.content || `OK.\nDATA: ${safeJsonStringify(DEFAULT_DATA)}`;
-
-    const llmExtracted = extractDataFromReply(replyFull) || DEFAULT_DATA;
+    const j = await r.json();
+    const replyFull = j.choices?.[0]?.message?.content || `OK.\nDATA: ${safeJson(DEFAULT_DATA)}`;
+    const llmData = extractDataFromReply(replyFull) || DEFAULT_DATA;
     const replyClean = cleanReplyForUI(replyFull);
-
-    // Enrichir avec inférences
-    const enrichedData = enrichDataWithInferences(llmExtracted, allUserMessages, history, false);
+    const enriched = enrichData(llmData, allUserMessages, history, false);
 
     // --------------------------------------------------------
-    // AUTO-CLOSE : symptôme + véhicule → question closing
+    // AUTO-CLOSE : symptôme + véhicule → question closing (PAS le formulaire direct)
     // --------------------------------------------------------
-    if (hasEnoughToClose(enrichedData)) {
-      const closing = buildClosingQuestion(enrichedData, allUserMessages);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: closing.replyFull,
-      });
-
+    if (hasEnoughToClose(enriched) && !lastAssistantAskedClosingQuestion(history) && !lastAssistantSentFormCTA(history)) {
+      const closing = buildClosingQuestion(enriched, allUserMessages);
+      await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: closing.replyFull });
       return res.status(200).json({
         reply: closing.replyClean,
         reply_full: closing.replyFull,
         session_id,
-        conversation_id: conversationId,
+        conversation_id: conv.id,
         extracted_data: closing.extracted,
       });
     }
@@ -640,24 +487,19 @@ export default async function handler(req, res) {
     // --------------------------------------------------------
     // RÉPONSE NORMALE
     // --------------------------------------------------------
-    const enrichedReplyFull = `${replyClean}\nDATA: ${safeJsonStringify(enrichedData)}`;
-
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      role: "assistant",
-      content: enrichedReplyFull,
-    });
+    const enrichedFull = `${replyClean}\nDATA: ${safeJson(enriched)}`;
+    await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: enrichedFull });
 
     return res.status(200).json({
       reply: replyClean,
-      reply_full: enrichedReplyFull,
+      reply_full: enrichedFull,
       session_id,
-      conversation_id: conversationId,
-      extracted_data: enrichedData,
+      conversation_id: conv.id,
+      extracted_data: enriched,
     });
 
-  } catch (error) {
-    console.error("❌ Erreur handler chat:", error);
-    return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
+  } catch (e) {
+    console.error("❌ Erreur:", e);
+    return res.status(500).json({ error: "Erreur serveur", details: e.message });
   }
 }
