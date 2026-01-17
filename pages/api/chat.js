@@ -1,6 +1,6 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 4.3
-// Closing progressif : question d'abord, formulaire ensuite
+// FAPexpert Re-FAP — VERSION 4.4
+// Collecte DATA enrichie par inférence (verbatim, urgence, intent_stage)
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -9,10 +9,11 @@ import crypto from "crypto";
 // CONFIG
 // ============================================================
 const FORM_URL = "https://auto.re-fap.fr/#devis";
-const MAX_USER_TURNS = 4; // +1 car on ajoute un tour pour la question closing
+const MAX_USER_TURNS = 4;
 
 // ============================================================
-// SYSTEM PROMPT V2.1 (validé)
+// SYSTEM PROMPT V4.4
+// Première question OUVERTE pour capter le verbatim brut
 // ============================================================
 const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP. Tu collectes les mots du client pour comprendre son problème de Filtre à Particules.
 
@@ -22,13 +23,13 @@ DÉFINITION
 COMPORTEMENT
 - Une seule question par message.
 - Pars toujours de ce que le client vient de dire.
-- Si l'entrée est courte ou ambiguë, pose une question factuelle sur ce qui s'est passé, pas sur le problème en général.
-- Si la réponse est émotionnelle ou non factuelle, ramène calmement vers un fait observable (voyant, comportement, moment).
+- PREMIER MESSAGE : pose une question OUVERTE pour laisser le client s'exprimer librement ("Qu'est-ce qui se passe exactement ?", "Raconte-moi ce qui t'arrive").
+- Messages suivants : affine avec des questions factuelles courtes.
+- Si la réponse est émotionnelle ou non factuelle, ramène calmement vers un fait observable.
 - Cherche la précision, pas l'explication.
 - Accepte les réponses floues, incomplètes, contradictoires.
 - Ne corrige jamais son vocabulaire.
 - Ne reformule jamais en jargon technique.
-- Ne conclus jamais sans qu'il valide.
 
 STYLE
 - Ton naturel, bref, rassurant.
@@ -42,33 +43,28 @@ INTERDITS
 - Sujets hors automobile.
 - Conseils de suppression FAP ou reprogrammation.
 - Ne promets jamais de délai.
-- Ne demande pas le code postal.
+- Ne demande pas le code postal, le kilométrage, l'année précise.
 
 LONGUEUR
 2 phrases max. 1 question max.
 
 OBJECTIF
-- Tour 1 : identifier le symptôme observable principal.
-- Tour 2 : identifier le véhicule (marque + modèle + année si possible).
+- Tour 1 : question OUVERTE pour récupérer le verbatim brut.
+- Tour 2 : identifier le symptôme si pas clair.
+- Tour 3 : identifier le véhicule (marque + modèle).
 - Ensuite : ne pose plus de questions.
 
 DATA
 À la fin de chaque message, ajoute une seule ligne :
-DATA: {"symptome":"<enum>","codes":[],"intention":"<enum>","urgence":"<enum>","vehicule":<string|null>,"next_best_action":"<enum>"}
-
-La DATA est une structuration progressive des verbatims. Elle peut être partielle, évolutive, contradictoire. Ne force jamais une valeur pour "conclure".
-
-Ne renseigne intention ou urgence que si l'utilisateur les exprime clairement. Sinon, conserve "inconnu" ou "inconnue".
-
-next_best_action reste "poser_question" tant que le client n'a pas validé une attente.
+DATA: {"symptome":"<enum>","codes":[],"vehicule":<string|null>,"intention":"<enum>","urgence":"<enum>","next_best_action":"<enum>"}
 
 Enums :
 - symptome : "voyant_fap" | "perte_puissance" | "mode_degrade" | "fumee" | "odeur" | "regeneration_impossible" | "code_obd" | "autre" | "inconnu"
-- codes : tableau de strings (ex: ["P2002"]) ou []
-- intention : "diagnostic" | "devis" | "rdv" | "info_generale" | "comparaison" | "urgence" | "inconnu"
+- codes : tableau de strings ou []
+- intention : "diagnostic" | "devis" | "rdv" | "info_generale" | "urgence" | "inconnu"
 - urgence : "haute" | "moyenne" | "basse" | "inconnue"
 - vehicule : string descriptif ou null
-- next_best_action : "poser_question" | "proposer_diagnostic" | "proposer_rdv" | "proposer_devis" | "rediriger_garage" | "clore"`;
+- next_best_action : "poser_question" | "proposer_diagnostic" | "proposer_rdv" | "proposer_devis" | "clore"`;
 
 // ============================================================
 // SUPABASE
@@ -88,16 +84,157 @@ const ALLOWED_ORIGINS = [
 ];
 
 // ============================================================
-// DEFAULT DATA
+// SCHÉMA DATA ENRICHI
 // ============================================================
 const DEFAULT_DATA = {
+  // Données LLM
   symptome: "inconnu",
   codes: [],
+  vehicule: null,
   intention: "inconnu",
   urgence: "inconnue",
-  vehicule: null,
   next_best_action: "poser_question",
+  // Données inférées (ajoutées côté serveur)
+  verbatim_brut: null,
+  urgence_percue: "inconnue",
+  immobilise: "inconnu",
+  intent_stage: "info",
+  mots_cles_seo: [],
 };
+
+// ============================================================
+// INFÉRENCE : Urgence perçue (basée sur les mots)
+// ============================================================
+function inferUrgencePercue(text) {
+  const t = String(text || "").toLowerCase();
+  
+  // Urgence HAUTE
+  const highUrgency = [
+    "bloqué", "bloquée", "immobilisé", "immobilisée", "plus rouler", "peux plus",
+    "peut plus", "arrêté", "arrêtée", "panne", "sos", "urgence", "urgent",
+    "clignotant", "clignote", "danger", "fume beaucoup", "calé", "calée",
+    "remorquage", "dépanneuse", "garage fermé"
+  ];
+  if (highUrgency.some(w => t.includes(w))) return "haute";
+  
+  // Urgence MOYENNE
+  const mediumUrgency = [
+    "mode dégradé", "dégradé", "perte de puissance", "tire moins", "accélère mal",
+    "voyant allumé", "voyant orange", "voyant fap", "anti pollution",
+    "depuis quelques jours", "depuis hier", "ce matin"
+  ];
+  if (mediumUrgency.some(w => t.includes(w))) return "moyenne";
+  
+  // Urgence BASSE
+  const lowUrgency = [
+    "question", "renseignement", "info", "savoir", "comprendre",
+    "depuis longtemps", "depuis des mois", "de temps en temps"
+  ];
+  if (lowUrgency.some(w => t.includes(w))) return "basse";
+  
+  return "inconnue";
+}
+
+// ============================================================
+// INFÉRENCE : Immobilisation
+// ============================================================
+function inferImmobilisation(text) {
+  const t = String(text || "").toLowerCase();
+  
+  const immobilise = [
+    "bloqué", "bloquée", "immobilisé", "immobilisée", "plus rouler",
+    "peux plus rouler", "peut plus rouler", "ne roule plus", "roule plus",
+    "en panne", "calé", "calée", "ne démarre plus", "démarre plus"
+  ];
+  if (immobilise.some(w => t.includes(w))) return "oui";
+  
+  const rouleEncore = [
+    "roule encore", "je roule", "peux rouler", "peut rouler",
+    "marche encore", "fonctionne encore", "ça roule"
+  ];
+  if (rouleEncore.some(w => t.includes(w))) return "non";
+  
+  return "inconnu";
+}
+
+// ============================================================
+// INFÉRENCE : Stade du parcours (info → solution → action)
+// ============================================================
+function inferIntentStage(text, history, acceptedCTA) {
+  const t = String(text || "").toLowerCase();
+  
+  // ACTION : veut agir maintenant
+  const actionWords = [
+    "rdv", "rendez-vous", "devis", "rappel", "rappelez", "contact",
+    "combien", "prix", "tarif", "réserver", "prendre rdv", "où", "garage"
+  ];
+  if (actionWords.some(w => t.includes(w)) || acceptedCTA) return "action";
+  
+  // SOLUTION : cherche une solution
+  const solutionWords = [
+    "comment faire", "que faire", "quoi faire", "solution", "réparer",
+    "nettoyer", "nettoyage", "changer", "remplacer", "résoudre"
+  ];
+  if (solutionWords.some(w => t.includes(w))) return "solution";
+  
+  // INFO par défaut ou si questions générales
+  const infoWords = [
+    "c'est quoi", "qu'est-ce", "pourquoi", "est-ce que", "normal",
+    "grave", "dangereux", "comprendre", "savoir", "expliquer"
+  ];
+  if (infoWords.some(w => t.includes(w))) return "info";
+  
+  // Si on a déjà plusieurs tours → probablement solution
+  if (Array.isArray(history) && history.filter(m => m.role === "user").length >= 2) {
+    return "solution";
+  }
+  
+  return "info";
+}
+
+// ============================================================
+// INFÉRENCE : Extraction mots-clés SEO
+// ============================================================
+function extractMotsClesSEO(text, vehicule, symptome) {
+  const keywords = [];
+  const t = String(text || "").toLowerCase();
+  
+  // Symptômes SEO
+  const symptomesMap = {
+    "voyant fap": "voyant fap allumé",
+    "voyant orange": "voyant fap orange",
+    "voyant anti pollution": "voyant antipollution",
+    "perte de puissance": "perte puissance fap",
+    "mode dégradé": "mode dégradé fap",
+    "fap bouché": "fap bouché",
+    "régénération": "régénération fap",
+    "fumée": "fumée noire fap",
+  };
+  
+  for (const [pattern, keyword] of Object.entries(symptomesMap)) {
+    if (t.includes(pattern)) keywords.push(keyword);
+  }
+  
+  // Codes OBD
+  const codeMatch = t.match(/p[0-9]{4}/gi);
+  if (codeMatch) {
+    codeMatch.forEach(code => keywords.push(`code ${code.toUpperCase()}`));
+  }
+  
+  // Véhicule + FAP
+  if (vehicule) {
+    keywords.push(`${vehicule} fap`.toLowerCase());
+    keywords.push(`nettoyage fap ${vehicule}`.toLowerCase());
+  }
+  
+  // Symptôme + action
+  if (symptome && symptome !== "inconnu") {
+    keywords.push(`${symptome.replace("_", " ")} solution`);
+  }
+  
+  // Dédupe
+  return [...new Set(keywords)].slice(0, 10);
+}
 
 // ============================================================
 // HELPERS : Normalisation & Extraction DATA
@@ -151,13 +288,11 @@ function userSaysNo(text) {
   return noWords.some((w) => t.includes(w));
 }
 
-// Vérifie si le dernier message assistant était la question closing
 function lastAssistantAskedClosingQuestion(history) {
   if (!Array.isArray(history)) return false;
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      // Marqueur de la question closing
       if (content.includes("trouver le bon pro") || content.includes("t'aider à trouver")) {
         return true;
       }
@@ -170,6 +305,12 @@ function lastAssistantAskedClosingQuestion(history) {
 function countUserTurns(history) {
   if (!Array.isArray(history)) return 0;
   return history.filter((m) => m?.role === "user").length;
+}
+
+function getFirstUserMessage(history, currentMessage) {
+  if (!Array.isArray(history)) return currentMessage;
+  const firstUser = history.find(m => m.role === "user");
+  return firstUser ? firstUser.content : currentMessage;
 }
 
 // ============================================================
@@ -201,7 +342,7 @@ function buildClosingQuestion(extracted) {
   const hint = hints[symptome] || "un souci lié au FAP/anti-pollution";
 
   const data = {
-    ...(extracted || DEFAULT_DATA),
+    ...extracted,
     intention: "diagnostic",
     next_best_action: "proposer_devis",
   };
@@ -217,8 +358,9 @@ function buildClosingQuestion(extracted) {
 // ============================================================
 function buildFormCTA(extracted) {
   const data = {
-    ...(extracted || DEFAULT_DATA),
+    ...extracted,
     intention: "rdv",
+    intent_stage: "action",
     next_best_action: "clore",
   };
 
@@ -233,7 +375,7 @@ function buildFormCTA(extracted) {
 // ============================================================
 function buildDeclinedResponse(extracted) {
   const data = {
-    ...(extracted || DEFAULT_DATA),
+    ...extracted,
     next_best_action: "clore",
   };
 
@@ -265,15 +407,32 @@ function verifySignedCookie(value, secret) {
 // HELPER : Récupérer la dernière DATA extraite de l'historique
 // ============================================================
 function extractLastExtractedData(history) {
-  if (!Array.isArray(history)) return DEFAULT_DATA;
+  if (!Array.isArray(history)) return { ...DEFAULT_DATA };
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = history[i].raw || history[i].content || "";
       const extracted = extractDataFromReply(content);
-      if (extracted) return extracted;
+      if (extracted) return { ...DEFAULT_DATA, ...extracted };
     }
   }
-  return DEFAULT_DATA;
+  return { ...DEFAULT_DATA };
+}
+
+// ============================================================
+// ENRICHIR DATA avec inférences
+// ============================================================
+function enrichDataWithInferences(baseData, allUserMessages, history, acceptedCTA = false) {
+  const concatenatedText = allUserMessages.join(" ");
+  const firstMessage = allUserMessages[0] || "";
+  
+  return {
+    ...baseData,
+    verbatim_brut: firstMessage,
+    urgence_percue: inferUrgencePercue(concatenatedText),
+    immobilise: inferImmobilisation(concatenatedText),
+    intent_stage: inferIntentStage(concatenatedText, history, acceptedCTA),
+    mots_cles_seo: extractMotsClesSEO(concatenatedText, baseData.vehicule, baseData.symptome),
+  };
 }
 
 // ============================================================
@@ -315,6 +474,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "session_id requis" });
     }
 
+    // Collecter tous les messages user (historique + actuel)
+    const allUserMessages = [
+      ...history.filter(m => m.role === "user").map(m => m.content),
+      message
+    ];
+
     // DB : upsert conversation
     const { data: convData, error: convError } = await supabase
       .from("conversations")
@@ -340,7 +505,8 @@ export default async function handler(req, res) {
     // OVERRIDE 1 : User a reçu la question closing et répond OUI
     // --------------------------------------------------------
     if (lastAssistantAskedClosingQuestion(history) && userSaysYes(message)) {
-      const formResponse = buildFormCTA(lastExtracted);
+      const enrichedData = enrichDataWithInferences(lastExtracted, allUserMessages, history, true);
+      const formResponse = buildFormCTA(enrichedData);
 
       await supabase.from("messages").insert({
         conversation_id: conversationId,
@@ -362,7 +528,8 @@ export default async function handler(req, res) {
     // OVERRIDE 2 : User a reçu la question closing et répond NON
     // --------------------------------------------------------
     if (lastAssistantAskedClosingQuestion(history) && userSaysNo(message)) {
-      const declinedResponse = buildDeclinedResponse(lastExtracted);
+      const enrichedData = enrichDataWithInferences(lastExtracted, allUserMessages, history, false);
+      const declinedResponse = buildDeclinedResponse(enrichedData);
 
       await supabase.from("messages").insert({
         conversation_id: conversationId,
@@ -383,7 +550,8 @@ export default async function handler(req, res) {
     // OVERRIDE 3 : User demande explicitement formulaire/rdv
     // --------------------------------------------------------
     if (userWantsFormNow(message)) {
-      const formResponse = buildFormCTA(lastExtracted);
+      const enrichedData = enrichDataWithInferences(lastExtracted, allUserMessages, history, true);
+      const formResponse = buildFormCTA(enrichedData);
 
       await supabase.from("messages").insert({
         conversation_id: conversationId,
@@ -406,7 +574,8 @@ export default async function handler(req, res) {
     // --------------------------------------------------------
     const userTurns = countUserTurns(history) + 1;
     if (userTurns >= MAX_USER_TURNS && !lastAssistantAskedClosingQuestion(history)) {
-      const closing = buildClosingQuestion(lastExtracted);
+      const enrichedData = enrichDataWithInferences(lastExtracted, allUserMessages, history, false);
+      const closing = buildClosingQuestion(enrichedData);
 
       await supabase.from("messages").insert({
         conversation_id: conversationId,
@@ -460,14 +629,17 @@ export default async function handler(req, res) {
     const mistralData = await mistralResponse.json();
     const replyFull = mistralData.choices?.[0]?.message?.content || `OK.\nDATA: ${safeJsonStringify(DEFAULT_DATA)}`;
 
-    const extracted = extractDataFromReply(replyFull) || DEFAULT_DATA;
+    const llmExtracted = extractDataFromReply(replyFull) || DEFAULT_DATA;
     const replyClean = cleanReplyForUI(replyFull);
+
+    // Enrichir avec inférences
+    const enrichedData = enrichDataWithInferences(llmExtracted, allUserMessages, history, false);
 
     // --------------------------------------------------------
     // AUTO-CLOSE : symptôme + véhicule → question closing
     // --------------------------------------------------------
-    if (hasEnoughToClose(extracted)) {
-      const closing = buildClosingQuestion(extracted);
+    if (hasEnoughToClose(enrichedData)) {
+      const closing = buildClosingQuestion(enrichedData);
 
       await supabase.from("messages").insert({
         conversation_id: conversationId,
@@ -487,18 +659,21 @@ export default async function handler(req, res) {
     // --------------------------------------------------------
     // RÉPONSE NORMALE
     // --------------------------------------------------------
+    // Reconstruire le replyFull avec DATA enrichie
+    const enrichedReplyFull = `${replyClean}\nDATA: ${safeJsonStringify(enrichedData)}`;
+
     await supabase.from("messages").insert({
       conversation_id: conversationId,
       role: "assistant",
-      content: replyFull,
+      content: enrichedReplyFull,
     });
 
     return res.status(200).json({
       reply: replyClean,
-      reply_full: replyFull,
+      reply_full: enrichedReplyFull,
       session_id,
       conversation_id: conversationId,
-      extracted_data: extracted,
+      extracted_data: enrichedData,
     });
 
   } catch (error) {
