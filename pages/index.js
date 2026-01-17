@@ -106,11 +106,11 @@ export default function Home() {
       setMessages((prev) => [...prev, assistantMessage]);
 
       // --------------------------------------------------------
-      // HANDLE ACTION : OPEN_FORM → ouvre la modal
+      // HANDLE ACTION : OPEN_FORM → ouvre la modal après délai
       // --------------------------------------------------------
       if (data.action?.type === "OPEN_FORM" && data.action?.url) {
         setFormUrl(data.action.url);
-        setTimeout(() => setShowModal(true), 500); // petit délai pour lire le message
+        setTimeout(() => setShowModal(true), 2000); // 2s pour lire le message
       }
 
     } catch (err) {
