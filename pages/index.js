@@ -30,7 +30,7 @@ export default function Home() {
     {
       from: 'bot',
       text:
-        "Bonjour ! Je suis FAPexpert, votre spécialiste Re-FAP. Je diagnostique vos problèmes de FAP et vous oriente vers la solution adaptée. Décrivez votre problème."
+        "Bonjour ! Je suis FAPexpert, spécialiste Re-FAP.\n\nDécrivez votre souci **FAP (filtre à particules)** : voyant allumé, perte de puissance, mode dégradé, code OBD (P2002, P2463…), type de trajets (ville/autoroute)."
     }
   ]);
 
@@ -236,3 +236,4 @@ export default function Home() {
     </>
   );
 }
+
