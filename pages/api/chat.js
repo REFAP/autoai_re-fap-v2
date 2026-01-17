@@ -1,6 +1,6 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 5.0 STABLE
-// Flow 100% hardcodé - PAS de LLM pour les messages
+// FAPexpert Re-FAP — VERSION 4.3 STABLE
+// Flow progressif : question closing → oui → formulaire
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -9,14 +9,67 @@ import crypto from "crypto";
 // CONFIG
 // ============================================================
 const FORM_URL = "https://auto.re-fap.fr/#devis";
+const MAX_USER_TURNS = 4;
+
+// ============================================================
+// SYSTEM PROMPT
+// ============================================================
+const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP. Tu collectes les mots du client pour comprendre son problème de Filtre à Particules.
+
+DÉFINITION
+"FAP" = Filtre à Particules automobile. Aucune autre interprétation.
+
+COMPORTEMENT
+- Une seule question par message.
+- Pars toujours de ce que le client vient de dire.
+- Si l'entrée est courte ou ambiguë, pose une question factuelle sur ce qui s'est passé, pas sur le problème en général.
+- Si la réponse est émotionnelle ou non factuelle, ramène calmement vers un fait observable (voyant, comportement, moment).
+- Cherche la précision, pas l'explication.
+- Accepte les réponses floues, incomplètes, contradictoires.
+- Ne corrige jamais son vocabulaire.
+- Ne reformule jamais en jargon technique.
+- Ne conclus jamais sans qu'il valide.
+
+STYLE
+- Ton naturel, bref, rassurant.
+- Pas de listes, pas de parenthèses explicatives, pas de tableaux.
+
+INTERDITS
+- Diagnostic avant d'avoir assez d'éléments.
+- Résumés non demandés.
+- Réponses longues.
+- Ton professoral.
+- Sujets hors automobile.
+- Conseils de suppression FAP ou reprogrammation.
+- Ne promets jamais de délai.
+- Ne demande pas le code postal.
+
+LONGUEUR
+2 phrases max. 1 question max.
+
+OBJECTIF
+- Tour 1 : identifier le symptôme observable principal.
+- Tour 2 : identifier le véhicule (marque + modèle + année si possible).
+- Ensuite : ne pose plus de questions.
+
+DATA
+À la fin de chaque message, ajoute une seule ligne :
+DATA: {"symptome":"<enum>","codes":[],"intention":"<enum>","urgence":"<enum>","vehicule":<string|null>,"next_best_action":"<enum>"}
+
+Enums :
+- symptome : "voyant_fap" | "perte_puissance" | "mode_degrade" | "fumee" | "odeur" | "regeneration_impossible" | "code_obd" | "autre" | "inconnu"
+- codes : tableau de strings (ex: ["P2002"]) ou []
+- intention : "diagnostic" | "devis" | "rdv" | "info_generale" | "comparaison" | "urgence" | "inconnu"
+- urgence : "haute" | "moyenne" | "basse" | "inconnue"
+- vehicule : string descriptif ou null
+- next_best_action : "poser_question" | "proposer_diagnostic" | "proposer_rdv" | "proposer_devis" | "rediriger_garage" | "clore"`;
 
 // ============================================================
 // SUPABASE
 // ============================================================
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================================
 // CORS
@@ -29,140 +82,209 @@ const ALLOWED_ORIGINS = [
 ];
 
 // ============================================================
-// EXTRACTION : Symptôme
+// DEFAULT DATA
 // ============================================================
-function extractSymptome(text) {
-  const t = String(text || "").toLowerCase();
-  if (t.includes("voyant")) return "voyant_fap";
-  if (t.includes("puissance") || t.includes("avance") || t.includes("tire")) return "perte_puissance";
-  if (t.includes("dégradé") || t.includes("tortue")) return "mode_degrade";
-  if (t.includes("fume") || t.includes("fumée")) return "fumee";
-  if (t.includes("odeur")) return "odeur";
-  if (t.includes("bouché") || t.includes("encrassé") || t.includes("fap")) return "autre";
-  return "inconnu";
-}
+const DEFAULT_DATA = {
+  symptome: "inconnu",
+  codes: [],
+  intention: "inconnu",
+  urgence: "inconnue",
+  vehicule: null,
+  next_best_action: "poser_question",
+};
 
 // ============================================================
-// EXTRACTION : Véhicule
+// HELPERS : Normalisation & Extraction DATA
 // ============================================================
-function extractVehicule(text) {
-  const t = String(text || "").toLowerCase();
-  const marques = ["peugeot", "renault", "citroen", "citroën", "volkswagen", "vw", "audi", "bmw", "mercedes", "ford", "opel", "fiat", "toyota", "nissan", "hyundai", "kia", "seat", "skoda", "dacia", "volvo", "mini", "mazda", "suzuki", "honda"];
-  
-  for (const marque of marques) {
-    if (t.includes(marque)) {
-      const regex = new RegExp(marque + "[\\s\\-]*([a-z0-9]+)?", "i");
-      const match = text.match(regex);
-      if (match) {
-        let v = match[0].trim();
-        const motor = text.match(/(hdi|tdi|dci|cdti|jtd|bluehdi)/i);
-        if (motor) v += " " + motor[1].toUpperCase();
-        return v;
-      }
-    }
-  }
-  
-  // Si message court sans marque, c'est probablement le véhicule
-  if (text.length < 25) {
-    const motor = text.match(/(hdi|tdi|dci|cdti)/i);
-    if (motor || text.match(/[0-9]{3}/)) {
-      return text.trim();
-    }
+function normalizeDataPosition(reply) {
+  if (!reply) return "";
+  return reply.replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
+}
+
+function cleanReplyForUI(fullReply) {
+  if (!fullReply) return "";
+  const normalized = normalizeDataPosition(fullReply);
+  const match = normalized.match(/^([\s\S]*?)(?:\nDATA:\s*\{[\s\S]*\})\s*$/);
+  if (match) return match[1].trim();
+  const idx = normalized.indexOf("\nDATA:");
+  return idx === -1 ? normalized.trim() : normalized.slice(0, idx).trim();
+}
+
+function extractDataFromReply(fullReply) {
+  if (!fullReply) return null;
+  const normalized = normalizeDataPosition(fullReply);
+  const match = normalized.match(/\nDATA:\s*(\{[\s\S]*\})\s*$/);
+  if (match) {
+    try { return JSON.parse(match[1]); } catch { return null; }
   }
   return null;
 }
 
-// ============================================================
-// INFÉRENCES
-// ============================================================
-function inferUrgence(text) {
-  const t = String(text || "").toLowerCase();
-  if (["bloqué", "panne", "plus rouler", "urgent", "autoroute"].some(w => t.includes(w))) return "haute";
-  if (["voyant", "puissance", "fume", "dégradé"].some(w => t.includes(w))) return "moyenne";
-  return "basse";
-}
-
-function buildSynthese(allTexts) {
-  const all = allTexts.join(" ").toLowerCase();
-  const parts = [];
-  if (all.includes("voyant")) parts.push("voyant allumé");
-  if (all.includes("puissance") || all.includes("avance") || all.includes("tire")) parts.push("perte de puissance");
-  if (all.includes("fume") || all.includes("fumée")) parts.push("fumée");
-  if (all.includes("dégradé")) parts.push("mode dégradé");
-  if (all.includes("bloqué") || all.includes("panne")) parts.push("véhicule bloqué");
-  if (parts.length === 0) parts.push("problème FAP");
-  return parts.join(" + ");
-}
-
-function extractMotsCles(text, vehicule) {
-  const kw = [];
-  const t = String(text || "").toLowerCase();
-  if (t.includes("voyant")) kw.push("voyant fap allumé");
-  if (t.includes("puissance")) kw.push("perte puissance fap");
-  if (t.includes("bouché")) kw.push("fap bouché");
-  if (vehicule) kw.push(`nettoyage fap ${vehicule}`.toLowerCase());
-  return kw;
+function safeJsonStringify(obj) {
+  try { return JSON.stringify(obj); } catch { return JSON.stringify(DEFAULT_DATA); }
 }
 
 // ============================================================
-// AUTH
+// HELPERS : Intent Detection
+// ============================================================
+function userWantsFormNow(text) {
+  const t = String(text || "").toLowerCase().trim();
+  const triggers = ["rdv", "rendez", "rendez-vous", "devis", "contact", "rappel", "rappelez", "formulaire"];
+  return triggers.some((k) => t.includes(k));
+}
+
+function userSaysYes(text) {
+  const t = String(text || "").toLowerCase().trim();
+  const yesWords = ["oui", "ouais", "ok", "d'accord", "go", "yes", "yep", "ouep", "volontiers", "je veux bien", "avec plaisir", "carrément", "bien sûr", "pourquoi pas"];
+  return yesWords.some((w) => t.includes(w)) || t === "o";
+}
+
+function userSaysNo(text) {
+  const t = String(text || "").toLowerCase().trim();
+  const noWords = ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci"];
+  return noWords.some((w) => t.includes(w));
+}
+
+// Vérifie si le dernier message assistant était la question closing
+function lastAssistantAskedClosingQuestion(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      // Marqueurs de la question closing
+      if (content.includes("trouver le bon pro") || content.includes("t'aider à trouver") || content.includes("on connaît les meilleurs")) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+function countUserTurns(history) {
+  if (!Array.isArray(history)) return 0;
+  return history.filter((m) => m?.role === "user").length;
+}
+
+// ============================================================
+// HELPERS : Closing Detection
+// ============================================================
+function hasEnoughToClose(extracted) {
+  if (!extracted) return false;
+  const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
+  const hasVehicule = extracted.vehicule && String(extracted.vehicule).trim().length >= 4;
+  return Boolean(hasSymptome && hasVehicule);
+}
+
+// ============================================================
+// MESSAGE CLOSING : Question (sans ouvrir le formulaire)
+// ============================================================
+function buildClosingQuestion(extracted) {
+  const symptome = extracted?.symptome || "inconnu";
+  const vehicule = extracted?.vehicule ? ` sur ta ${extracted.vehicule}` : "";
+  
+  const hints = {
+    voyant_fap: "un souci FAP/anti-pollution",
+    perte_puissance: "un souci d'anti-pollution possible",
+    mode_degrade: "un souci d'anti-pollution probable",
+    fumee: "un souci de combustion/anti-pollution",
+    odeur: "un souci d'anti-pollution possible",
+    regeneration_impossible: "un FAP saturé",
+    code_obd: "un souci lié au FAP",
+  };
+  const hint = hints[symptome] || "un souci lié au FAP/anti-pollution";
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "diagnostic",
+    next_best_action: "proposer_devis",
+  };
+
+  const replyClean = `Au vu de ce que tu décris${vehicule}, ça ressemble à ${hint}. On connaît les meilleurs pros partout en France pour ce type de problème. Tu veux qu'on t'aide à trouver le bon pro près de chez toi ?`;
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================================
+// MESSAGE FORMULAIRE : Après accord utilisateur
+// ============================================================
+function buildFormCTA(extracted) {
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "rdv",
+    next_best_action: "clore",
+  };
+
+  const replyClean = `Super ! Laisse tes coordonnées ici et on te rappelle rapidement pour t'orienter vers la meilleure solution près de chez toi.`;
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================================
+// MESSAGE SI USER DIT NON
+// ============================================================
+function buildDeclinedResponse(extracted) {
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    next_best_action: "clore",
+  };
+
+  const replyClean = `Pas de souci ! Si tu changes d'avis ou si tu as d'autres questions, je suis là. Bonne route 👋`;
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================================
+// AUTH : Cookie signé
 // ============================================================
 function getCookie(req, name) {
-  const h = req.headers.cookie || "";
-  const f = h.split(";").find(c => c.trim().startsWith(name + "="));
-  return f ? decodeURIComponent(f.split("=").slice(1).join("=")) : null;
+  const cookieHeader = req.headers.cookie || "";
+  const found = cookieHeader.split(";").find((c) => c.trim().startsWith(name + "="));
+  if (!found) return null;
+  return decodeURIComponent(found.split("=").slice(1).join("="));
 }
 
 function verifySignedCookie(value, secret) {
   if (!value || !secret) return false;
   const [nonce, sig] = value.split(".");
   if (!nonce || !sig) return false;
-  return sig === crypto.createHmac("sha256", secret).update(nonce).digest("hex");
+  const expected = crypto.createHmac("sha256", secret).update(nonce).digest("hex");
+  return sig === expected;
 }
 
 // ============================================================
-// HELPERS
+// HELPER : Récupérer la dernière DATA extraite de l'historique
 // ============================================================
-function userSaysYes(text) {
-  const t = String(text || "").toLowerCase().trim();
-  return ["oui", "ouais", "ok", "d'accord", "yes", "yep", "volontiers", "je veux", "avec plaisir", "bien sûr", "carrément"].some(w => t.includes(w)) || t === "o";
-}
-
-function userSaysNo(text) {
-  const t = String(text || "").toLowerCase().trim();
-  return ["non", "nan", "nope", "pas maintenant", "plus tard"].some(w => t.includes(w));
-}
-
-function userWantsForm(text) {
-  const t = String(text || "").toLowerCase();
-  return ["rdv", "rendez-vous", "devis", "rappel", "prix", "tarif", "combien"].some(w => t.includes(w));
-}
-
-function countUserTurns(history) {
-  return (history || []).filter(m => m?.role === "user").length;
-}
-
-function getLastBotIntent(history) {
-  for (let i = (history || []).length - 1; i >= 0; i--) {
-    const m = history[i];
-    if (m?.role === "assistant" && m?.intent) return m.intent;
+function extractLastExtractedData(history) {
+  if (!Array.isArray(history)) return DEFAULT_DATA;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = history[i].raw || history[i].content || "";
+      const extracted = extractDataFromReply(content);
+      if (extracted) return extracted;
+    }
   }
-  return null;
+  return DEFAULT_DATA;
 }
 
 // ============================================================
 // HANDLER
 // ============================================================
 export default async function handler(req, res) {
+  const origin = req.headers.origin;
+
   // AUTH
-  const secret = process.env.CHAT_API_TOKEN;
   const cookieName = process.env.CHAT_COOKIE_NAME || "re_fap_chat";
-  if (!verifySignedCookie(getCookie(req, cookieName), secret)) {
+  const secret = process.env.CHAT_API_TOKEN;
+  const cookieValue = getCookie(req, cookieName);
+  if (!verifySignedCookie(cookieValue, secret)) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
   // CORS
-  const origin = req.headers.origin;
   if (origin) {
     if (ALLOWED_ORIGINS.includes(origin)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
@@ -173,109 +295,209 @@ export default async function handler(req, res) {
   }
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
 
   try {
     const { message, session_id, history = [] } = req.body;
-    if (!message) return res.status(400).json({ error: "Message requis" });
-    if (!session_id) return res.status(400).json({ error: "session_id requis" });
 
-    // Collecter tous les messages user
-    const allUserMessages = [...history.filter(m => m.role === "user").map(m => m.content), message];
-    const allText = allUserMessages.join(" ");
-    const userTurns = countUserTurns(history) + 1;
-    const lastIntent = getLastBotIntent(history);
-
-    // Extraire données
-    let vehicule = null;
-    for (const msg of [...allUserMessages].reverse()) {
-      vehicule = extractVehicule(msg);
-      if (vehicule) break;
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Message requis" });
     }
-    
-    const data = {
-      symptome: extractSymptome(allText),
-      vehicule: vehicule,
-      urgence: inferUrgence(allText),
-      verbatim_brut: allUserMessages[0] || "",
-      mots_cles_seo: extractMotsCles(allText, vehicule),
-    };
+    if (!session_id || typeof session_id !== "string") {
+      return res.status(400).json({ error: "session_id requis" });
+    }
 
-    // DB
-    const { data: conv, error: convErr } = await supabase
+    // DB : upsert conversation
+    const { data: convData, error: convError } = await supabase
       .from("conversations")
       .upsert({ session_id, last_seen_at: new Date().toISOString() }, { onConflict: "session_id" })
-      .select("id").single();
-    if (convErr) return res.status(500).json({ error: "Erreur DB", details: convErr.message });
+      .select("id")
+      .single();
 
-    await supabase.from("messages").insert({ conversation_id: conv.id, role: "user", content: message });
+    if (convError) {
+      return res.status(500).json({ error: "Erreur DB conversation", details: convError.message });
+    }
+    const conversationId = convData.id;
 
-    // ============================================================
-    // LOGIQUE DE CONVERSATION
-    // ============================================================
-    let reply = "";
-    let intent = "question";
-    let action = null;
+    // DB : insert message user
+    await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      role: "user",
+      content: message,
+    });
 
-    // Demande explicite de formulaire
-    if (userWantsForm(message)) {
-      reply = "Parfait ! Laissez vos coordonnées ici, on vous rappelle rapidement pour vous orienter vers la meilleure solution.";
-      intent = "form";
-      action = { type: "OPEN_FORM", url: FORM_URL };
-    }
-    // Réponse à la question closing : OUI
-    else if (lastIntent === "closing" && userSaysYes(message)) {
-      reply = "Super ! Laissez vos coordonnées ici et on vous rappelle rapidement pour vous orienter vers la meilleure solution près de chez vous.";
-      intent = "form";
-      action = { type: "OPEN_FORM", url: FORM_URL };
-    }
-    // Réponse à la question closing : NON
-    else if (lastIntent === "closing" && userSaysNo(message)) {
-      reply = "Pas de souci ! Si vous changez d'avis ou avez d'autres questions, je suis là. Bonne route !";
-      intent = "end";
-    }
-    // Tour 1 : Question ouverte
-    else if (userTurns === 1) {
-      reply = "Qu'est-ce qui se passe exactement avec votre voiture ?";
-      intent = "question";
-    }
-    // Tour 2 : Demander le véhicule si pas encore donné
-    else if (userTurns === 2 && !vehicule) {
-      reply = "D'accord. C'est quelle voiture ?";
-      intent = "question";
-    }
-    // Tour 2+ avec véhicule OU Tour 3+ : Closing
-    else if ((userTurns === 2 && vehicule) || userTurns >= 3) {
-      const synthese = buildSynthese(allUserMessages);
-      const vehStr = vehicule ? ` sur votre ${vehicule}` : "";
-      reply = `Merci pour ces infos. Ce que vous décrivez (${synthese}${vehStr}) ressemble à un encrassement du filtre à particules. Chez Re-FAP, on traite ce problème sans remplacement et sans suppression. Vous voulez qu'on vous aide à trouver un spécialiste près de chez vous ?`;
-      intent = "closing";
-    }
-    // Fallback
-    else {
-      reply = "Pouvez-vous me décrire ce qui se passe avec votre voiture ?";
-      intent = "question";
+    const lastExtracted = extractLastExtractedData(history);
+
+    // --------------------------------------------------------
+    // OVERRIDE 1 : User a reçu la question closing et répond OUI
+    // --------------------------------------------------------
+    if (lastAssistantAskedClosingQuestion(history) && userSaysYes(message)) {
+      const formResponse = buildFormCTA(lastExtracted);
+
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: formResponse.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: formResponse.replyClean,
+        reply_full: formResponse.replyFull,
+        session_id,
+        conversation_id: conversationId,
+        extracted_data: formResponse.extracted,
+        action: { type: "OPEN_FORM", url: FORM_URL },
+      });
     }
 
-    // Sauvegarder avec intent pour le tracking
-    const fullContent = JSON.stringify({ reply, intent, data });
-    await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: fullContent });
+    // --------------------------------------------------------
+    // OVERRIDE 2 : User a reçu la question closing et répond NON
+    // --------------------------------------------------------
+    if (lastAssistantAskedClosingQuestion(history) && userSaysNo(message)) {
+      const declinedResponse = buildDeclinedResponse(lastExtracted);
 
-    // Réponse
-    const response = {
-      reply: reply,
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: declinedResponse.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: declinedResponse.replyClean,
+        reply_full: declinedResponse.replyFull,
+        session_id,
+        conversation_id: conversationId,
+        extracted_data: declinedResponse.extracted,
+      });
+    }
+
+    // --------------------------------------------------------
+    // OVERRIDE 3 : User demande explicitement formulaire/rdv
+    // --------------------------------------------------------
+    if (userWantsFormNow(message)) {
+      const formResponse = buildFormCTA(lastExtracted);
+
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: formResponse.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: formResponse.replyClean,
+        reply_full: formResponse.replyFull,
+        session_id,
+        conversation_id: conversationId,
+        extracted_data: formResponse.extracted,
+        action: { type: "OPEN_FORM", url: FORM_URL },
+      });
+    }
+
+    // --------------------------------------------------------
+    // OVERRIDE 4 : Trop de tours → question closing forcée
+    // --------------------------------------------------------
+    const userTurns = countUserTurns(history) + 1;
+    if (userTurns >= MAX_USER_TURNS && !lastAssistantAskedClosingQuestion(history)) {
+      const closing = buildClosingQuestion(lastExtracted);
+
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: closing.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: closing.replyClean,
+        reply_full: closing.replyFull,
+        session_id,
+        conversation_id: conversationId,
+        extracted_data: closing.extracted,
+      });
+    }
+
+    // --------------------------------------------------------
+    // LLM PATH
+    // --------------------------------------------------------
+    const messagesForMistral = [{ role: "system", content: SYSTEM_PROMPT }];
+    if (Array.isArray(history)) {
+      for (const msg of history) {
+        if (msg.role === "user") {
+          messagesForMistral.push({ role: "user", content: msg.content });
+        } else if (msg.role === "assistant") {
+          messagesForMistral.push({ role: "assistant", content: msg.raw || msg.content });
+        }
+      }
+    }
+    messagesForMistral.push({ role: "user", content: message });
+
+    const mistralResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: process.env.MISTRAL_MODEL || "mistral-small-latest",
+        messages: messagesForMistral,
+        temperature: 0.4,
+        max_tokens: 180,
+      }),
+    });
+
+    if (!mistralResponse.ok) {
+      const errText = await mistralResponse.text();
+      return res.status(500).json({ error: "Erreur Mistral API", details: errText });
+    }
+
+    const mistralData = await mistralResponse.json();
+    const replyFull = mistralData.choices?.[0]?.message?.content || `OK.\nDATA: ${safeJsonStringify(DEFAULT_DATA)}`;
+
+    const extracted = extractDataFromReply(replyFull) || DEFAULT_DATA;
+    const replyClean = cleanReplyForUI(replyFull);
+
+    // --------------------------------------------------------
+    // AUTO-CLOSE : symptôme + véhicule → question closing
+    // MAIS seulement si on n'a pas déjà posé la question
+    // --------------------------------------------------------
+    if (hasEnoughToClose(extracted) && !lastAssistantAskedClosingQuestion(history)) {
+      const closing = buildClosingQuestion(extracted);
+
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: closing.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: closing.replyClean,
+        reply_full: closing.replyFull,
+        session_id,
+        conversation_id: conversationId,
+        extracted_data: closing.extracted,
+      });
+    }
+
+    // --------------------------------------------------------
+    // RÉPONSE NORMALE
+    // --------------------------------------------------------
+    await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      role: "assistant",
+      content: replyFull,
+    });
+
+    return res.status(200).json({
+      reply: replyClean,
+      reply_full: replyFull,
       session_id,
-      conversation_id: conv.id,
-      extracted_data: data,
-      intent: intent,
-    };
-    if (action) response.action = action;
+      conversation_id: conversationId,
+      extracted_data: extracted,
+    });
 
-    return res.status(200).json(response);
-
-  } catch (e) {
-    console.error("❌ Erreur:", e);
-    return res.status(500).json({ error: "Erreur serveur", details: e.message });
+  } catch (error) {
+    console.error("❌ Erreur handler chat:", error);
+    return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
