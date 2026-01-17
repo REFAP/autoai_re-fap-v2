@@ -15,11 +15,19 @@ function normalizeDataPosition(content) {
 
 function cleanMessageForDisplay(content) {
   if (!content || typeof content !== "string") return "";
-  const normalized = normalizeDataPosition(content);
-  const match = normalized.match(/^([\s\S]*?)(?:\nDATA:\s*\{[\s\S]*\})\s*$/);
-  if (match) return match[1].trim();
-  const idx = normalized.indexOf("\nDATA:");
-  return idx === -1 ? normalized.trim() : normalized.slice(0, idx).trim();
+  
+  let text = content;
+  
+  // Supprimer tout ce qui commence par DATA: jusqu'à la fin
+  const dataIndex = text.indexOf("DATA:");
+  if (dataIndex !== -1) {
+    text = text.substring(0, dataIndex);
+  }
+  
+  // Nettoyer
+  text = text.trim();
+  
+  return text;
 }
 
 function generateSessionId() {
@@ -174,16 +182,20 @@ export default function Home() {
             </div>
           )}
 
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`message ${msg.role === "user" ? "message-user" : "message-assistant"}`}
-            >
-              <div className="message-content">
-                {cleanMessageForDisplay(msg.content)}
+          {messages.map((msg, index) => {
+            const displayContent = cleanMessageForDisplay(msg.content);
+            if (!displayContent) return null; // Ne pas afficher si vide
+            return (
+              <div
+                key={index}
+                className={`message ${msg.role === "user" ? "message-user" : "message-assistant"}`}
+              >
+                <div className="message-content">
+                  {displayContent}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {isLoading && (
             <div className="message message-assistant">
