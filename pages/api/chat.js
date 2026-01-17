@@ -1,64 +1,50 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 4.0 (CAPTURE -> FORM -> STOP)
-// - 2-3 questions max, puis CTA vers auto.re-fap.fr/#devis
-// - Pas de code postal dans le chat (dans le formulaire)
-// - Si user dit "oui/ok/rdv/devis/rappel" => CTA immédiat
-// - Stop après CTA (anti-boucle)
-// - DATA stockée en DB (réponse FULL), UI reçoit CLEAN
+// FAPexpert Re-FAP — VERSION 4.1 (CAPTURE -> HUMAN CLOSING -> FORM -> STOP)
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
-// ============================================================
-// CONFIG
-// ============================================================
 const FORM_URL = "auto.re-fap.fr/#devis";
-const MAX_USER_TURNS_BEFORE_CTA = 3; // 2 ou 3 conseillé
+const MAX_USER_TURNS_BEFORE_CTA = 3;
 
-// ============================================================
-// SYSTEM PROMPT — LLM = collecteur, pas un solveur
-// ============================================================
+// ===================== SYSTEM PROMPT ======================
 const SYSTEM_PROMPT = `
-Tu es FAPexpert (Re-FAP). Ton rôle est de collecter rapidement des informations factuelles sur un problème de Filtre à Particules (FAP) et d’orienter ensuite vers une prise de contact humaine.
+Tu es FAPexpert (Re-FAP). Ton rôle est de collecter rapidement des informations factuelles sur un problème de Filtre à Particules (FAP) et d’orienter vers une aide humaine.
+
+STYLE
+- Ton naturel, bref, rassurant.
+- Interdit : listes, parenthèses explicatives, tableaux, checklists.
 
 RÈGLES STRICTES
 - 1 question maximum par message.
 - 2 phrases maximum.
-- Tu poses des questions factuelles, pas des explications.
-- Tu ne promets jamais de délai (“24h”, “48h”… interdit).
-- Tu ne dis jamais “conseiller”, “garage agréé/constructeur”, “SMS”.
-- Tu ne proposes jamais de procédure (régénération forcée, etc.).
-- Tu ne demandes pas le code postal.
+- Questions factuelles (observables), pas d’explications.
+- Ne promets jamais de délai.
+- Interdit : “conseiller”, “garage agréé/constructeur”, “SMS”.
+- Ne propose jamais de procédure (régénération forcée, etc.).
+- Ne demande pas le code postal.
 
-OBJECTIF CONVERSATION
-- Tour 1 : identifier le symptôme observable principal (voyant / perte de puissance / mode dégradé / fumée / autre).
+OBJECTIF
+- Tour 1 : identifier le symptôme observable principal.
 - Tour 2 : identifier le véhicule (marque + modèle + année si possible).
-- Ensuite : arrêter les questions.
+- Ensuite : plus de questions.
 
-DATA (OBLIGATOIRE)
-Ajoute TOUJOURS en dernière ligne :
+DATA (OBLIGATOIRE, dernière ligne)
 DATA: {"symptome":"<enum>","codes":[],"intention":"<enum>","urgence":"<enum>","vehicule":<string|null>,"next_best_action":"<enum>"}
 
 Enums :
-- symptome : "voyant_fap" | "perte_puissance" | "mode_degrade" | "fumee" | "autre" | "inconnu"
-- codes : tableau de strings ou []
-- intention : "diagnostic" | "devis" | "rdv" | "info_generale" | "urgence" | "inconnu"
-- urgence : "haute" | "moyenne" | "basse" | "inconnue"
-- vehicule : string descriptif ou null
-- next_best_action : "poser_question" | "proposer_devis" | "clore"
+symptome : voyant_fap | perte_puissance | mode_degrade | fumee | autre | inconnu
+intention : diagnostic | devis | rdv | info_generale | urgence | inconnu
+urgence : haute | moyenne | basse | inconnue
+next_best_action : poser_question | proposer_devis | clore
 `;
 
-// ============================================================
-// SUPABASE
-// ============================================================
+// ===================== SUPABASE ======================
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// ============================================================
-// DEFAULT DATA
-// ============================================================
 const DEFAULT_DATA = {
   symptome: "inconnu",
   codes: [],
@@ -68,9 +54,7 @@ const DEFAULT_DATA = {
   next_best_action: "poser_question",
 };
 
-// ============================================================
-// HELPERS — DATA handling
-// ============================================================
+// ===================== DATA helpers ======================
 function normalize(text) {
   if (!text) return "";
   return String(text).replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
@@ -101,14 +85,11 @@ function safeJson(obj) {
   }
 }
 
-// ============================================================
-// HELPERS — intent detection
-// ============================================================
+// ===================== intent helpers ======================
 function userWantsFormNow(text) {
   const t = String(text || "").trim().toLowerCase();
-  // "oui" doit déclencher CTA seulement si le bot vient de proposer contact
-  const hard = ["rdv", "rendez", "rendez-vous", "devis", "contact", "rappel", "rappelez", "ok je veux", "ok", "je veux"];
-  return hard.some((k) => t.includes(k));
+  const triggers = ["rdv", "rendez", "rendez-vous", "devis", "contact", "rappel", "rappelez", "je veux", "ok"];
+  return triggers.some((k) => t.includes(k));
 }
 
 function userSaysYes(text) {
@@ -122,10 +103,7 @@ function lastAssistantAskedForContact(history) {
     const msg = history[i];
     if (msg?.role === "assistant") {
       const c = String(msg.raw || msg.content || "").toLowerCase();
-      // si le bot a demandé "tu veux qu'on t'aide / laisser tes coordonnées / être rappelé"
-      if (c.includes("laisser tes coordonnées") || c.includes("etre rappel") || c.includes("être rappel") || c.includes("on te rappelle")) {
-        return true;
-      }
+      if (c.includes("laisse tes coordonnées") || c.includes("on te rappelle")) return true;
       return false;
     }
   }
@@ -137,31 +115,37 @@ function countUserTurns(history) {
   return history.filter((m) => m?.role === "user").length;
 }
 
-function buildCTA(extracted) {
-  const data = {
-    ...(extracted || DEFAULT_DATA),
-    intention: extracted?.intention === "devis" ? "devis" : "diagnostic",
-    next_best_action: "proposer_devis",
-  };
-
-  // 2 phrases max, 0 question (on stop)
-  const ui =
-    `OK. Laisse tes coordonnées ici : ${FORM_URL} et on te rappelle pour t’orienter vers la meilleure solution.`;
-
-  return { replyClean: ui, replyFull: `${ui}\nDATA: ${safeJson(data)}`, extracted: data };
-}
-
-// Condition CTA auto : on a déjà symptôme + véhicule
-function hasEnoughToCTA(extracted) {
+function hasEnoughToClose(extracted) {
   if (!extracted) return false;
   const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
   const hasVehicule = extracted.vehicule && String(extracted.vehicule).trim().length >= 3;
   return Boolean(hasSymptome && hasVehicule);
 }
 
-// ============================================================
-// AUTH COOKIE SIGNÉ (httpOnly)
-// ============================================================
+// ===================== Human closing CTA ======================
+function buildHumanClosingCTA(extracted) {
+  const sympt = extracted?.symptome || "inconnu";
+  const veh = extracted?.vehicule ? ` sur ${extracted.vehicule}` : "";
+  const hint =
+    sympt === "voyant_fap" ? "un souci FAP/anti-pollution" :
+    sympt === "perte_puissance" ? "un souci anti-pollution possible" :
+    sympt === "mode_degrade" ? "un souci anti-pollution probable" :
+    sympt === "fumee" ? "un souci de combustion/anti-pollution possible" :
+    "un souci lié au FAP/anti-pollution";
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "diagnostic",
+    next_best_action: "proposer_devis",
+  };
+
+  const ui =
+    `Au vu de ce que tu décris${veh}, ça ressemble à ${hint}. Tu as bien fait de nous contacter : laisse tes coordonnées ici : ${FORM_URL} et on te rappelle pour t’orienter vers la meilleure solution près de chez toi.`;
+
+  return { replyClean: ui, replyFull: `${ui}\nDATA: ${safeJson(data)}`, extracted: data };
+}
+
+// ===================== AUTH cookie signé ======================
 function requireSignedCookie(req) {
   const cookieName = process.env.CHAT_COOKIE_NAME || "re_fap_chat";
   const secret = process.env.CHAT_API_TOKEN;
@@ -178,85 +162,31 @@ function requireSignedCookie(req) {
   return sig === expected;
 }
 
-// ============================================================
-// API HANDLER
-// ============================================================
+// ===================== HANDLER ======================
 export default async function handler(req, res) {
-  if (!requireSignedCookie(req)) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Méthode non autorisée" });
-  }
+  if (!requireSignedCookie(req)) return res.status(401).json({ error: "Unauthorized" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
 
   try {
     const { message, session_id, history = [] } = req.body;
+    if (!message || typeof message !== "string") return res.status(400).json({ error: "Message requis" });
+    if (!session_id || typeof session_id !== "string") return res.status(400).json({ error: "session_id requis" });
 
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "Message requis" });
-    }
-    if (!session_id || typeof session_id !== "string") {
-      return res.status(400).json({ error: "session_id requis" });
-    }
-
-    // --------------------------------------------------------
-    // DB: upsert conversation
-    // --------------------------------------------------------
     const { data: conv, error: convErr } = await supabase
       .from("conversations")
-      .upsert(
-        { session_id, last_seen_at: new Date().toISOString() },
-        { onConflict: "session_id" }
-      )
+      .upsert({ session_id, last_seen_at: new Date().toISOString() }, { onConflict: "session_id" })
       .select("id")
       .single();
 
-    if (convErr) {
-      return res.status(500).json({ error: "Erreur DB conversation", details: convErr.message });
-    }
+    if (convErr) return res.status(500).json({ error: "Erreur DB conversation", details: convErr.message });
 
-    // Log user message
-    await supabase.from("messages").insert({
-      conversation_id: conv.id,
-      role: "user",
-      content: message,
-    });
+    await supabase.from("messages").insert({ conversation_id: conv.id, role: "user", content: message });
 
-    // --------------------------------------------------------
-    // OVERRIDE: si user veut passer au formulaire maintenant
-    // - soit il le dit directement (rdv/devis/contact)
-    // - soit il répond "oui" après une question de contact
-    // --------------------------------------------------------
+    // OVERRIDE: passage formulaire immédiat
     if (userWantsFormNow(message) || (userSaysYes(message) && lastAssistantAskedForContact(history))) {
-      const forced = buildCTA(DEFAULT_DATA);
+      const forced = buildHumanClosingCTA(DEFAULT_DATA);
 
-      await supabase.from("messages").insert({
-        conversation_id: conv.id,
-        role: "assistant",
-        content: forced.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: forced.replyClean,
-        reply_full: forced.replyFull,
-        extracted_data: forced.extracted,
-        session_id,
-        conversation_id: conv.id,
-        action: { type: "OPEN_FORM", url: FORM_URL }, // futur modal côté front
-      });
-    }
-
-    // --------------------------------------------------------
-    // OVERRIDE: si ça traîne -> CTA
-    // --------------------------------------------------------
-    if (countUserTurns(history) >= MAX_USER_TURNS_BEFORE_CTA) {
-      const forced = buildCTA(DEFAULT_DATA);
-
-      await supabase.from("messages").insert({
-        conversation_id: conv.id,
-        role: "assistant",
-        content: forced.replyFull,
-      });
+      await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: forced.replyFull });
 
       return res.status(200).json({
         reply: forced.replyClean,
@@ -268,56 +198,56 @@ export default async function handler(req, res) {
       });
     }
 
-    // --------------------------------------------------------
-    // LLM path: collecter 1 info à la fois
-    // --------------------------------------------------------
-    const messagesForLLM = [{ role: "system", content: SYSTEM_PROMPT }];
+    // OVERRIDE: si ça traîne -> CTA
+    if (countUserTurns(history) >= MAX_USER_TURNS_BEFORE_CTA) {
+      const forced = buildHumanClosingCTA(DEFAULT_DATA);
 
+      await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: forced.replyFull });
+
+      return res.status(200).json({
+        reply: forced.replyClean,
+        reply_full: forced.replyFull,
+        extracted_data: forced.extracted,
+        session_id,
+        conversation_id: conv.id,
+        action: { type: "OPEN_FORM", url: FORM_URL },
+      });
+    }
+
+    // LLM path
+    const messagesForLLM = [{ role: "system", content: SYSTEM_PROMPT }];
     if (Array.isArray(history)) {
-      for (const m of history) {
-        messagesForLLM.push({ role: m.role, content: m.raw || m.content });
-      }
+      for (const m of history) messagesForLLM.push({ role: m.role, content: m.raw || m.content });
     }
     messagesForLLM.push({ role: "user", content: message });
 
-    const mistralResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
+    const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.MISTRAL_API_KEY}` },
       body: JSON.stringify({
         model: process.env.MISTRAL_MODEL || "mistral-small-latest",
         messages: messagesForLLM,
-        temperature: 0.3,
+        temperature: 0.25,
         max_tokens: 160,
       }),
     });
 
-    if (!mistralResponse.ok) {
-      const errText = await mistralResponse.text();
+    if (!r.ok) {
+      const errText = await r.text();
       return res.status(500).json({ error: "Erreur Mistral API", details: errText });
     }
 
-    const mistralData = await mistralResponse.json();
-    const replyFullRaw =
-      mistralData.choices?.[0]?.message?.content ||
-      `OK.\nDATA: ${safeJson(DEFAULT_DATA)}`;
+    const j = await r.json();
+    const replyFullRaw = j.choices?.[0]?.message?.content || `OK.\nDATA: ${safeJson(DEFAULT_DATA)}`;
 
     const extracted = extractData(replyFullRaw) || DEFAULT_DATA;
     const replyClean = cleanForUI(replyFullRaw);
 
-    // --------------------------------------------------------
-    // AUTO-CTA si on a déjà assez d'infos
-    // --------------------------------------------------------
-    if (hasEnoughToCTA(extracted)) {
-      const forced = buildCTA(extracted);
+    // auto-close dès qu’on a symptôme + véhicule
+    if (hasEnoughToClose(extracted)) {
+      const forced = buildHumanClosingCTA(extracted);
 
-      await supabase.from("messages").insert({
-        conversation_id: conv.id,
-        role: "assistant",
-        content: forced.replyFull,
-      });
+      await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: forced.replyFull });
 
       return res.status(200).json({
         reply: forced.replyClean,
@@ -329,14 +259,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // --------------------------------------------------------
-    // Log assistant normal + return
-    // --------------------------------------------------------
-    await supabase.from("messages").insert({
-      conversation_id: conv.id,
-      role: "assistant",
-      content: replyFullRaw,
-    });
+    await supabase.from("messages").insert({ conversation_id: conv.id, role: "assistant", content: replyFullRaw });
 
     return res.status(200).json({
       reply: replyClean,
@@ -345,7 +268,7 @@ export default async function handler(req, res) {
       session_id,
       conversation_id: conv.id,
     });
-  } catch (error) {
-    return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
+  } catch (e) {
+    return res.status(500).json({ error: "Erreur serveur interne", details: e.message });
   }
 }
