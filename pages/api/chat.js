@@ -1,11 +1,16 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 3.1 (convergence maîtrisée)
+// FAPexpert Re-FAP — VERSION 3.2 (convergence maîtrisée + override RDV/Devis -> formulaire Re-FAP)
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 // ============================================================
-// SYSTEM PROMPT FAPEXPERT V3.1
+// CONFIG : URL formulaire (ta destination business)
+// ============================================================
+const FORM_URL = "auto.re-fap.fr/#devis";
+
+// ============================================================
+// SYSTEM PROMPT FAPEXPERT V3.2
 // ============================================================
 const SYSTEM_PROMPT = `
 Tu es FAPexpert, assistant Re-FAP.
@@ -19,6 +24,11 @@ RÈGLES FONDAMENTALES
 - Tu n’emploies jamais : “probablement”, “très probablement”, “il faut”.
 - Tu ne mentionnes jamais “régénération forcée”.
 
+INTERDICTIONS BUSINESS (TRÈS IMPORTANT)
+- Tu n’orientes JAMAIS vers un garage constructeur (Skoda, Peugeot, etc.), ni “garage agréé”, ni “sous 48h”.
+- Tu ne proposes JAMAIS d’envoi de coordonnées par SMS.
+- Tu ne proposes pas “trouver un garage proche” (hors parcours Re-FAP).
+
 GESTION DES MESSAGES COURTS
 Si le message est court ou ambigu (ex: “fap”, “fap bouché”, “problème fap”) :
 → Tu DOIS poser UNE question factuelle sur ce qui s’est passé.
@@ -31,11 +41,8 @@ CONVERGENCE
 - Tant que tu n’as PAS au moins 2 faits observables, tu continues à poser des questions.
 - Dès que 2 faits observables sont présents :
   → Tu reformules brièvement ce que tu as compris.
-  → Tu proposes UNE action possible.
+  → Tu proposes UNE étape suivante (diagnostic / prise de contact).
   → Tu termines par UNE question de validation.
-
-TON
-Calme, direct, rassurant, orienté aide. Pas professoral.
 
 FORMAT
 - 2 phrases maximum.
@@ -49,7 +56,7 @@ Enums :
 symptome : voyant_fap | perte_puissance | mode_degrade | regeneration_impossible | autre | inconnu
 intention : diagnostic | devis | rdv | info_generale | urgence | inconnu
 urgence : haute | moyenne | basse | inconnue
-next_best_action : poser_question | proposer_diagnostic | proposer_rdv | clore
+next_best_action : poser_question | proposer_diagnostic | proposer_rdv | proposer_devis | clore
 `;
 
 // ============================================================
@@ -73,17 +80,18 @@ const DEFAULT_DATA = {
 };
 
 function normalize(reply) {
-  return reply.replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
+  if (!reply) return "";
+  return String(reply).replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
 }
 
 function extractData(reply) {
   const n = normalize(reply);
   const m = n.match(/\nDATA:\s*(\{[\s\S]*\})$/);
-  if (!m) return DEFAULT_DATA;
+  if (!m) return null;
   try {
     return JSON.parse(m[1]);
   } catch {
-    return DEFAULT_DATA;
+    return null;
   }
 }
 
@@ -91,6 +99,59 @@ function cleanForUI(reply) {
   const n = normalize(reply);
   const i = n.indexOf("\nDATA:");
   return i === -1 ? n.trim() : n.slice(0, i).trim();
+}
+
+function safeJsonStringify(obj) {
+  try {
+    return JSON.stringify(obj);
+  } catch {
+    return JSON.stringify(DEFAULT_DATA);
+  }
+}
+
+// ============================================================
+// INTENT OVERRIDE : si user veut RDV/DEVIS/RAPPEL -> on force FORM_URL
+// ============================================================
+function userWantsContact(userText) {
+  const t = (userText || "").toLowerCase();
+
+  // Mots déclencheurs simples (ajuste si besoin)
+  const triggers = [
+    "rdv",
+    "rendez",
+    "rendez-vous",
+    "rendez vous",
+    "devis",
+    "prix",
+    "tarif",
+    "contact",
+    "rappel",
+    "rappelez",
+    "on me rappelle",
+    "etre rappelé",
+    "être rappelé",
+    "prendre rendez",
+    "prendre rdv",
+  ];
+
+  return triggers.some((k) => t.includes(k));
+}
+
+function buildFormOverrideReply(extractedDataMaybe, vehiculeMaybe) {
+  const data = {
+    ...(extractedDataMaybe || DEFAULT_DATA),
+    intention: (extractedDataMaybe?.intention === "devis" ? "devis" : "rdv"),
+    vehicule: vehiculeMaybe ?? extractedDataMaybe?.vehicule ?? null,
+    next_best_action: (extractedDataMaybe?.intention === "devis" ? "proposer_devis" : "proposer_rdv"),
+  };
+
+  // 2 phrases max + 1 question max
+  const ui =
+    `OK. Laisse tes coordonnées ici : ${FORM_URL}, on te rappelle vite.\n` +
+    `Quel est ton code postal ?`;
+
+  const full = `${ui}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean: ui, replyFull: full, extracted: data };
 }
 
 // ============================================================
@@ -104,23 +165,29 @@ export default async function handler(req, res) {
   const secret = process.env.CHAT_API_TOKEN;
 
   const cookie = req.headers.cookie || "";
-  const found = cookie.split(";").find(c => c.trim().startsWith(cookieName + "="));
+  const found = cookie
+    .split(";")
+    .find((c) => c.trim().startsWith(cookieName + "="));
   if (!found) return res.status(401).json({ error: "Unauthorized" });
 
-  const value = decodeURIComponent(found.split("=")[1]);
+  const value = decodeURIComponent(found.split("=").slice(1).join("="));
   const [nonce, sig] = value.split(".");
-  const expected = crypto.createHmac("sha256", secret).update(nonce).digest("hex");
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(nonce)
+    .digest("hex");
   if (sig !== expected) return res.status(401).json({ error: "Unauthorized" });
 
   if (req.method !== "POST") return res.status(405).end();
 
   const { message, session_id, history = [] } = req.body;
-  if (!message || !session_id) return res.status(400).end();
+  if (!message || !session_id)
+    return res.status(400).json({ error: "Bad request" });
 
   // ----------------------------------------------------------
   // CONVERSATION
   // ----------------------------------------------------------
-  const { data: conv } = await supabase
+  const { data: conv, error: convErr } = await supabase
     .from("conversations")
     .upsert(
       { session_id, last_seen_at: new Date().toISOString() },
@@ -128,6 +195,10 @@ export default async function handler(req, res) {
     )
     .select("id")
     .single();
+
+  if (convErr) {
+    return res.status(500).json({ error: "DB conversation", details: convErr.message });
+  }
 
   await supabase.from("messages").insert({
     conversation_id: conv.id,
@@ -140,12 +211,15 @@ export default async function handler(req, res) {
   // ----------------------------------------------------------
   const messages = [{ role: "system", content: SYSTEM_PROMPT }];
 
-  history.forEach(m => {
-    messages.push({
-      role: m.role,
-      content: m.raw || m.content,
-    });
-  });
+  // IMPORTANT : envoyer raw (avec DATA) si dispo pour l'assistant
+  if (Array.isArray(history)) {
+    for (const m of history) {
+      messages.push({
+        role: m.role,
+        content: m.raw || m.content,
+      });
+    }
+  }
 
   messages.push({ role: "user", content: message });
 
@@ -162,27 +236,62 @@ export default async function handler(req, res) {
       model: process.env.MISTRAL_MODEL || "mistral-small-latest",
       messages,
       temperature: 0.35,
-      max_tokens: 180,
+      max_tokens: 190,
     }),
   });
 
-  const j = await r.json();
-  const replyFull =
-    j.choices?.[0]?.message?.content ||
-    "Dis-moi ce que tu observes exactement sur la voiture.";
+  if (!r.ok) {
+    const errText = await r.text();
+    return res.status(500).json({ error: "Mistral error", details: errText });
+  }
 
-  const replyClean = cleanForUI(replyFull);
-  const extracted = extractData(replyFull);
+  const j = await r.json();
+  const replyFullRaw =
+    j.choices?.[0]?.message?.content ||
+    "Dis-moi ce que tu observes exactement sur la voiture.\nDATA: " + safeJsonStringify(DEFAULT_DATA);
+
+  // Extraction DATA si présente
+  const extractedFromModel = extractData(replyFullRaw) || DEFAULT_DATA;
+
+  // ----------------------------------------------------------
+  // OVERRIDE BUSINESS : si user exprime RDV/DEVIS/RAPPEL
+  // ----------------------------------------------------------
+  if (userWantsContact(message) || extractedFromModel.intention === "rdv" || extractedFromModel.intention === "devis") {
+    const vehiculeGuess = extractedFromModel.vehicule || null;
+    const forced = buildFormOverrideReply(extractedFromModel, vehiculeGuess);
+
+    // Log assistant en DB (FULL)
+    await supabase.from("messages").insert({
+      conversation_id: conv.id,
+      role: "assistant",
+      content: forced.replyFull,
+    });
+
+    return res.status(200).json({
+      reply: forced.replyClean,
+      reply_full: forced.replyFull,
+      extracted_data: forced.extracted,
+      session_id,
+      conversation_id: conv.id,
+    });
+  }
+
+  // ----------------------------------------------------------
+  // NORMAL PATH
+  // ----------------------------------------------------------
+  const replyClean = cleanForUI(replyFullRaw);
 
   await supabase.from("messages").insert({
     conversation_id: conv.id,
     role: "assistant",
-    content: replyFull,
+    content: replyFullRaw,
   });
 
   return res.status(200).json({
     reply: replyClean,
-    reply_full: replyFull,
-    extracted_data: extracted,
+    reply_full: replyFullRaw,
+    extracted_data: extractedFromModel,
+    session_id,
+    conversation_id: conv.id,
   });
 }
