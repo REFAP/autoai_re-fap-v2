@@ -44,7 +44,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Upsert failed", details: error.message });
     }
 
-    return res.status(200).json({
+   return res.status(200).json({
+  reply: "OK (test): " + message
+});
+
       ok: true,
       conversation_id: data.id,
       echo: message,
@@ -54,3 +57,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Server error", details: e?.message || String(e) });
   }
 }
+
