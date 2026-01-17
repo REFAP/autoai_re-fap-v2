@@ -1,3 +1,4 @@
+// /pages/index.js
 import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 import ReactMarkdown from 'react-markdown';
@@ -38,6 +39,7 @@ export default function Home() {
         "Bonjour ! Je suis FAPexpert, votre spécialiste Re-FAP. Je diagnostique vos problèmes de FAP et vous oriente vers la solution adaptée. Décrivez votre problème."
     }
   ]);
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
@@ -48,13 +50,6 @@ export default function Home() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
-
-  function getHistoriqueText() {
-    const lastMessages = messages.slice(-5);
-    return lastMessages
-      .map((m) => (m.from === 'user' ? `Moi: ${m.text}` : `FAPexpert: ${m.text}`))
-      .join('\n');
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -81,38 +76,52 @@ export default function Home() {
     setLoading(true);
     setError('');
 
-    const historiqueText = getHistoriqueText() + `\nMoi: ${trimmedInput}`;
-
     try {
+      // ✅ IMPORTANT : payload aligné avec /api/chat.js
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          question: trimmedInput,
-          historique: historiqueText,
-          session_id: sessionId
+          session_id: sessionId,
+          message: trimmedInput,
+          meta: {
+            page_url: typeof window !== 'undefined' ? window.location.href : null,
+            page_slug: 'home',
+            page_type: 'chat',
+            referrer: typeof document !== 'undefined' ? document.referrer : null,
+            user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
+          }
         })
       });
 
-      setLoading(false);
-
       if (!res.ok) {
+        setLoading(false);
+
         if (res.status === 429) {
           setMessages((msgs) => [
             ...msgs,
             { from: 'bot', text: 'Service temporairement saturé. Veuillez réessayer dans quelques instants.' }
           ]);
         } else {
-          setMessages((msgs) => [...msgs, { from: 'bot', text: `Erreur serveur ${res.status}` }]);
+          // On affiche le détail si l'API le renvoie (utile pendant debug)
+          let details = '';
+          try {
+            const t = await res.text();
+            details = t ? ` — ${t}` : '';
+          } catch {}
+          setMessages((msgs) => [...msgs, { from: 'bot', text: `Erreur serveur ${res.status}${details}` }]);
         }
         return;
       }
 
       const data = await res.json();
+      setLoading(false);
+
       const botMsg = {
         from: 'bot',
         text: data.reply || 'Service temporairement indisponible. Veuillez réessayer.'
       };
+
       setMessages((msgs) => [...msgs, botMsg]);
       setNextAction(data.nextAction || { type: 'GEN' });
     } catch {
@@ -256,7 +265,10 @@ export default function Home() {
               >
                 <div className="cta-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" fill="currentColor" />
+                    <path
+                      d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"
+                      fill="currentColor"
+                    />
                   </svg>
                 </div>
                 <div className="cta-content">
@@ -301,7 +313,9 @@ export default function Home() {
                 <span>Garantie 1 an • Toute la France</span>
               </div>
 
-              <div className="disclaimer-text">FAPexpert peut faire des erreurs. Vérifiez auprès d'un professionnel.</div>
+              <div className="disclaimer-text">
+                FAPexpert peut faire des erreurs. Vérifiez auprès d&apos;un professionnel.
+              </div>
             </div>
           </div>
         </main>
