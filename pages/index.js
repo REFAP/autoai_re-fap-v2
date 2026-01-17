@@ -4,33 +4,27 @@ import Head from 'next/head';
 import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
-  // URLs pour les recommandations directes
   const RECOMMENDATION_URLS = {
-    garage: '/landing/garage', // Page Next.js
-    carter: '/landing/carter', // Page Next.js
+    garage: '/landing/garage',
+    carter: '/landing/carter',
     quiz: 'https://refap.github.io/re-fap-landing/#quiz'
   };
 
-  // --- Session ID (persistant) ---
   const [sessionId, setSessionId] = useState(null);
 
   useEffect(() => {
     try {
       const key = 'refap_session_id';
       let sid = localStorage.getItem(key);
-
       if (!sid) {
         sid = (crypto?.randomUUID?.() || `sid_${Date.now()}_${Math.random().toString(16).slice(2)}`);
         localStorage.setItem(key, sid);
       }
-
       setSessionId(sid);
     } catch {
-      // Si localStorage indispo, on continue sans sessionId
       setSessionId(null);
     }
   }, []);
-  // --- fin session ---
 
   const [messages, setMessages] = useState([
     {
@@ -44,7 +38,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState('');
-  const [nextAction, setNextAction] = useState(null);
   const chatEndRef = useRef();
 
   useEffect(() => {
@@ -64,20 +57,17 @@ export default function Home() {
     const trimmedInput = input.trim();
     if (!trimmedInput) return;
 
-    // Si sessionId pas encore prêt, on évite un call bancal
     if (sessionId === null) {
       setError("Initialisation en cours… réessayez dans 1 seconde.");
       return;
     }
 
-    const userMsg = { from: 'user', text: trimmedInput };
-    setMessages((msgs) => [...msgs, userMsg]);
+    setMessages((msgs) => [...msgs, { from: 'user', text: trimmedInput }]);
     setInput('');
     setLoading(true);
     setError('');
 
     try {
-      // ✅ IMPORTANT : payload aligné avec /api/chat.js
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,46 +75,35 @@ export default function Home() {
           session_id: sessionId,
           message: trimmedInput,
           meta: {
-            page_url: typeof window !== 'undefined' ? window.location.href : null,
+            page_url: window.location.href,
             page_slug: 'home',
             page_type: 'chat',
-            referrer: typeof document !== 'undefined' ? document.referrer : null,
-            user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
+            referrer: document.referrer || null,
+            user_agent: navigator.userAgent || null
           }
         })
       });
 
-      if (!res.ok) {
-        setLoading(false);
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
 
-        if (res.status === 429) {
-          setMessages((msgs) => [
-            ...msgs,
-            { from: 'bot', text: 'Service temporairement saturé. Veuillez réessayer dans quelques instants.' }
-          ]);
-        } else {
-          // On affiche le détail si l'API le renvoie (utile pendant debug)
-          let details = '';
-          try {
-            const t = await res.text();
-            details = t ? ` — ${t}` : '';
-          } catch {}
-          setMessages((msgs) => [...msgs, { from: 'bot', text: `Erreur serveur ${res.status}${details}` }]);
-        }
+      setLoading(false);
+
+      if (!res.ok) {
+        const details = data ? JSON.stringify(data) : 'No JSON';
+        setMessages((msgs) => [...msgs, { from: 'bot', text: `Erreur serveur ${res.status} — ${details}` }]);
         return;
       }
 
-      const data = await res.json();
-      setLoading(false);
-
-      const botMsg = {
-        from: 'bot',
-        text: data.reply || 'Service temporairement indisponible. Veuillez réessayer.'
-      };
-
-      setMessages((msgs) => [...msgs, botMsg]);
-      setNextAction(data.nextAction || { type: 'GEN' });
-    } catch {
+      setMessages((msgs) => [
+        ...msgs,
+        { from: 'bot', text: data?.reply || `Réponse API inattendue: ${JSON.stringify(data)}` }
+      ]);
+    } catch (err) {
       setLoading(false);
       setMessages((msgs) => [...msgs, { from: 'bot', text: 'Erreur de connexion. Veuillez actualiser la page.' }]);
     }
@@ -145,7 +124,6 @@ export default function Home() {
 
       <div className="app-container">
         <main className="chat-container">
-          {/* Header */}
           <div className="chat-header">
             <div className="header-content">
               <div className="logo-section">
@@ -165,7 +143,6 @@ export default function Home() {
           </div>
 
           <div className="chat-main">
-            {/* Zone de chat */}
             <div className="chat-area">
               <div className="messages-container">
                 {messages.map((m, i) => (
@@ -190,9 +167,7 @@ export default function Home() {
                     </div>
                     <div className="message-bubble">
                       <div className="typing-indicator">
-                        <span></span>
-                        <span></span>
-                        <span></span>
+                        <span></span><span></span><span></span>
                       </div>
                     </div>
                   </div>
@@ -201,7 +176,6 @@ export default function Home() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Zone de saisie */}
               <form onSubmit={handleSubmit} className="input-form">
                 <div className="input-wrapper">
                   <input
@@ -223,99 +197,38 @@ export default function Home() {
                     className="send-button"
                     disabled={blocked || input.length > 600 || loading || !input.trim()}
                   >
-                    {loading ? (
-                      <span className="button-loading">...</span>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path
-                          d="M22 2L11 13"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M22 2L15 22L11 13L2 9L22 2Z"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )}
+                    {loading ? <span className="button-loading">...</span> : '>'}
                   </button>
                 </div>
                 {error && <div className="error-message">{error}</div>}
               </form>
             </div>
 
-            {/* Zone CTA - FIXES et OPTIMISÉS MOBILE */}
             <div className="cta-zone">
               <div className="cta-header">
                 <h3>Solutions rapides</h3>
                 <p>Choisissez votre situation</p>
               </div>
 
-              {/* CTA 1 - Garage partenaire */}
-              <a
-                href={RECOMMENDATION_URLS.garage}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="cta-button primary"
-              >
-                <div className="cta-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </div>
+              <a href={RECOMMENDATION_URLS.garage} target="_blank" rel="noopener noreferrer" className="cta-button primary">
                 <div className="cta-content">
                   <span className="cta-title">Garage partenaire</span>
                   <span className="cta-subtitle">RDV diagnostic</span>
                 </div>
-                <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
               </a>
 
-              {/* CTA 2 - Carter-Cash */}
-              <a
-                href={RECOMMENDATION_URLS.carter}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="cta-button secondary"
-              >
-                <div className="cta-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-                      fill="currentColor"
-                    />
-                    <path d="M14 2v6h6" stroke="white" strokeWidth="2" />
-                  </svg>
-                </div>
+              <a href={RECOMMENDATION_URLS.carter} target="_blank" rel="noopener noreferrer" className="cta-button secondary">
                 <div className="cta-content">
                   <span className="cta-title">Carter-Cash</span>
                   <span className="cta-subtitle">FAP démonté • 99-149€</span>
                 </div>
-                <svg className="cta-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
               </a>
 
               <div className="info-card">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                  <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
                 <span>Garantie 1 an • Toute la France</span>
               </div>
 
-              <div className="disclaimer-text">
-                FAPexpert peut faire des erreurs. Vérifiez auprès d&apos;un professionnel.
-              </div>
+              <div className="disclaimer-text">FAPexpert peut faire des erreurs. Vérifiez auprès d'un professionnel.</div>
             </div>
           </div>
         </main>
