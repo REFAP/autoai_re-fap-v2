@@ -1,6 +1,6 @@
 // /pages/api/chat.js
 // FAPexpert Re-FAP - API Chat avec Mistral + Supabase
-// VERSION 2.4 - Production Ready + Auth cookie signé
+// VERSION 2.5 - Production Ready + Auth cookie signé + Garde-fous (UI short + DATA repair)
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -100,7 +100,7 @@ function verifySignedCookie(value, secret) {
 // ============================================================
 function normalizeDataPosition(reply) {
   if (!reply) return "";
-  return reply.replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
+  return String(reply).replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
 }
 
 // ============================================================
@@ -108,23 +108,23 @@ function normalizeDataPosition(reply) {
 // ============================================================
 function cleanReplyForUI(fullReply) {
   if (!fullReply) return "";
-  
+
   const normalized = normalizeDataPosition(fullReply);
-  
+
   const match = normalized.match(/^([\s\S]*?)(?:\nDATA:\s*\{[\s\S]*\})\s*$/);
   if (match) {
     return match[1].trim();
   }
-  
+
   const lines = normalized.split("\n");
   const cleanLines = [];
   for (const line of lines) {
     if (line.trim().startsWith("DATA:")) break;
     cleanLines.push(line);
   }
-  
+
   const result = cleanLines.join("\n").trim();
-  return result || fullReply.trim();
+  return result || String(fullReply).trim();
 }
 
 // ============================================================
@@ -132,9 +132,9 @@ function cleanReplyForUI(fullReply) {
 // ============================================================
 function extractDataFromReply(fullReply) {
   if (!fullReply) return null;
-  
+
   const normalized = normalizeDataPosition(fullReply);
-  
+
   const match = normalized.match(/\nDATA:\s*(\{[\s\S]*\})\s*$/);
   if (match) {
     try {
@@ -143,7 +143,7 @@ function extractDataFromReply(fullReply) {
       console.warn("⚠️ Impossible de parser DATA JSON:", e.message);
     }
   }
-  
+
   const lines = normalized.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i].trim();
@@ -157,7 +157,7 @@ function extractDataFromReply(fullReply) {
       break;
     }
   }
-  
+
   return null;
 }
 
@@ -172,6 +172,86 @@ const DEFAULT_DATA = {
   vehicule: null,
   next_best_action: "poser_question",
 };
+
+// ============================================================
+// GARDE-FOU #1 : Enforcer réponse courte côté UI
+// - 2 phrases max
+// - 1 question max
+// ============================================================
+function enforceShortUI(text) {
+  if (!text) return "";
+
+  let t = String(text).replace(/\s+/g, " ").trim();
+
+  // Garder au plus 2 "phrases" (split naïf mais efficace)
+  const parts = t.match(/[^.!?]+[.!?]?/g) || [t];
+  t = parts.slice(0, 2).join(" ").trim();
+
+  // Garder au plus 1 question
+  const qCount = (t.match(/\?/g) || []).length;
+  if (qCount > 1) {
+    const firstQ = t.indexOf("?");
+    t = t.slice(0, firstQ + 1).trim();
+  }
+
+  return t;
+}
+
+// ============================================================
+// GARDE-FOU #2 : Repair-call DATA only si absent / invalide
+// ============================================================
+function buildDataOnlySystemPrompt() {
+  return `Tu génères UNIQUEMENT une seule ligne qui commence par "DATA: " suivie d'un JSON valide.
+Aucun autre texte. Pas de backticks. Pas de phrases.
+
+Format EXACT :
+DATA: {"symptome":"<enum>","codes":[],"intention":"<enum>","urgence":"<enum>","vehicule":<string|null>,"next_best_action":"<enum>"}
+
+Règles :
+- Ne force pas une valeur si tu n'as pas l'info : utilise "inconnu"/"inconnue", [], null.
+- codes = tableau de strings (ex: ["P2002"]) ou [].
+
+Enums :
+- symptome : "voyant_fap" | "perte_puissance" | "mode_degrade" | "fumee" | "odeur" | "regeneration_impossible" | "code_obd" | "autre" | "inconnu"
+- intention : "diagnostic" | "devis" | "rdv" | "info_generale" | "comparaison" | "urgence" | "inconnu"
+- urgence : "haute" | "moyenne" | "basse" | "inconnue"
+- next_best_action : "poser_question" | "proposer_diagnostic" | "proposer_rdv" | "proposer_devis" | "rediriger_garage" | "clore"`;
+}
+
+async function repairDataOnly({ mistralApiKey, mistralModel, messagesForMistral }) {
+  // Contexte réduit pour limiter coût + dérive
+  const tail = messagesForMistral.slice(-8);
+
+  const repairMessages = [
+    { role: "system", content: buildDataOnlySystemPrompt() },
+    ...tail,
+    { role: "user", content: "Génère maintenant UNIQUEMENT la ligne DATA: (JSON valide) à partir du contexte." },
+  ];
+
+  const resp = await fetch("https://api.mistral.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${mistralApiKey}`,
+    },
+    body: JSON.stringify({
+      model: mistralModel,
+      messages: repairMessages,
+      temperature: 0.0,
+      max_tokens: 120,
+    }),
+  });
+
+  if (!resp.ok) return null;
+
+  try {
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    return extractDataFromReply(content) || null;
+  } catch {
+    return null;
+  }
+}
 
 // ============================================================
 // HANDLER API
@@ -243,18 +323,16 @@ export default async function handler(req, res) {
           session_id: session_id,
           last_seen_at: new Date().toISOString(),
         },
-        {
-          onConflict: "session_id",
-        }
+        { onConflict: "session_id" }
       )
       .select("id")
       .single();
 
     if (convError) {
       console.error("❌ Erreur upsert conversation:", convError);
-      return res.status(500).json({ 
-        error: "Erreur DB conversation", 
-        details: convError.message 
+      return res.status(500).json({
+        error: "Erreur DB conversation",
+        details: convError.message,
       });
     }
 
@@ -271,24 +349,22 @@ export default async function handler(req, res) {
 
     if (userMsgError) {
       console.error("❌ Erreur insert message user:", userMsgError);
-      return res.status(500).json({ 
-        error: "Erreur DB message user", 
-        details: userMsgError.message 
+      return res.status(500).json({
+        error: "Erreur DB message user",
+        details: userMsgError.message,
       });
     }
 
     // --------------------------------------------------------
     // 3. CONSTRUIRE MESSAGES POUR MISTRAL
     // --------------------------------------------------------
-    const messagesForMistral = [
-      { role: "system", content: SYSTEM_PROMPT },
-    ];
+    const messagesForMistral = [{ role: "system", content: SYSTEM_PROMPT }];
 
     if (Array.isArray(history)) {
       for (const msg of history) {
-        if (msg.role === "user") {
+        if (msg?.role === "user") {
           messagesForMistral.push({ role: "user", content: msg.content });
-        } else if (msg.role === "assistant") {
+        } else if (msg?.role === "assistant") {
           const contentToSend = msg.raw || msg.content;
           messagesForMistral.push({ role: "assistant", content: contentToSend });
         }
@@ -298,31 +374,28 @@ export default async function handler(req, res) {
     messagesForMistral.push({ role: "user", content: message });
 
     // --------------------------------------------------------
-    // 4. APPEL MISTRAL
+    // 4. APPEL MISTRAL (réponse texte + tentative DATA)
     // --------------------------------------------------------
-    const mistralResponse = await fetch(
-      "https://api.mistral.ai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${mistralApiKey}`,
-        },
-        body: JSON.stringify({
-          model: mistralModel,
-          messages: messagesForMistral,
-          temperature: 0.5,
-          max_tokens: 180,
-        }),
-      }
-    );
+    const mistralResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${mistralApiKey}`,
+      },
+      body: JSON.stringify({
+        model: mistralModel,
+        messages: messagesForMistral,
+        temperature: 0.5,
+        max_tokens: 180,
+      }),
+    });
 
     if (!mistralResponse.ok) {
       const errText = await mistralResponse.text();
       console.error("❌ Erreur Mistral API:", errText);
-      return res.status(500).json({ 
-        error: "Erreur Mistral API", 
-        details: errText 
+      return res.status(500).json({
+        error: "Erreur Mistral API",
+        details: errText,
       });
     }
 
@@ -331,10 +404,23 @@ export default async function handler(req, res) {
       mistralData.choices?.[0]?.message?.content || "Désolé, je n'ai pas pu générer de réponse.";
 
     // --------------------------------------------------------
-    // 5. SÉPARER : DB reçoit FULL, UI reçoit CLEAN
+    // 5. GARDE-FOUS
+    // - UI: always short
+    // - DATA: repair if missing
     // --------------------------------------------------------
-    const replyClean = cleanReplyForUI(replyFull);
-    const extractedData = extractDataFromReply(replyFull) || DEFAULT_DATA;
+    const replyCleanRaw = cleanReplyForUI(replyFull);
+    const replyClean = enforceShortUI(replyCleanRaw);
+
+    let extractedData = extractDataFromReply(replyFull);
+    if (!extractedData) {
+      console.warn("⚠️ DATA manquante dans replyFull → repair-call exécuté");
+      extractedData = await repairDataOnly({
+        mistralApiKey,
+        mistralModel,
+        messagesForMistral,
+      });
+    }
+    if (!extractedData) extractedData = DEFAULT_DATA;
 
     // --------------------------------------------------------
     // 6. ENREGISTRER MESSAGE ASSISTANT
@@ -343,6 +429,7 @@ export default async function handler(req, res) {
       conversation_id: conversationId,
       role: "assistant",
       content: replyFull,
+      // Optionnel (si tu ajoutes la colonne) : data_json: extractedData,
     });
 
     if (assistantMsgError) {
@@ -353,18 +440,17 @@ export default async function handler(req, res) {
     // 7. RÉPONDRE AU FRONT
     // --------------------------------------------------------
     return res.status(200).json({
-      reply: replyClean,
-      reply_full: replyFull,
+      reply: replyClean,       // UI conforme
+      reply_full: replyFull,   // historique modèle (raw)
       session_id: session_id,
       conversation_id: conversationId,
-      extracted_data: extractedData,
+      extracted_data: extractedData, // toujours non-null (ou default)
     });
-
   } catch (error) {
     console.error("❌ Erreur handler chat:", error);
-    return res.status(500).json({ 
-      error: "Erreur serveur interne", 
-      details: error.message 
+    return res.status(500).json({
+      error: "Erreur serveur interne",
+      details: error.message,
     });
   }
 }
