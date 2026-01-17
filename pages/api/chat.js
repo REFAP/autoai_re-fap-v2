@@ -65,11 +65,19 @@ Enums :
 - next_best_action : "poser_question" | "proposer_diagnostic" | "proposer_rdv" | "proposer_devis" | "rediriger_garage" | "clore"`;
 
 // ============================================================
-// SUPABASE
+// SUPABASE - Variables
 // ============================================================
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Fonction pour obtenir le client (créé à la demande)
+function getSupabase() {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error("❌ Variables Supabase manquantes:", { url: !!supabaseUrl, key: !!supabaseServiceKey });
+    return null;
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
 
 // ============================================================
 // CORS
@@ -103,11 +111,20 @@ function normalizeDataPosition(reply) {
 
 function cleanReplyForUI(fullReply) {
   if (!fullReply) return "";
-  const normalized = normalizeDataPosition(fullReply);
-  const match = normalized.match(/^([\s\S]*?)(?:\nDATA:\s*\{[\s\S]*\})\s*$/);
-  if (match) return match[1].trim();
-  const idx = normalized.indexOf("\nDATA:");
-  return idx === -1 ? normalized.trim() : normalized.slice(0, idx).trim();
+  
+  let text = String(fullReply);
+  
+  // Supprimer tout ce qui commence par DATA: jusqu'à la fin
+  const dataIndex = text.indexOf("DATA:");
+  if (dataIndex !== -1) {
+    text = text.substring(0, dataIndex);
+  }
+  
+  // Nettoyer
+  text = text.trim();
+  
+  // Si vide après nettoyage, retourner chaîne vide (sera géré après)
+  return text;
 }
 
 function extractDataFromReply(fullReply) {
@@ -309,6 +326,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "session_id requis" });
     }
 
+    // Obtenir client Supabase
+    const supabase = getSupabase();
+    if (!supabase) {
+      return res.status(500).json({ error: "Configuration Supabase manquante" });
+    }
+
     // DB : upsert conversation
     const { data: convData, error: convError } = await supabase
       .from("conversations")
@@ -322,11 +345,15 @@ export default async function handler(req, res) {
     const conversationId = convData.id;
 
     // DB : insert message user
-    await supabase.from("messages").insert({
+    const { error: userMsgError } = await supabase.from("messages").insert({
       conversation_id: conversationId,
       role: "user",
       content: message,
     });
+    
+    if (userMsgError) {
+      console.error("❌ Erreur insert message user:", userMsgError);
+    }
 
     const lastExtracted = extractLastExtractedData(history);
 
@@ -452,10 +479,25 @@ export default async function handler(req, res) {
     }
 
     const mistralData = await mistralResponse.json();
-    const replyFull = mistralData.choices?.[0]?.message?.content || `OK.\nDATA: ${safeJsonStringify(DEFAULT_DATA)}`;
-
+    let replyFull = mistralData.choices?.[0]?.message?.content || "";
+    
+    // Extraire DATA
     const extracted = extractDataFromReply(replyFull) || DEFAULT_DATA;
-    const replyClean = cleanReplyForUI(replyFull);
+    
+    // Nettoyer pour l'UI
+    let replyClean = cleanReplyForUI(replyFull);
+    
+    // FALLBACK : Si le LLM n'a généré que DATA sans texte
+    if (!replyClean || replyClean.length < 5) {
+      if (!extracted.vehicule) {
+        replyClean = "D'accord. C'est quelle voiture ?";
+      } else {
+        replyClean = "Je comprends. Autre chose à signaler ?";
+      }
+    }
+    
+    // Reconstruire replyFull propre
+    replyFull = `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`;
 
     // --------------------------------------------------------
     // AUTO-CLOSE : symptôme + véhicule → question closing
