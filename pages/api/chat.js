@@ -1,65 +1,51 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 3.3
-// - Convergence maîtrisée
-// - Override RDV/Devis -> formulaire Re-FAP
-// - Anti-boucle : si l'utilisateur donne le CP, on confirme + on stoppe la question
+// FAPexpert Re-FAP — VERSION 4.0 (CAPTURE -> FORM -> STOP)
+// - 2-3 questions max, puis CTA vers auto.re-fap.fr/#devis
+// - Pas de code postal dans le chat (dans le formulaire)
+// - Si user dit "oui/ok/rdv/devis/rappel" => CTA immédiat
+// - Stop après CTA (anti-boucle)
+// - DATA stockée en DB (réponse FULL), UI reçoit CLEAN
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 // ============================================================
-// CONFIG : URL formulaire (destination business)
+// CONFIG
 // ============================================================
 const FORM_URL = "auto.re-fap.fr/#devis";
+const MAX_USER_TURNS_BEFORE_CTA = 3; // 2 ou 3 conseillé
 
 // ============================================================
-// SYSTEM PROMPT FAPEXPERT V3.3 (triage + pas de renvoi constructeur)
+// SYSTEM PROMPT — LLM = collecteur, pas un solveur
 // ============================================================
 const SYSTEM_PROMPT = `
-Tu es FAPexpert, assistant Re-FAP.
+Tu es FAPexpert (Re-FAP). Ton rôle est de collecter rapidement des informations factuelles sur un problème de Filtre à Particules (FAP) et d’orienter ensuite vers une prise de contact humaine.
 
-OBJECTIF
-Comprendre un problème de Filtre à Particules (FAP) à partir des mots du client et l’aider à avancer sans conclure trop tôt.
-
-RÈGLES FONDAMENTALES
-- Tu ne poses jamais plus d’UNE question par message.
-- Tu ne conclus jamais sans faits observables.
-- Tu n’emploies jamais : “probablement”, “très probablement”, “il faut”.
-- Tu ne mentionnes jamais “régénération forcée”.
-
-INTERDICTIONS BUSINESS (TRÈS IMPORTANT)
-- Tu n’orientes JAMAIS vers un garage constructeur (Skoda, Peugeot, etc.), ni “garage agréé”, ni promesse “sous 48h”.
-- Tu ne proposes JAMAIS d’envoi de coordonnées par SMS.
-- Tu ne proposes pas “trouver un garage proche” hors parcours Re-FAP.
-
-GESTION DES MESSAGES COURTS
-Si le message est court ou ambigu (ex: “fap”, “fap bouché”, “problème fap”) :
-→ Tu DOIS poser UNE question factuelle sur ce qui s’est passé.
-→ Tu ne proposes aucune solution à ce stade.
-
-FAITS OBSERVABLES VALIDES
-Voyant allumé, perte de puissance, mode dégradé, coupure/reprise après redémarrage, code défaut.
-
-CONVERGENCE
-- Tant que tu n’as PAS au moins 2 faits observables, tu continues à poser des questions.
-- Dès que 2 faits observables sont présents :
-  → Tu reformules brièvement ce que tu as compris.
-  → Tu proposes UNE étape suivante (prise de contact / rappel).
-  → Tu termines par UNE question de validation.
-
-FORMAT
+RÈGLES STRICTES
+- 1 question maximum par message.
 - 2 phrases maximum.
-- 1 question maximum.
+- Tu poses des questions factuelles, pas des explications.
+- Tu ne promets jamais de délai (“24h”, “48h”… interdit).
+- Tu ne dis jamais “conseiller”, “garage agréé/constructeur”, “SMS”.
+- Tu ne proposes jamais de procédure (régénération forcée, etc.).
+- Tu ne demandes pas le code postal.
+
+OBJECTIF CONVERSATION
+- Tour 1 : identifier le symptôme observable principal (voyant / perte de puissance / mode dégradé / fumée / autre).
+- Tour 2 : identifier le véhicule (marque + modèle + année si possible).
+- Ensuite : arrêter les questions.
 
 DATA (OBLIGATOIRE)
 Ajoute TOUJOURS en dernière ligne :
 DATA: {"symptome":"<enum>","codes":[],"intention":"<enum>","urgence":"<enum>","vehicule":<string|null>,"next_best_action":"<enum>"}
 
 Enums :
-symptome : voyant_fap | perte_puissance | mode_degrade | regeneration_impossible | autre | inconnu
-intention : diagnostic | devis | rdv | info_generale | urgence | inconnu
-urgence : haute | moyenne | basse | inconnue
-next_best_action : poser_question | proposer_diagnostic | proposer_rdv | proposer_devis | clore
+- symptome : "voyant_fap" | "perte_puissance" | "mode_degrade" | "fumee" | "autre" | "inconnu"
+- codes : tableau de strings ou []
+- intention : "diagnostic" | "devis" | "rdv" | "info_generale" | "urgence" | "inconnu"
+- urgence : "haute" | "moyenne" | "basse" | "inconnue"
+- vehicule : string descriptif ou null
+- next_best_action : "poser_question" | "proposer_devis" | "clore"
 `;
 
 // ============================================================
@@ -71,7 +57,7 @@ const supabase = createClient(
 );
 
 // ============================================================
-// DATA DEFAULT
+// DEFAULT DATA
 // ============================================================
 const DEFAULT_DATA = {
   symptome: "inconnu",
@@ -83,15 +69,15 @@ const DEFAULT_DATA = {
 };
 
 // ============================================================
-// HELPERS : DATA parsing/clean
+// HELPERS — DATA handling
 // ============================================================
-function normalize(reply) {
-  if (!reply) return "";
-  return String(reply).replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
+function normalize(text) {
+  if (!text) return "";
+  return String(text).replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
 }
 
-function extractData(reply) {
-  const n = normalize(reply);
+function extractData(text) {
+  const n = normalize(text);
   const m = n.match(/\nDATA:\s*(\{[\s\S]*\})$/);
   if (!m) return null;
   try {
@@ -101,13 +87,13 @@ function extractData(reply) {
   }
 }
 
-function cleanForUI(reply) {
-  const n = normalize(reply);
+function cleanForUI(text) {
+  const n = normalize(text);
   const i = n.indexOf("\nDATA:");
   return i === -1 ? n.trim() : n.slice(0, i).trim();
 }
 
-function safeJsonStringify(obj) {
+function safeJson(obj) {
   try {
     return JSON.stringify(obj);
   } catch {
@@ -116,249 +102,133 @@ function safeJsonStringify(obj) {
 }
 
 // ============================================================
-// HELPERS : intent + flow
+// HELPERS — intent detection
 // ============================================================
-function userWantsContact(userText) {
-  const t = (userText || "").toLowerCase();
-  const triggers = [
-    "rdv",
-    "rendez",
-    "rendez-vous",
-    "rendez vous",
-    "devis",
-    "prix",
-    "tarif",
-    "contact",
-    "rappel",
-    "rappelez",
-    "on me rappelle",
-    "etre rappelé",
-    "être rappelé",
-    "prendre rendez",
-    "prendre rdv",
-  ];
-  return triggers.some((k) => t.includes(k));
+function userWantsFormNow(text) {
+  const t = String(text || "").trim().toLowerCase();
+  // "oui" doit déclencher CTA seulement si le bot vient de proposer contact
+  const hard = ["rdv", "rendez", "rendez-vous", "devis", "contact", "rappel", "rappelez", "ok je veux", "ok", "je veux"];
+  return hard.some((k) => t.includes(k));
 }
 
-function looksLikePostalCode(text) {
-  return /^\s*\d{5}\s*$/.test(String(text || ""));
+function userSaysYes(text) {
+  const t = String(text || "").trim().toLowerCase();
+  return ["oui", "ouais", "ok", "d'accord", "go", "yes"].includes(t);
 }
 
-function lastAssistantAskedPostal(history) {
+function lastAssistantAskedForContact(history) {
   if (!Array.isArray(history)) return false;
   for (let i = history.length - 1; i >= 0; i--) {
     const msg = history[i];
     if (msg?.role === "assistant") {
-      const content = String(msg.raw || msg.content || "");
-      return content.includes(FORM_URL) && /code postal/i.test(content);
+      const c = String(msg.raw || msg.content || "").toLowerCase();
+      // si le bot a demandé "tu veux qu'on t'aide / laisser tes coordonnées / être rappelé"
+      if (c.includes("laisser tes coordonnées") || c.includes("etre rappel") || c.includes("être rappel") || c.includes("on te rappelle")) {
+        return true;
+      }
+      return false;
     }
   }
   return false;
 }
 
-function historyAlreadyContainsPostal(history) {
-  if (!Array.isArray(history)) return null;
-  for (let i = history.length - 1; i >= 0; i--) {
-    const msg = history[i];
-    if (msg?.role === "user" && looksLikePostalCode(msg.content)) {
-      return String(msg.content).trim();
-    }
-  }
-  return null;
+function countUserTurns(history) {
+  if (!Array.isArray(history)) return 0;
+  return history.filter((m) => m?.role === "user").length;
+}
+
+function buildCTA(extracted) {
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: extracted?.intention === "devis" ? "devis" : "diagnostic",
+    next_best_action: "proposer_devis",
+  };
+
+  // 2 phrases max, 0 question (on stop)
+  const ui =
+    `OK. Laisse tes coordonnées ici : ${FORM_URL} et on te rappelle pour t’orienter vers la meilleure solution.`;
+
+  return { replyClean: ui, replyFull: `${ui}\nDATA: ${safeJson(data)}`, extracted: data };
+}
+
+// Condition CTA auto : on a déjà symptôme + véhicule
+function hasEnoughToCTA(extracted) {
+  if (!extracted) return false;
+  const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
+  const hasVehicule = extracted.vehicule && String(extracted.vehicule).trim().length >= 3;
+  return Boolean(hasSymptome && hasVehicule);
 }
 
 // ============================================================
-// OVERRIDE REPLY BUILDERS
+// AUTH COOKIE SIGNÉ (httpOnly)
 // ============================================================
-function buildFormAskPostalReply(extractedDataMaybe) {
-  const data = {
-    ...(extractedDataMaybe || DEFAULT_DATA),
-    intention: (extractedDataMaybe?.intention === "devis" ? "devis" : "rdv"),
-    next_best_action:
-      extractedDataMaybe?.intention === "devis" ? "proposer_devis" : "proposer_rdv",
-  };
+function requireSignedCookie(req) {
+  const cookieName = process.env.CHAT_COOKIE_NAME || "re_fap_chat";
+  const secret = process.env.CHAT_API_TOKEN;
 
-  // 2 phrases max, 1 question max
-  const ui =
-    `OK. Laisse tes coordonnées ici : ${FORM_URL}, on te rappelle pour t’orienter au plus près.\n` +
-    `Tu es dans quel code postal ?`;
+  const cookie = req.headers.cookie || "";
+  const found = cookie.split(";").find((c) => c.trim().startsWith(cookieName + "="));
+  if (!found) return false;
 
-  const full = `${ui}\nDATA: ${safeJsonStringify(data)}`;
-  return { replyClean: ui, replyFull: full, extracted: data };
-}
+  const value = decodeURIComponent(found.split("=").slice(1).join("="));
+  const [nonce, sig] = value.split(".");
+  if (!nonce || !sig) return false;
 
-function buildFormConfirmPostalReply(extractedDataMaybe, postalCode) {
-  const data = {
-    ...(extractedDataMaybe || DEFAULT_DATA),
-    intention: (extractedDataMaybe?.intention === "devis" ? "devis" : "rdv"),
-    // On stocke le CP dans vehicule (temporaire) pour ne pas casser le schema DATA.
-    // Exemple: "Skoda 2.0 TDI 2008 | CP 63000"
-    vehicule:
-      extractedDataMaybe?.vehicule
-        ? `${extractedDataMaybe.vehicule} | CP ${postalCode}`
-        : `CP ${postalCode}`,
-    next_best_action: "clore",
-  };
-
-  // 2 phrases max, 0 question (sinon risque de boucle)
-  const ui =
-    `Merci, noté pour ${postalCode}. Laisse tes coordonnées ici : ${FORM_URL} et on te rappelle pour te guider.`;
-
-  const full = `${ui}\nDATA: ${safeJsonStringify(data)}`;
-  return { replyClean: ui, replyFull: full, extracted: data };
+  const expected = crypto.createHmac("sha256", secret).update(nonce).digest("hex");
+  return sig === expected;
 }
 
 // ============================================================
 // API HANDLER
 // ============================================================
 export default async function handler(req, res) {
-  // ----------------------------------------------------------
-  // AUTH COOKIE SIGNÉ (httpOnly)
-  // ----------------------------------------------------------
-  const cookieName = process.env.CHAT_COOKIE_NAME || "re_fap_chat";
-  const secret = process.env.CHAT_API_TOKEN;
-
-  const cookie = req.headers.cookie || "";
-  const found = cookie
-    .split(";")
-    .find((c) => c.trim().startsWith(cookieName + "="));
-  if (!found) return res.status(401).json({ error: "Unauthorized" });
-
-  const value = decodeURIComponent(found.split("=").slice(1).join("="));
-  const [nonce, sig] = value.split(".");
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(nonce)
-    .digest("hex");
-  if (sig !== expected) return res.status(401).json({ error: "Unauthorized" });
-
-  if (req.method !== "POST") return res.status(405).end();
-
-  const { message, session_id, history = [] } = req.body;
-  if (!message || !session_id)
-    return res.status(400).json({ error: "Bad request" });
-
-  // ----------------------------------------------------------
-  // CONVERSATION DB
-  // ----------------------------------------------------------
-  const { data: conv, error: convErr } = await supabase
-    .from("conversations")
-    .upsert(
-      { session_id, last_seen_at: new Date().toISOString() },
-      { onConflict: "session_id" }
-    )
-    .select("id")
-    .single();
-
-  if (convErr) {
-    return res.status(500).json({ error: "DB conversation", details: convErr.message });
+  if (!requireSignedCookie(req)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
-  // Log user message
-  await supabase.from("messages").insert({
-    conversation_id: conv.id,
-    role: "user",
-    content: message,
-  });
+  try {
+    const { message, session_id, history = [] } = req.body;
 
-  // ----------------------------------------------------------
-  // ANTI-LOOP : si on vient de demander le CP et user répond "63000"
-  // → on confirme + on stoppe (pas de nouvelle question)
-  // ----------------------------------------------------------
-  if (lastAssistantAskedPostal(history) && looksLikePostalCode(message)) {
-    const postal = String(message).trim();
-    const forced = buildFormConfirmPostalReply(DEFAULT_DATA, postal);
-
-    await supabase.from("messages").insert({
-      conversation_id: conv.id,
-      role: "assistant",
-      content: forced.replyFull,
-    });
-
-    return res.status(200).json({
-      reply: forced.replyClean,
-      reply_full: forced.replyFull,
-      extracted_data: forced.extracted,
-      session_id,
-      conversation_id: conv.id,
-    });
-  }
-
-  // Si CP déjà présent dans l'historique, ne jamais redemander
-  const priorPostal = historyAlreadyContainsPostal(history);
-  if (priorPostal && userWantsContact(message)) {
-    const forced = buildFormConfirmPostalReply(DEFAULT_DATA, priorPostal);
-
-    await supabase.from("messages").insert({
-      conversation_id: conv.id,
-      role: "assistant",
-      content: forced.replyFull,
-    });
-
-    return res.status(200).json({
-      reply: forced.replyClean,
-      reply_full: forced.replyFull,
-      extracted_data: forced.extracted,
-      session_id,
-      conversation_id: conv.id,
-    });
-  }
-
-  // ----------------------------------------------------------
-  // BUILD MISTRAL MESSAGES
-  // ----------------------------------------------------------
-  const messages = [{ role: "system", content: SYSTEM_PROMPT }];
-
-  if (Array.isArray(history)) {
-    for (const m of history) {
-      messages.push({
-        role: m.role,
-        content: m.raw || m.content,
-      });
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Message requis" });
     }
-  }
-  messages.push({ role: "user", content: message });
+    if (!session_id || typeof session_id !== "string") {
+      return res.status(400).json({ error: "session_id requis" });
+    }
 
-  // ----------------------------------------------------------
-  // MISTRAL CALL
-  // ----------------------------------------------------------
-  const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-      messages,
-      temperature: 0.35,
-      max_tokens: 190,
-    }),
-  });
+    // --------------------------------------------------------
+    // DB: upsert conversation
+    // --------------------------------------------------------
+    const { data: conv, error: convErr } = await supabase
+      .from("conversations")
+      .upsert(
+        { session_id, last_seen_at: new Date().toISOString() },
+        { onConflict: "session_id" }
+      )
+      .select("id")
+      .single();
 
-  if (!r.ok) {
-    const errText = await r.text();
-    return res.status(500).json({ error: "Mistral error", details: errText });
-  }
+    if (convErr) {
+      return res.status(500).json({ error: "Erreur DB conversation", details: convErr.message });
+    }
 
-  const j = await r.json();
-  const replyFullRaw =
-    j.choices?.[0]?.message?.content ||
-    `OK. Tu peux laisser tes coordonnées ici : ${FORM_URL}.\nDATA: ${safeJsonStringify(DEFAULT_DATA)}`;
+    // Log user message
+    await supabase.from("messages").insert({
+      conversation_id: conv.id,
+      role: "user",
+      content: message,
+    });
 
-  const extractedFromModel = extractData(replyFullRaw) || DEFAULT_DATA;
-
-  // ----------------------------------------------------------
-  // OVERRIDE BUSINESS : si user veut RDV/DEVIS/RAPPEL → formulaire
-  // ----------------------------------------------------------
-  if (
-    userWantsContact(message) ||
-    extractedFromModel.intention === "rdv" ||
-    extractedFromModel.intention === "devis"
-  ) {
-    // Si l'utilisateur a déjà donné le CP dans CE message
-    if (looksLikePostalCode(message)) {
-      const forced = buildFormConfirmPostalReply(extractedFromModel, String(message).trim());
+    // --------------------------------------------------------
+    // OVERRIDE: si user veut passer au formulaire maintenant
+    // - soit il le dit directement (rdv/devis/contact)
+    // - soit il répond "oui" après une question de contact
+    // --------------------------------------------------------
+    if (userWantsFormNow(message) || (userSaysYes(message) && lastAssistantAskedForContact(history))) {
+      const forced = buildCTA(DEFAULT_DATA);
 
       await supabase.from("messages").insert({
         conversation_id: conv.id,
@@ -372,43 +242,110 @@ export default async function handler(req, res) {
         extracted_data: forced.extracted,
         session_id,
         conversation_id: conv.id,
+        action: { type: "OPEN_FORM", url: FORM_URL }, // futur modal côté front
       });
     }
 
-    // Sinon on demande le CP une seule fois
-    const forced = buildFormAskPostalReply(extractedFromModel);
+    // --------------------------------------------------------
+    // OVERRIDE: si ça traîne -> CTA
+    // --------------------------------------------------------
+    if (countUserTurns(history) >= MAX_USER_TURNS_BEFORE_CTA) {
+      const forced = buildCTA(DEFAULT_DATA);
 
+      await supabase.from("messages").insert({
+        conversation_id: conv.id,
+        role: "assistant",
+        content: forced.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: forced.replyClean,
+        reply_full: forced.replyFull,
+        extracted_data: forced.extracted,
+        session_id,
+        conversation_id: conv.id,
+        action: { type: "OPEN_FORM", url: FORM_URL },
+      });
+    }
+
+    // --------------------------------------------------------
+    // LLM path: collecter 1 info à la fois
+    // --------------------------------------------------------
+    const messagesForLLM = [{ role: "system", content: SYSTEM_PROMPT }];
+
+    if (Array.isArray(history)) {
+      for (const m of history) {
+        messagesForLLM.push({ role: m.role, content: m.raw || m.content });
+      }
+    }
+    messagesForLLM.push({ role: "user", content: message });
+
+    const mistralResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: process.env.MISTRAL_MODEL || "mistral-small-latest",
+        messages: messagesForLLM,
+        temperature: 0.3,
+        max_tokens: 160,
+      }),
+    });
+
+    if (!mistralResponse.ok) {
+      const errText = await mistralResponse.text();
+      return res.status(500).json({ error: "Erreur Mistral API", details: errText });
+    }
+
+    const mistralData = await mistralResponse.json();
+    const replyFullRaw =
+      mistralData.choices?.[0]?.message?.content ||
+      `OK.\nDATA: ${safeJson(DEFAULT_DATA)}`;
+
+    const extracted = extractData(replyFullRaw) || DEFAULT_DATA;
+    const replyClean = cleanForUI(replyFullRaw);
+
+    // --------------------------------------------------------
+    // AUTO-CTA si on a déjà assez d'infos
+    // --------------------------------------------------------
+    if (hasEnoughToCTA(extracted)) {
+      const forced = buildCTA(extracted);
+
+      await supabase.from("messages").insert({
+        conversation_id: conv.id,
+        role: "assistant",
+        content: forced.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: forced.replyClean,
+        reply_full: forced.replyFull,
+        extracted_data: forced.extracted,
+        session_id,
+        conversation_id: conv.id,
+        action: { type: "OPEN_FORM", url: FORM_URL },
+      });
+    }
+
+    // --------------------------------------------------------
+    // Log assistant normal + return
+    // --------------------------------------------------------
     await supabase.from("messages").insert({
       conversation_id: conv.id,
       role: "assistant",
-      content: forced.replyFull,
+      content: replyFullRaw,
     });
 
     return res.status(200).json({
-      reply: forced.replyClean,
-      reply_full: forced.replyFull,
-      extracted_data: forced.extracted,
+      reply: replyClean,
+      reply_full: replyFullRaw,
+      extracted_data: extracted,
       session_id,
       conversation_id: conv.id,
     });
+  } catch (error) {
+    return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
-
-  // ----------------------------------------------------------
-  // NORMAL PATH
-  // ----------------------------------------------------------
-  const replyClean = cleanForUI(replyFullRaw);
-
-  await supabase.from("messages").insert({
-    conversation_id: conv.id,
-    role: "assistant",
-    content: replyFullRaw,
-  });
-
-  return res.status(200).json({
-    reply: replyClean,
-    reply_full: replyFullRaw,
-    extracted_data: extractedFromModel,
-    session_id,
-    conversation_id: conv.id,
-  });
 }
