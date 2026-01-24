@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 4.3 STABLE - Avec modal formulaire et délai 2s
+// VERSION 4.4 - Quick Replies + Disclaimer IA + UX améliorée
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -8,30 +8,67 @@ import Head from "next/head";
 // ============================================================
 // HELPERS
 // ============================================================
-function normalizeDataPosition(content) {
-  if (!content) return "";
-  return content.replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
-}
-
 function cleanMessageForDisplay(content) {
   if (!content || typeof content !== "string") return "";
   
   let text = content;
-  
-  // Supprimer tout ce qui commence par DATA: jusqu'à la fin
   const dataIndex = text.indexOf("DATA:");
   if (dataIndex !== -1) {
     text = text.substring(0, dataIndex);
   }
-  
-  // Nettoyer
-  text = text.trim();
-  
-  return text;
+  return text.trim();
 }
 
 function generateSessionId() {
   return "session_" + Date.now() + "_" + Math.random().toString(36).substring(2, 11);
+}
+
+// ============================================================
+// QUICK REPLIES CONFIG
+// ============================================================
+const QUICK_REPLIES_CONFIG = {
+  // Après le welcome message
+  initial: [
+    { label: "Voyant allumé", value: "J'ai un voyant allumé sur le tableau de bord" },
+    { label: "Perte de puissance", value: "Ma voiture a perdu de la puissance" },
+    { label: "Fumée anormale", value: "Ma voiture fume anormalement" },
+  ],
+  // Après question sur le véhicule
+  vehicule: [
+    { label: "Peugeot", value: "C'est une Peugeot" },
+    { label: "Renault", value: "C'est une Renault" },
+    { label: "Citroën", value: "C'est une Citroën" },
+    { label: "Autre marque", value: "Autre marque" },
+  ],
+  // Après la question closing
+  closing: [
+    { label: "Oui, je veux être rappelé", value: "Oui" },
+    { label: "Plus tard", value: "Non merci, plus tard" },
+  ],
+};
+
+// Détecter quel set de quick replies afficher
+function getQuickRepliesForContext(messages) {
+  if (messages.length === 0) {
+    return QUICK_REPLIES_CONFIG.initial;
+  }
+  
+  const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+  if (!lastAssistant) return null;
+  
+  const content = (lastAssistant.raw || lastAssistant.content || "").toLowerCase();
+  
+  // Closing question
+  if (content.includes("expert re-fap analyse") || content.includes("gratuit et sans engagement")) {
+    return QUICK_REPLIES_CONFIG.closing;
+  }
+  
+  // Question véhicule
+  if (content.includes("quelle voiture") || content.includes("quel véhicule") || content.includes("marque") || content.includes("modèle")) {
+    return QUICK_REPLIES_CONFIG.vehicule;
+  }
+  
+  return null;
 }
 
 // ============================================================
@@ -46,6 +83,7 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [formUrl, setFormUrl] = useState("");
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Init session + bootstrap cookie
   useEffect(() => {
@@ -55,7 +93,6 @@ export default function Home() {
       localStorage.setItem("fapexpert_session_id", storedSessionId);
     }
     setSessionId(storedSessionId);
-
     fetch("/api/bootstrap", { method: "POST", credentials: "include" }).catch(() => {});
   }, []);
 
@@ -67,11 +104,10 @@ export default function Home() {
   // --------------------------------------------------------
   // ENVOI MESSAGE
   // --------------------------------------------------------
-  const sendMessage = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading || !sessionId) return;
+  const sendMessage = async (messageText) => {
+    const userMessage = typeof messageText === "string" ? messageText : input.trim();
+    if (!userMessage || isLoading || !sessionId) return;
 
-    const userMessage = input.trim();
     setInput("");
     setError(null);
 
@@ -113,23 +149,27 @@ export default function Home() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // --------------------------------------------------------
-      // HANDLE ACTION : OPEN_FORM → ouvre la modal après délai
-      // --------------------------------------------------------
+      // HANDLE ACTION : OPEN_FORM
       if (data.action?.type === "OPEN_FORM" && data.action?.url) {
         setFormUrl(data.action.url);
-        setTimeout(() => setShowModal(true), 2000); // 2s pour lire le message
+        setTimeout(() => setShowModal(true), 2000);
       }
 
     } catch (err) {
       console.error("❌ Erreur fetch:", err);
-      setError(JSON.stringify({
-        error: "Erreur de connexion",
-        details: err.message,
-      }, null, 2));
+      setError(JSON.stringify({ error: "Erreur de connexion", details: err.message }, null, 2));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    sendMessage(input.trim());
+  };
+
+  const handleQuickReply = (value) => {
+    sendMessage(value);
   };
 
   // --------------------------------------------------------
@@ -145,6 +185,11 @@ export default function Home() {
   };
 
   // --------------------------------------------------------
+  // QUICK REPLIES
+  // --------------------------------------------------------
+  const quickReplies = !isLoading ? getQuickRepliesForContext(messages) : null;
+
+  // --------------------------------------------------------
   // RENDER
   // --------------------------------------------------------
   return (
@@ -153,23 +198,25 @@ export default function Home() {
         <title>FAPexpert - Diagnostic FAP en ligne | Re-FAP</title>
         <meta
           name="description"
-          content="Diagnostic gratuit de votre Filtre à Particules (FAP). Voyant allumé ? Perte de puissance ? Notre expert vous guide."
+          content="Diagnostic gratuit de votre Filtre à Particules (FAP). Voyant allumé ? Perte de puissance ? Notre expert IA vous guide."
         />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <div className="chat-container">
         {/* HEADER */}
         <header className="chat-header">
-          <h1>FAPexpert</h1>
-          <p>Diagnostic de votre Filtre à Particules</p>
+          <div className="header-content">
+            <h1>FAPexpert</h1>
+            <p className="header-subtitle">Diagnostic de votre Filtre à Particules</p>
+          </div>
           <button
             onClick={startNewConversation}
             className="new-chat-btn"
             title="Nouvelle conversation"
           >
-            Nouvelle conversation
+            + Nouveau
           </button>
         </header>
 
@@ -177,33 +224,49 @@ export default function Home() {
         <main className="chat-messages">
           {messages.length === 0 && (
             <div className="welcome-message">
-              <p>👋 Bonjour ! Je suis FAPexpert, votre assistant pour diagnostiquer les problèmes de Filtre à Particules.</p>
-              <p>Décrivez-moi votre souci ou posez-moi une question.</p>
+              <div className="welcome-icon">💬</div>
+              <p className="welcome-title">Bonjour ! Je suis FAPexpert</p>
+              <p className="welcome-text">Je vous aide à diagnostiquer les problèmes de Filtre à Particules. Décrivez-moi votre souci ou utilisez les boutons ci-dessous.</p>
             </div>
           )}
 
           {messages.map((msg, index) => {
             const displayContent = cleanMessageForDisplay(msg.content);
-            if (!displayContent) return null; // Ne pas afficher si vide
+            if (!displayContent) return null;
             return (
               <div
                 key={index}
                 className={`message ${msg.role === "user" ? "message-user" : "message-assistant"}`}
               >
-                <div className="message-content">
-                  {displayContent}
-                </div>
+                {msg.role === "assistant" && <div className="avatar">🔧</div>}
+                <div className="message-content">{displayContent}</div>
               </div>
             );
           })}
 
           {isLoading && (
             <div className="message message-assistant">
+              <div className="avatar">🔧</div>
               <div className="message-content typing-indicator">
                 <span></span>
                 <span></span>
                 <span></span>
               </div>
+            </div>
+          )}
+
+          {/* QUICK REPLIES */}
+          {quickReplies && !isLoading && (
+            <div className="quick-replies">
+              {quickReplies.map((qr, idx) => (
+                <button
+                  key={idx}
+                  className="quick-reply-btn"
+                  onClick={() => handleQuickReply(qr.value)}
+                >
+                  {qr.label}
+                </button>
+              ))}
             </div>
           )}
 
@@ -218,23 +281,34 @@ export default function Home() {
         </main>
 
         {/* INPUT */}
-        <form onSubmit={sendMessage} className="chat-input-form">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Décrivez votre problème de FAP..."
-            disabled={isLoading || !sessionId}
-            className="chat-input"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim() || !sessionId}
-            className="send-btn"
-          >
-            {isLoading ? "..." : "Envoyer"}
-          </button>
-        </form>
+        <div className="chat-input-wrapper">
+          <form onSubmit={handleSubmit} className="chat-input-form">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Décrivez votre problème..."
+              disabled={isLoading || !sessionId}
+              className="chat-input"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim() || !sessionId}
+              className="send-btn"
+              aria-label="Envoyer"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9L22 2" />
+              </svg>
+            </button>
+          </form>
+          
+          {/* DISCLAIMER IA */}
+          <p className="disclaimer">
+            FAPexpert est une IA et peut faire des erreurs. Veuillez vérifier les informations.
+          </p>
+        </div>
       </div>
 
       {/* ============================================================ */}
@@ -265,86 +339,124 @@ export default function Home() {
           display: flex;
           flex-direction: column;
           height: 100vh;
-          max-width: 800px;
+          height: 100dvh;
+          max-width: 500px;
           margin: 0 auto;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: #f8f9fa;
         }
 
+        /* HEADER */
         .chat-header {
           background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
           color: white;
-          padding: 20px;
-          text-align: center;
+          padding: 16px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-shrink: 0;
         }
 
-        .chat-header h1 {
-          margin: 0 0 5px 0;
-          font-size: 24px;
+        .header-content h1 {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 700;
         }
 
-        .chat-header p {
-          margin: 0 0 15px 0;
-          opacity: 0.9;
-          font-size: 14px;
+        .header-subtitle {
+          margin: 2px 0 0 0;
+          font-size: 12px;
+          opacity: 0.85;
         }
 
         .new-chat-btn {
-          background: rgba(255, 255, 255, 0.2);
-          border: 1px solid rgba(255, 255, 255, 0.3);
+          background: rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.25);
           color: white;
-          padding: 8px 16px;
+          padding: 8px 14px;
           border-radius: 20px;
           cursor: pointer;
           font-size: 13px;
-          transition: background 0.2s;
+          font-weight: 500;
+          transition: all 0.2s;
         }
 
         .new-chat-btn:hover {
-          background: rgba(255, 255, 255, 0.3);
+          background: rgba(255, 255, 255, 0.25);
         }
 
+        /* MESSAGES */
         .chat-messages {
           flex: 1;
           overflow-y: auto;
-          padding: 20px;
-          background: #f5f7fa;
+          padding: 20px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
         }
 
+        /* WELCOME */
         .welcome-message {
           background: white;
-          padding: 20px;
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-          margin-bottom: 20px;
+          padding: 24px 20px;
+          border-radius: 16px;
+          text-align: center;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
         }
 
-        .welcome-message p {
-          margin: 0 0 10px 0;
+        .welcome-icon {
+          font-size: 32px;
+          margin-bottom: 12px;
+        }
+
+        .welcome-title {
+          margin: 0 0 8px 0;
+          font-size: 18px;
+          font-weight: 600;
+          color: #1e3a5f;
+        }
+
+        .welcome-text {
+          margin: 0;
+          font-size: 14px;
+          color: #666;
           line-height: 1.5;
         }
 
-        .welcome-message p:last-child {
-          margin-bottom: 0;
-        }
-
+        /* MESSAGE BUBBLES */
         .message {
-          margin-bottom: 16px;
           display: flex;
+          align-items: flex-end;
+          gap: 8px;
+          max-width: 85%;
         }
 
         .message-user {
-          justify-content: flex-end;
+          align-self: flex-end;
+          flex-direction: row-reverse;
         }
 
         .message-assistant {
-          justify-content: flex-start;
+          align-self: flex-start;
+        }
+
+        .avatar {
+          width: 32px;
+          height: 32px;
+          background: #e8f4f8;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          flex-shrink: 0;
         }
 
         .message-content {
-          max-width: 75%;
           padding: 12px 16px;
-          border-radius: 16px;
+          border-radius: 18px;
           line-height: 1.5;
+          font-size: 15px;
           white-space: pre-wrap;
           word-wrap: break-word;
         }
@@ -352,19 +464,20 @@ export default function Home() {
         .message-user .message-content {
           background: #1e3a5f;
           color: white;
-          border-bottom-right-radius: 4px;
+          border-bottom-right-radius: 6px;
         }
 
         .message-assistant .message-content {
           background: white;
           color: #333;
-          border-bottom-left-radius: 4px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          border-bottom-left-radius: 6px;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
         }
 
+        /* TYPING */
         .typing-indicator {
           display: flex;
-          gap: 4px;
+          gap: 5px;
           padding: 16px 20px;
         }
 
@@ -382,39 +495,74 @@ export default function Home() {
 
         @keyframes typing {
           0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-          30% { transform: translateY(-8px); opacity: 1; }
+          30% { transform: translateY(-6px); opacity: 1; }
         }
 
+        /* QUICK REPLIES */
+        .quick-replies {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          padding: 4px 0;
+          align-self: flex-start;
+        }
+
+        .quick-reply-btn {
+          background: white;
+          border: 1.5px solid #1e3a5f;
+          color: #1e3a5f;
+          padding: 10px 16px;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .quick-reply-btn:hover {
+          background: #1e3a5f;
+          color: white;
+        }
+
+        .quick-reply-btn:active {
+          transform: scale(0.97);
+        }
+
+        /* ERROR */
         .error-message {
           background: #fee2e2;
           border: 1px solid #ef4444;
           color: #b91c1c;
-          padding: 16px;
+          padding: 12px;
           border-radius: 8px;
-          margin-bottom: 16px;
+          font-size: 13px;
         }
 
         .error-message strong {
           display: block;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
 
         .error-message pre {
           margin: 0;
-          font-size: 12px;
+          font-size: 11px;
           white-space: pre-wrap;
           word-wrap: break-word;
-          background: rgba(0, 0, 0, 0.05);
-          padding: 10px;
-          border-radius: 4px;
+        }
+
+        /* INPUT WRAPPER */
+        .chat-input-wrapper {
+          background: white;
+          border-top: 1px solid #e5e7eb;
+          padding: 12px 16px;
+          padding-bottom: max(12px, env(safe-area-inset-bottom));
+          flex-shrink: 0;
         }
 
         .chat-input-form {
           display: flex;
-          gap: 12px;
-          padding: 20px;
-          background: white;
-          border-top: 1px solid #e5e7eb;
+          gap: 10px;
+          align-items: center;
         }
 
         .chat-input {
@@ -432,32 +580,44 @@ export default function Home() {
         }
 
         .chat-input:disabled {
-          background: #f5f5f5;
+          background: #f9f9f9;
         }
 
         .send-btn {
           background: #1e3a5f;
           color: white;
           border: none;
-          padding: 14px 28px;
-          border-radius: 24px;
-          font-size: 16px;
-          font-weight: 600;
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           cursor: pointer;
-          transition: background 0.2s;
+          transition: all 0.2s;
+          flex-shrink: 0;
         }
 
         .send-btn:hover:not(:disabled) {
           background: #2d5a87;
+          transform: scale(1.05);
         }
 
         .send-btn:disabled {
-          background: #9ca3af;
+          background: #ccc;
           cursor: not-allowed;
         }
 
+        /* DISCLAIMER */
+        .disclaimer {
+          margin: 10px 0 0 0;
+          font-size: 11px;
+          color: #999;
+          text-align: center;
+        }
+
         /* ============================================================ */
-        /* MODAL STYLES                                                  */
+        /* MODAL                                                         */
         /* ============================================================ */
         .modal-overlay {
           position: fixed;
@@ -471,17 +631,29 @@ export default function Home() {
           justify-content: center;
           z-index: 1000;
           padding: 20px;
+          animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
 
         .modal-content {
           background: white;
           border-radius: 16px;
           width: 100%;
-          max-width: 500px;
+          max-width: 480px;
           max-height: 90vh;
           overflow: hidden;
           position: relative;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+          from { transform: translateY(30px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
         }
 
         .modal-close {
@@ -529,16 +701,48 @@ export default function Home() {
           border: none;
         }
 
+        /* ============================================================ */
+        /* RESPONSIVE                                                    */
+        /* ============================================================ */
         @media (max-width: 600px) {
-          .chat-header { padding: 15px; }
-          .chat-header h1 { font-size: 20px; }
-          .chat-messages { padding: 15px; }
-          .message-content { max-width: 85%; }
-          .chat-input-form { padding: 15px; }
-          .send-btn { padding: 14px 20px; }
+          .chat-container {
+            max-width: 100%;
+          }
+
+          .chat-header {
+            padding: 14px 16px;
+          }
+
+          .header-content h1 {
+            font-size: 18px;
+          }
+
+          .chat-messages {
+            padding: 16px 12px;
+          }
+
+          .message {
+            max-width: 90%;
+          }
+
+          .message-content {
+            font-size: 14px;
+            padding: 10px 14px;
+          }
+
+          .quick-reply-btn {
+            padding: 8px 14px;
+            font-size: 13px;
+          }
+
+          .chat-input {
+            font-size: 16px; /* Prevent zoom on iOS */
+            padding: 12px 16px;
+          }
 
           .modal-content {
-            max-height: 80vh;
+            max-height: 85vh;
+            margin: 10px;
           }
 
           .modal-iframe {
@@ -549,7 +753,12 @@ export default function Home() {
 
       <style jsx global>{`
         * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; background: #f5f7fa; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: #f8f9fa;
+          -webkit-font-smoothing: antialiased;
+        }
       `}</style>
     </>
   );
