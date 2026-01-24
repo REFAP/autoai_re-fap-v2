@@ -1,6 +1,6 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 4.3 STABLE
-// Flow progressif : question closing → oui → formulaire
+// FAPexpert Re-FAP — VERSION 4.4 OPTIMISÉE
+// Flow : rassurance immédiate → symptôme → véhicule → closing argumenté
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -9,48 +9,56 @@ import crypto from "crypto";
 // CONFIG
 // ============================================================
 const FORM_URL = "https://auto.re-fap.fr/#devis";
-const MAX_USER_TURNS = 4;
+const MAX_USER_TURNS = 3; // Réduit à 3 pour aller plus vite au closing
 
 // ============================================================
-// SYSTEM PROMPT
+// SYSTEM PROMPT - VERSION 4.4
 // ============================================================
-const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP. Tu collectes les mots du client pour comprendre son problème de Filtre à Particules.
+const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP. Tu rassures le client et collectes les infos clés pour l'orienter vers un diagnostic gratuit.
 
 DÉFINITION
 "FAP" = Filtre à Particules automobile. Aucune autre interprétation.
 
+MESSAGE CLÉ (à distiller naturellement)
+Dans la majorité des cas, un nettoyage professionnel suffit — bien moins cher qu'un remplacement (99-149€ vs 1500-2500€).
+
 COMPORTEMENT
 - Une seule question par message.
+- Rassure dès le premier échange : "Pas de panique, c'est souvent réparable."
 - Pars toujours de ce que le client vient de dire.
-- Si l'entrée est courte ou ambiguë, pose une question factuelle sur ce qui s'est passé, pas sur le problème en général.
-- Si la réponse est émotionnelle ou non factuelle, ramène calmement vers un fait observable (voyant, comportement, moment).
-- Cherche la précision, pas l'explication.
+- Si l'entrée est courte ou ambiguë, pose une question factuelle.
 - Accepte les réponses floues, incomplètes, contradictoires.
 - Ne corrige jamais son vocabulaire.
 - Ne reformule jamais en jargon technique.
-- Ne conclus jamais sans qu'il valide.
 
 STYLE
-- Ton naturel, bref, rassurant.
-- Pas de listes, pas de parenthèses explicatives, pas de tableaux.
+- Ton naturel, bref, rassurant, humain.
+- Pas de listes, pas de parenthèses explicatives.
+- Tutoiement.
 
 INTERDITS
-- Diagnostic avant d'avoir assez d'éléments.
+- Diagnostic définitif avant d'avoir assez d'éléments.
 - Résumés non demandés.
 - Réponses longues.
-- Ton professoral.
+- Ton professoral ou alarmiste.
 - Sujets hors automobile.
 - Conseils de suppression FAP ou reprogrammation.
-- Ne promets jamais de délai.
-- Ne demande pas le code postal.
+- Ne promets jamais de délai précis.
+- Ne demande pas le code postal (le formulaire s'en charge).
 
 LONGUEUR
 2 phrases max. 1 question max.
 
-OBJECTIF
-- Tour 1 : identifier le symptôme observable principal.
-- Tour 2 : identifier le véhicule (marque + modèle + année si possible).
-- Ensuite : ne pose plus de questions.
+OBJECTIF (3 tours max)
+- Tour 1 : identifier le symptôme + rassurer ("Pas de panique, on va voir ça ensemble.")
+- Tour 2 : identifier le véhicule (marque + modèle).
+- Tour 3 : closing avec argument.
+
+ARGUMENTS DE CLOSING (à utiliser)
+- "Gratuit et sans engagement"
+- "Un expert Re-FAP analyse ta situation"
+- "On te rappelle rapidement"
+- "Nettoyage pro = 99-149€ vs remplacement 1500€+"
 
 DATA
 À la fin de chaque message, ajoute une seule ligne :
@@ -146,19 +154,19 @@ function safeJsonStringify(obj) {
 // ============================================================
 function userWantsFormNow(text) {
   const t = String(text || "").toLowerCase().trim();
-  const triggers = ["rdv", "rendez", "rendez-vous", "devis", "contact", "rappel", "rappelez", "formulaire"];
+  const triggers = ["rdv", "rendez", "rendez-vous", "devis", "contact", "rappel", "rappelez", "formulaire", "expert"];
   return triggers.some((k) => t.includes(k));
 }
 
 function userSaysYes(text) {
   const t = String(text || "").toLowerCase().trim();
-  const yesWords = ["oui", "ouais", "ok", "d'accord", "go", "yes", "yep", "ouep", "volontiers", "je veux bien", "avec plaisir", "carrément", "bien sûr", "pourquoi pas"];
+  const yesWords = ["oui", "ouais", "ok", "d'accord", "go", "yes", "yep", "ouep", "volontiers", "je veux bien", "avec plaisir", "carrément", "bien sûr", "pourquoi pas", "allons-y", "vas-y"];
   return yesWords.some((w) => t.includes(w)) || t === "o";
 }
 
 function userSaysNo(text) {
   const t = String(text || "").toLowerCase().trim();
-  const noWords = ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci"];
+  const noWords = ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci", "pas pour l'instant"];
   return noWords.some((w) => t.includes(w));
 }
 
@@ -169,7 +177,7 @@ function lastAssistantAskedClosingQuestion(history) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
       // Marqueurs de la question closing
-      if (content.includes("trouver le bon pro") || content.includes("t'aider à trouver") || content.includes("on connaît les meilleurs")) {
+      if (content.includes("expert re-fap analyse") || content.includes("gratuit et sans engagement") || content.includes("qu'un expert")) {
         return true;
       }
       return false;
@@ -194,22 +202,22 @@ function hasEnoughToClose(extracted) {
 }
 
 // ============================================================
-// MESSAGE CLOSING : Question (sans ouvrir le formulaire)
+// MESSAGE CLOSING : Question avec arguments (version 4.4)
 // ============================================================
 function buildClosingQuestion(extracted) {
   const symptome = extracted?.symptome || "inconnu";
   const vehicule = extracted?.vehicule ? ` sur ta ${extracted.vehicule}` : "";
   
   const hints = {
-    voyant_fap: "un souci FAP/anti-pollution",
-    perte_puissance: "un souci d'anti-pollution possible",
-    mode_degrade: "un souci d'anti-pollution probable",
-    fumee: "un souci de combustion/anti-pollution",
-    odeur: "un souci d'anti-pollution possible",
-    regeneration_impossible: "un FAP saturé",
-    code_obd: "un souci lié au FAP",
+    voyant_fap: "un souci de FAP",
+    perte_puissance: "un FAP probablement encrassé",
+    mode_degrade: "un FAP saturé",
+    fumee: "un problème de combustion lié au FAP",
+    odeur: "un souci d'encrassement",
+    regeneration_impossible: "un FAP qui ne régénère plus",
+    code_obd: "un défaut lié au FAP",
   };
-  const hint = hints[symptome] || "un souci lié au FAP/anti-pollution";
+  const hint = hints[symptome] || "un souci lié au FAP";
 
   const data = {
     ...(extracted || DEFAULT_DATA),
@@ -217,14 +225,16 @@ function buildClosingQuestion(extracted) {
     next_best_action: "proposer_devis",
   };
 
-  const replyClean = `Au vu de ce que tu décris${vehicule}, ça ressemble à ${hint}. On connaît les meilleurs pros partout en France pour ce type de problème. Tu veux qu'on t'aide à trouver le bon pro près de chez toi ?`;
+  // Message avec arguments de conversion
+  const replyClean = `D'après ce que tu décris${vehicule}, ça ressemble à ${hint}. Bonne nouvelle : dans la plupart des cas, un nettoyage pro suffit (99-149€ au lieu de 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement.`;
+  
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
   return { replyClean, replyFull, extracted: data };
 }
 
 // ============================================================
-// MESSAGE FORMULAIRE : Après accord utilisateur
+// MESSAGE FORMULAIRE : Après accord utilisateur (version 4.4)
 // ============================================================
 function buildFormCTA(extracted) {
   const data = {
@@ -233,7 +243,7 @@ function buildFormCTA(extracted) {
     next_best_action: "clore",
   };
 
-  const replyClean = `Super ! Laisse tes coordonnées ici et on te rappelle rapidement pour t'orienter vers la meilleure solution près de chez toi.`;
+  const replyClean = `Parfait ! Laisse tes coordonnées et un expert Re-FAP te rappelle rapidement pour t'orienter vers la meilleure solution près de chez toi.`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
   return { replyClean, replyFull, extracted: data };
