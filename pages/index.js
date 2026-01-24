@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 4.4 - Quick Replies + Disclaimer IA + UX améliorée
+// VERSION 4.5 - Transition douce vers formulaire (carte CTA intégrée)
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -27,28 +27,27 @@ function generateSessionId() {
 // QUICK REPLIES CONFIG
 // ============================================================
 const QUICK_REPLIES_CONFIG = {
-  // Après le welcome message
   initial: [
     { label: "Voyant allumé", value: "J'ai un voyant allumé sur le tableau de bord" },
     { label: "Perte de puissance", value: "Ma voiture a perdu de la puissance" },
     { label: "Fumée anormale", value: "Ma voiture fume anormalement" },
   ],
-  // Après question sur le véhicule
   vehicule: [
     { label: "Peugeot", value: "C'est une Peugeot" },
     { label: "Renault", value: "C'est une Renault" },
     { label: "Citroën", value: "C'est une Citroën" },
     { label: "Autre marque", value: "Autre marque" },
   ],
-  // Après la question closing
   closing: [
     { label: "Oui, je veux être rappelé", value: "Oui" },
     { label: "Plus tard", value: "Non merci, plus tard" },
   ],
 };
 
-// Détecter quel set de quick replies afficher
-function getQuickRepliesForContext(messages) {
+function getQuickRepliesForContext(messages, showFormCTA) {
+  // Pas de quick replies si on affiche la carte CTA
+  if (showFormCTA) return null;
+  
   if (messages.length === 0) {
     return QUICK_REPLIES_CONFIG.initial;
   }
@@ -58,17 +57,165 @@ function getQuickRepliesForContext(messages) {
   
   const content = (lastAssistant.raw || lastAssistant.content || "").toLowerCase();
   
-  // Closing question
   if (content.includes("expert re-fap analyse") || content.includes("gratuit et sans engagement")) {
     return QUICK_REPLIES_CONFIG.closing;
   }
   
-  // Question véhicule
   if (content.includes("quelle voiture") || content.includes("quel véhicule") || content.includes("marque") || content.includes("modèle")) {
     return QUICK_REPLIES_CONFIG.vehicule;
   }
   
   return null;
+}
+
+// ============================================================
+// COMPOSANT CARTE CTA FORMULAIRE
+// ============================================================
+function FormCTACard({ onContinue, formUrl }) {
+  return (
+    <div className="form-cta-card">
+      <div className="form-cta-icon">👨‍🔧</div>
+      <h3 className="form-cta-title">Passez à l'étape suivante</h3>
+      <p className="form-cta-text">
+        Un expert Re-FAP va analyser votre situation et vous rappeler pour vous orienter vers la meilleure solution. 
+        <strong> Pas de vente, juste des conseils.</strong>
+      </p>
+      
+      <div className="form-cta-options">
+        <div className="form-cta-option">
+          <span className="option-icon">📞</span>
+          <span>Être rappelé rapidement</span>
+        </div>
+        <div className="form-cta-option">
+          <span className="option-icon">📝</span>
+          <span>Demander un devis gratuit</span>
+        </div>
+        <div className="form-cta-option">
+          <span className="option-icon">❓</span>
+          <span>Poser une question</span>
+        </div>
+      </div>
+
+      <a 
+        href={formUrl} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="form-cta-button"
+        onClick={onContinue}
+      >
+        Continuer vers le formulaire
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+      
+      <p className="form-cta-reassurance">
+        <span className="check-icon">✓</span> Gratuit et sans engagement
+      </p>
+
+      <style jsx>{`
+        .form-cta-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafe 100%);
+          border: 2px solid #e8f0fe;
+          border-radius: 16px;
+          padding: 24px 20px;
+          margin: 8px 0;
+          max-width: 320px;
+          box-shadow: 0 4px 20px rgba(30, 58, 95, 0.08);
+        }
+
+        .form-cta-icon {
+          font-size: 36px;
+          margin-bottom: 12px;
+        }
+
+        .form-cta-title {
+          margin: 0 0 10px 0;
+          font-size: 18px;
+          font-weight: 700;
+          color: #1e3a5f;
+        }
+
+        .form-cta-text {
+          margin: 0 0 16px 0;
+          font-size: 14px;
+          color: #555;
+          line-height: 1.5;
+        }
+
+        .form-cta-text strong {
+          color: #1e3a5f;
+        }
+
+        .form-cta-options {
+          background: #f5f8fc;
+          border-radius: 10px;
+          padding: 12px;
+          margin-bottom: 16px;
+        }
+
+        .form-cta-option {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 0;
+          font-size: 13px;
+          color: #444;
+        }
+
+        .form-cta-option:not(:last-child) {
+          border-bottom: 1px solid #e8ecf2;
+        }
+
+        .option-icon {
+          font-size: 16px;
+        }
+
+        .form-cta-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          background: linear-gradient(135deg, #e85a2c 0%, #d4461a 100%);
+          color: white;
+          border: none;
+          padding: 14px 20px;
+          border-radius: 25px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          transition: all 0.2s;
+          box-shadow: 0 4px 12px rgba(232, 90, 44, 0.3);
+        }
+
+        .form-cta-button:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(232, 90, 44, 0.4);
+        }
+
+        .form-cta-button:active {
+          transform: translateY(0);
+        }
+
+        .form-cta-reassurance {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          margin: 14px 0 0 0;
+          font-size: 12px;
+          color: #22863a;
+          font-weight: 500;
+        }
+
+        .check-icon {
+          font-size: 14px;
+        }
+      `}</style>
+    </div>
+  );
 }
 
 // ============================================================
@@ -80,7 +227,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [error, setError] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [showFormCTA, setShowFormCTA] = useState(false);
   const [formUrl, setFormUrl] = useState("");
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -99,7 +246,7 @@ export default function Home() {
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, showFormCTA]);
 
   // --------------------------------------------------------
   // ENVOI MESSAGE
@@ -110,6 +257,7 @@ export default function Home() {
 
     setInput("");
     setError(null);
+    setShowFormCTA(false); // Reset CTA si on envoie un nouveau message
 
     const newUserMessage = { role: "user", content: userMessage };
     setMessages((prev) => [...prev, newUserMessage]);
@@ -149,10 +297,13 @@ export default function Home() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // HANDLE ACTION : OPEN_FORM
+      // --------------------------------------------------------
+      // HANDLE ACTION : OPEN_FORM → Afficher carte CTA après délai
+      // --------------------------------------------------------
       if (data.action?.type === "OPEN_FORM" && data.action?.url) {
         setFormUrl(data.action.url);
-        setTimeout(() => setShowModal(true), 2000);
+        // Délai pour laisser le temps de lire le message
+        setTimeout(() => setShowFormCTA(true), 1500);
       }
 
     } catch (err) {
@@ -172,6 +323,11 @@ export default function Home() {
     sendMessage(value);
   };
 
+  const handleFormCTAClick = () => {
+    // Analytics ou tracking ici si besoin
+    console.log("✅ User clicked CTA → redirecting to form");
+  };
+
   // --------------------------------------------------------
   // NOUVELLE CONVERSATION
   // --------------------------------------------------------
@@ -181,13 +337,13 @@ export default function Home() {
     setSessionId(newSessionId);
     setMessages([]);
     setError(null);
-    setShowModal(false);
+    setShowFormCTA(false);
   };
 
   // --------------------------------------------------------
   // QUICK REPLIES
   // --------------------------------------------------------
-  const quickReplies = !isLoading ? getQuickRepliesForContext(messages) : null;
+  const quickReplies = !isLoading ? getQuickRepliesForContext(messages, showFormCTA) : null;
 
   // --------------------------------------------------------
   // RENDER
@@ -255,6 +411,14 @@ export default function Home() {
             </div>
           )}
 
+          {/* CARTE CTA FORMULAIRE */}
+          {showFormCTA && (
+            <div className="message message-assistant">
+              <div className="avatar">🔧</div>
+              <FormCTACard formUrl={formUrl} onContinue={handleFormCTAClick} />
+            </div>
+          )}
+
           {/* QUICK REPLIES */}
           {quickReplies && !isLoading && (
             <div className="quick-replies">
@@ -310,28 +474,6 @@ export default function Home() {
           </p>
         </div>
       </div>
-
-      {/* ============================================================ */}
-      {/* MODAL FORMULAIRE                                             */}
-      {/* ============================================================ */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowModal(false)}>
-              ✕
-            </button>
-            <div className="modal-header">
-              <h2>Demande de rappel</h2>
-              <p>Laissez vos coordonnées, on vous rappelle rapidement.</p>
-            </div>
-            <iframe
-              src={formUrl}
-              className="modal-iframe"
-              title="Formulaire de contact"
-            />
-          </div>
-        </div>
-      )}
 
       {/* STYLES */}
       <style jsx>{`
@@ -426,9 +568,15 @@ export default function Home() {
         /* MESSAGE BUBBLES */
         .message {
           display: flex;
-          align-items: flex-end;
+          align-items: flex-start;
           gap: 8px;
-          max-width: 85%;
+          max-width: 90%;
+          animation: messageIn 0.3s ease;
+        }
+
+        @keyframes messageIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         .message-user {
@@ -450,6 +598,7 @@ export default function Home() {
           justify-content: center;
           font-size: 16px;
           flex-shrink: 0;
+          margin-top: 4px;
         }
 
         .message-content {
@@ -505,6 +654,7 @@ export default function Home() {
           gap: 8px;
           padding: 4px 0;
           align-self: flex-start;
+          margin-left: 40px;
         }
 
         .quick-reply-btn {
@@ -617,91 +767,6 @@ export default function Home() {
         }
 
         /* ============================================================ */
-        /* MODAL                                                         */
-        /* ============================================================ */
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.6);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 20px;
-          animation: fadeIn 0.2s ease;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .modal-content {
-          background: white;
-          border-radius: 16px;
-          width: 100%;
-          max-width: 480px;
-          max-height: 90vh;
-          overflow: hidden;
-          position: relative;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-          animation: slideUp 0.3s ease;
-        }
-
-        @keyframes slideUp {
-          from { transform: translateY(30px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-
-        .modal-close {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          background: #f5f5f5;
-          border: none;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          cursor: pointer;
-          font-size: 16px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.2s;
-          z-index: 10;
-        }
-
-        .modal-close:hover {
-          background: #e5e5e5;
-        }
-
-        .modal-header {
-          padding: 24px 24px 16px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .modal-header h2 {
-          margin: 0 0 8px 0;
-          font-size: 20px;
-          color: #1e3a5f;
-        }
-
-        .modal-header p {
-          margin: 0;
-          color: #666;
-          font-size: 14px;
-        }
-
-        .modal-iframe {
-          width: 100%;
-          height: 500px;
-          border: none;
-        }
-
-        /* ============================================================ */
         /* RESPONSIVE                                                    */
         /* ============================================================ */
         @media (max-width: 600px) {
@@ -722,12 +787,16 @@ export default function Home() {
           }
 
           .message {
-            max-width: 90%;
+            max-width: 95%;
           }
 
           .message-content {
             font-size: 14px;
             padding: 10px 14px;
+          }
+
+          .quick-replies {
+            margin-left: 0;
           }
 
           .quick-reply-btn {
@@ -736,17 +805,8 @@ export default function Home() {
           }
 
           .chat-input {
-            font-size: 16px; /* Prevent zoom on iOS */
+            font-size: 16px;
             padding: 12px 16px;
-          }
-
-          .modal-content {
-            max-height: 85vh;
-            margin: 10px;
-          }
-
-          .modal-iframe {
-            height: 400px;
           }
         }
       `}</style>
