@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 4.5 - Transition douce vers formulaire (carte CTA intégrée)
+// VERSION 4.5 FINALE - Quick Replies + Carte CTA + Disclaimer
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -10,7 +10,6 @@ import Head from "next/head";
 // ============================================================
 function cleanMessageForDisplay(content) {
   if (!content || typeof content !== "string") return "";
-  
   let text = content;
   const dataIndex = text.indexOf("DATA:");
   if (dataIndex !== -1) {
@@ -45,7 +44,6 @@ const QUICK_REPLIES_CONFIG = {
 };
 
 function getQuickRepliesForContext(messages, showFormCTA) {
-  // Pas de quick replies si on affiche la carte CTA
   if (showFormCTA) return null;
   
   if (messages.length === 0) {
@@ -61,7 +59,7 @@ function getQuickRepliesForContext(messages, showFormCTA) {
     return QUICK_REPLIES_CONFIG.closing;
   }
   
-  if (content.includes("quelle voiture") || content.includes("quel véhicule") || content.includes("marque") || content.includes("modèle")) {
+  if (content.includes("quelle voiture") || content.includes("quel véhicule") || content.includes("marque") || content.includes("modèle") || content.includes("c'est quoi comme")) {
     return QUICK_REPLIES_CONFIG.vehicule;
   }
   
@@ -71,13 +69,13 @@ function getQuickRepliesForContext(messages, showFormCTA) {
 // ============================================================
 // COMPOSANT CARTE CTA FORMULAIRE
 // ============================================================
-function FormCTACard({ onContinue, formUrl }) {
+function FormCTACard({ formUrl }) {
   return (
     <div className="form-cta-card">
       <div className="form-cta-icon">👨‍🔧</div>
       <h3 className="form-cta-title">Passez à l'étape suivante</h3>
       <p className="form-cta-text">
-        Un expert Re-FAP va analyser votre situation et vous rappeler pour vous orienter vers la meilleure solution. 
+        Un expert Re-FAP va analyser votre situation et vous rappeler pour vous orienter vers la meilleure solution.
         <strong> Pas de vente, juste des conseils.</strong>
       </p>
       
@@ -101,7 +99,6 @@ function FormCTACard({ onContinue, formUrl }) {
         target="_blank" 
         rel="noopener noreferrer"
         className="form-cta-button"
-        onClick={onContinue}
       >
         Continuer vers le formulaire
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -110,7 +107,7 @@ function FormCTACard({ onContinue, formUrl }) {
       </a>
       
       <p className="form-cta-reassurance">
-        <span className="check-icon">✓</span> Gratuit et sans engagement
+        ✓ Gratuit et sans engagement
       </p>
 
       <style jsx>{`
@@ -119,26 +116,26 @@ function FormCTACard({ onContinue, formUrl }) {
           border: 2px solid #e8f0fe;
           border-radius: 16px;
           padding: 24px 20px;
-          margin: 8px 0;
-          max-width: 320px;
+          margin: 4px 0;
+          max-width: 300px;
           box-shadow: 0 4px 20px rgba(30, 58, 95, 0.08);
         }
 
         .form-cta-icon {
-          font-size: 36px;
-          margin-bottom: 12px;
+          font-size: 32px;
+          margin-bottom: 10px;
         }
 
         .form-cta-title {
           margin: 0 0 10px 0;
-          font-size: 18px;
+          font-size: 17px;
           font-weight: 700;
           color: #1e3a5f;
         }
 
         .form-cta-text {
-          margin: 0 0 16px 0;
-          font-size: 14px;
+          margin: 0 0 14px 0;
+          font-size: 13px;
           color: #555;
           line-height: 1.5;
         }
@@ -150,15 +147,15 @@ function FormCTACard({ onContinue, formUrl }) {
         .form-cta-options {
           background: #f5f8fc;
           border-radius: 10px;
-          padding: 12px;
-          margin-bottom: 16px;
+          padding: 10px 12px;
+          margin-bottom: 14px;
         }
 
         .form-cta-option {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 8px 0;
+          padding: 7px 0;
           font-size: 13px;
           color: #444;
         }
@@ -168,7 +165,7 @@ function FormCTACard({ onContinue, formUrl }) {
         }
 
         .option-icon {
-          font-size: 16px;
+          font-size: 15px;
         }
 
         .form-cta-button {
@@ -180,9 +177,9 @@ function FormCTACard({ onContinue, formUrl }) {
           background: linear-gradient(135deg, #e85a2c 0%, #d4461a 100%);
           color: white;
           border: none;
-          padding: 14px 20px;
+          padding: 13px 18px;
           border-radius: 25px;
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           text-decoration: none;
@@ -195,23 +192,12 @@ function FormCTACard({ onContinue, formUrl }) {
           box-shadow: 0 6px 16px rgba(232, 90, 44, 0.4);
         }
 
-        .form-cta-button:active {
-          transform: translateY(0);
-        }
-
         .form-cta-reassurance {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          margin: 14px 0 0 0;
+          margin: 12px 0 0 0;
           font-size: 12px;
           color: #22863a;
           font-weight: 500;
-        }
-
-        .check-icon {
-          font-size: 14px;
+          text-align: center;
         }
       `}</style>
     </div>
@@ -230,7 +216,6 @@ export default function Home() {
   const [showFormCTA, setShowFormCTA] = useState(false);
   const [formUrl, setFormUrl] = useState("");
   const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
 
   // Init session + bootstrap cookie
   useEffect(() => {
@@ -257,7 +242,7 @@ export default function Home() {
 
     setInput("");
     setError(null);
-    setShowFormCTA(false); // Reset CTA si on envoie un nouveau message
+    setShowFormCTA(false);
 
     const newUserMessage = { role: "user", content: userMessage };
     setMessages((prev) => [...prev, newUserMessage]);
@@ -297,13 +282,10 @@ export default function Home() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // --------------------------------------------------------
-      // HANDLE ACTION : OPEN_FORM → Afficher carte CTA après délai
-      // --------------------------------------------------------
+      // HANDLE ACTION : Afficher carte CTA après délai
       if (data.action?.type === "OPEN_FORM" && data.action?.url) {
         setFormUrl(data.action.url);
-        // Délai pour laisser le temps de lire le message
-        setTimeout(() => setShowFormCTA(true), 1500);
+        setTimeout(() => setShowFormCTA(true), 1200);
       }
 
     } catch (err) {
@@ -323,11 +305,6 @@ export default function Home() {
     sendMessage(value);
   };
 
-  const handleFormCTAClick = () => {
-    // Analytics ou tracking ici si besoin
-    console.log("✅ User clicked CTA → redirecting to form");
-  };
-
   // --------------------------------------------------------
   // NOUVELLE CONVERSATION
   // --------------------------------------------------------
@@ -340,9 +317,7 @@ export default function Home() {
     setShowFormCTA(false);
   };
 
-  // --------------------------------------------------------
-  // QUICK REPLIES
-  // --------------------------------------------------------
+  // Quick replies
   const quickReplies = !isLoading ? getQuickRepliesForContext(messages, showFormCTA) : null;
 
   // --------------------------------------------------------
@@ -352,10 +327,7 @@ export default function Home() {
     <>
       <Head>
         <title>FAPexpert - Diagnostic FAP en ligne | Re-FAP</title>
-        <meta
-          name="description"
-          content="Diagnostic gratuit de votre Filtre à Particules (FAP). Voyant allumé ? Perte de puissance ? Notre expert IA vous guide."
-        />
+        <meta name="description" content="Diagnostic gratuit de votre Filtre à Particules (FAP). Voyant allumé ? Perte de puissance ? Notre expert IA vous guide." />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -367,12 +339,8 @@ export default function Home() {
             <h1>FAPexpert</h1>
             <p className="header-subtitle">Diagnostic de votre Filtre à Particules</p>
           </div>
-          <button
-            onClick={startNewConversation}
-            className="new-chat-btn"
-            title="Nouvelle conversation"
-          >
-            + Nouveau
+          <button onClick={startNewConversation} className="new-chat-btn">
+            Nouvelle conversation
           </button>
         </header>
 
@@ -380,9 +348,9 @@ export default function Home() {
         <main className="chat-messages">
           {messages.length === 0 && (
             <div className="welcome-message">
-              <div className="welcome-icon">💬</div>
+              <p className="welcome-icon">💬</p>
               <p className="welcome-title">Bonjour ! Je suis FAPexpert</p>
-              <p className="welcome-text">Je vous aide à diagnostiquer les problèmes de Filtre à Particules. Décrivez-moi votre souci ou utilisez les boutons ci-dessous.</p>
+              <p className="welcome-text">Je vous aide à diagnostiquer les problèmes de Filtre à Particules. Décrivez votre souci ou cliquez sur un bouton ci-dessous.</p>
             </div>
           )}
 
@@ -404,18 +372,16 @@ export default function Home() {
             <div className="message message-assistant">
               <div className="avatar">🔧</div>
               <div className="message-content typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
+                <span></span><span></span><span></span>
               </div>
             </div>
           )}
 
           {/* CARTE CTA FORMULAIRE */}
           {showFormCTA && (
-            <div className="message message-assistant">
+            <div className="message message-assistant cta-message">
               <div className="avatar">🔧</div>
-              <FormCTACard formUrl={formUrl} onContinue={handleFormCTAClick} />
+              <FormCTACard formUrl={formUrl} />
             </div>
           )}
 
@@ -423,11 +389,7 @@ export default function Home() {
           {quickReplies && !isLoading && (
             <div className="quick-replies">
               {quickReplies.map((qr, idx) => (
-                <button
-                  key={idx}
-                  className="quick-reply-btn"
-                  onClick={() => handleQuickReply(qr.value)}
-                >
+                <button key={idx} className="quick-reply-btn" onClick={() => handleQuickReply(qr.value)}>
                   {qr.label}
                 </button>
               ))}
@@ -448,11 +410,10 @@ export default function Home() {
         <div className="chat-input-wrapper">
           <form onSubmit={handleSubmit} className="chat-input-form">
             <input
-              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Décrivez votre problème..."
+              placeholder="Décrivez votre problème de FAP..."
               disabled={isLoading || !sessionId}
               className="chat-input"
             />
@@ -460,18 +421,11 @@ export default function Home() {
               type="submit"
               disabled={isLoading || !input.trim() || !sessionId}
               className="send-btn"
-              aria-label="Envoyer"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9L22 2" />
-              </svg>
+              {isLoading ? "..." : "Envoyer"}
             </button>
           </form>
-          
-          {/* DISCLAIMER IA */}
-          <p className="disclaimer">
-            FAPexpert est une IA et peut faire des erreurs. Veuillez vérifier les informations.
-          </p>
+          <p className="disclaimer">FAPexpert est une IA et peut faire des erreurs. Veuillez vérifier les informations.</p>
         </div>
       </div>
 
@@ -482,13 +436,12 @@ export default function Home() {
           flex-direction: column;
           height: 100vh;
           height: 100dvh;
-          max-width: 500px;
+          max-width: 600px;
           margin: 0 auto;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-          background: #f8f9fa;
+          background: #f5f7fa;
         }
 
-        /* HEADER */
         .chat-header {
           background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
           color: white;
@@ -512,22 +465,20 @@ export default function Home() {
         }
 
         .new-chat-btn {
-          background: rgba(255, 255, 255, 0.15);
-          border: 1px solid rgba(255, 255, 255, 0.25);
+          background: rgba(255,255,255,0.15);
+          border: 1px solid rgba(255,255,255,0.3);
           color: white;
           padding: 8px 14px;
           border-radius: 20px;
           cursor: pointer;
-          font-size: 13px;
-          font-weight: 500;
-          transition: all 0.2s;
+          font-size: 12px;
+          transition: background 0.2s;
         }
 
         .new-chat-btn:hover {
-          background: rgba(255, 255, 255, 0.25);
+          background: rgba(255,255,255,0.25);
         }
 
-        /* MESSAGES */
         .chat-messages {
           flex: 1;
           overflow-y: auto;
@@ -537,18 +488,17 @@ export default function Home() {
           gap: 12px;
         }
 
-        /* WELCOME */
         .welcome-message {
           background: white;
           padding: 24px 20px;
           border-radius: 16px;
           text-align: center;
-          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 2px 12px rgba(0,0,0,0.06);
         }
 
         .welcome-icon {
           font-size: 32px;
-          margin-bottom: 12px;
+          margin: 0 0 10px 0;
         }
 
         .welcome-title {
@@ -565,17 +515,16 @@ export default function Home() {
           line-height: 1.5;
         }
 
-        /* MESSAGE BUBBLES */
         .message {
           display: flex;
           align-items: flex-start;
-          gap: 8px;
-          max-width: 90%;
-          animation: messageIn 0.3s ease;
+          gap: 10px;
+          max-width: 85%;
+          animation: fadeIn 0.3s ease;
         }
 
-        @keyframes messageIn {
-          from { opacity: 0; transform: translateY(10px); }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
 
@@ -588,6 +537,10 @@ export default function Home() {
           align-self: flex-start;
         }
 
+        .cta-message {
+          max-width: 340px;
+        }
+
         .avatar {
           width: 32px;
           height: 32px;
@@ -598,36 +551,33 @@ export default function Home() {
           justify-content: center;
           font-size: 16px;
           flex-shrink: 0;
-          margin-top: 4px;
         }
 
         .message-content {
           padding: 12px 16px;
-          border-radius: 18px;
+          border-radius: 16px;
           line-height: 1.5;
           font-size: 15px;
           white-space: pre-wrap;
-          word-wrap: break-word;
         }
 
         .message-user .message-content {
           background: #1e3a5f;
           color: white;
-          border-bottom-right-radius: 6px;
+          border-bottom-right-radius: 4px;
         }
 
         .message-assistant .message-content {
           background: white;
           color: #333;
-          border-bottom-left-radius: 6px;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+          border-bottom-left-radius: 4px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
 
-        /* TYPING */
         .typing-indicator {
           display: flex;
           gap: 5px;
-          padding: 16px 20px;
+          padding: 14px 18px;
         }
 
         .typing-indicator span {
@@ -635,26 +585,24 @@ export default function Home() {
           height: 8px;
           background: #1e3a5f;
           border-radius: 50%;
-          animation: typing 1.4s infinite ease-in-out;
+          animation: bounce 1.4s infinite ease-in-out;
         }
 
         .typing-indicator span:nth-child(1) { animation-delay: 0s; }
         .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
         .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
-        @keyframes typing {
+        @keyframes bounce {
           0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
           30% { transform: translateY(-6px); opacity: 1; }
         }
 
-        /* QUICK REPLIES */
         .quick-replies {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
           padding: 4px 0;
-          align-self: flex-start;
-          margin-left: 40px;
+          margin-left: 42px;
         }
 
         .quick-reply-btn {
@@ -674,11 +622,6 @@ export default function Home() {
           color: white;
         }
 
-        .quick-reply-btn:active {
-          transform: scale(0.97);
-        }
-
-        /* ERROR */
         .error-message {
           background: #fee2e2;
           border: 1px solid #ef4444;
@@ -688,31 +631,22 @@ export default function Home() {
           font-size: 13px;
         }
 
-        .error-message strong {
-          display: block;
-          margin-bottom: 6px;
-        }
-
         .error-message pre {
-          margin: 0;
+          margin: 8px 0 0 0;
           font-size: 11px;
           white-space: pre-wrap;
-          word-wrap: break-word;
         }
 
-        /* INPUT WRAPPER */
         .chat-input-wrapper {
           background: white;
           border-top: 1px solid #e5e7eb;
-          padding: 12px 16px;
-          padding-bottom: max(12px, env(safe-area-inset-bottom));
+          padding: 16px;
           flex-shrink: 0;
         }
 
         .chat-input-form {
           display: flex;
           gap: 10px;
-          align-items: center;
         }
 
         .chat-input {
@@ -729,36 +663,27 @@ export default function Home() {
           border-color: #1e3a5f;
         }
 
-        .chat-input:disabled {
-          background: #f9f9f9;
-        }
-
         .send-btn {
           background: #1e3a5f;
           color: white;
           border: none;
-          width: 48px;
-          height: 48px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          padding: 14px 24px;
+          border-radius: 24px;
+          font-size: 15px;
+          font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
-          flex-shrink: 0;
+          transition: background 0.2s;
         }
 
         .send-btn:hover:not(:disabled) {
           background: #2d5a87;
-          transform: scale(1.05);
         }
 
         .send-btn:disabled {
-          background: #ccc;
+          background: #9ca3af;
           cursor: not-allowed;
         }
 
-        /* DISCLAIMER */
         .disclaimer {
           margin: 10px 0 0 0;
           font-size: 11px;
@@ -766,59 +691,22 @@ export default function Home() {
           text-align: center;
         }
 
-        /* ============================================================ */
-        /* RESPONSIVE                                                    */
-        /* ============================================================ */
         @media (max-width: 600px) {
-          .chat-container {
-            max-width: 100%;
-          }
-
-          .chat-header {
-            padding: 14px 16px;
-          }
-
-          .header-content h1 {
-            font-size: 18px;
-          }
-
-          .chat-messages {
-            padding: 16px 12px;
-          }
-
-          .message {
-            max-width: 95%;
-          }
-
-          .message-content {
-            font-size: 14px;
-            padding: 10px 14px;
-          }
-
-          .quick-replies {
-            margin-left: 0;
-          }
-
-          .quick-reply-btn {
-            padding: 8px 14px;
-            font-size: 13px;
-          }
-
-          .chat-input {
-            font-size: 16px;
-            padding: 12px 16px;
-          }
+          .chat-container { max-width: 100%; }
+          .chat-header { padding: 14px 16px; }
+          .header-content h1 { font-size: 18px; }
+          .chat-messages { padding: 16px 12px; }
+          .message { max-width: 90%; }
+          .cta-message { max-width: 95%; }
+          .quick-replies { margin-left: 0; }
+          .quick-reply-btn { padding: 8px 14px; font-size: 13px; }
+          .send-btn { padding: 14px 18px; }
         }
       `}</style>
 
       <style jsx global>{`
         * { box-sizing: border-box; }
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: #f8f9fa;
-          -webkit-font-smoothing: antialiased;
-        }
+        html, body { margin: 0; padding: 0; background: #f5f7fa; }
       `}</style>
     </>
   );
