@@ -336,7 +336,11 @@ export default function Home() {
         {/* HEADER */}
         <header className="chat-header">
           <div className="header-left">
-            <img src="/logo-refap.png" alt="Re-FAP" className="header-logo" />
+            <img 
+              src="https://auto.re-fap.fr/wp-content/uploads/2026/01/Re-Fap_Logo_Couleur.png" 
+              alt="Re-FAP" 
+              className="header-logo" 
+            />
             <div className="header-text">
               <h1>FAPexpert</h1>
               <p className="header-subtitle">Un problème de FAP ? On vous guide.</p>
