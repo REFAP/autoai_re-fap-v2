@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 4.5 FINALE - Quick Replies + Carte CTA + Disclaimer
+// VERSION 4.6 FINALE - Header vert + Logo + Nouveau slogan
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -38,7 +38,7 @@ const QUICK_REPLIES_CONFIG = {
     { label: "Autre marque", value: "Autre marque" },
   ],
   closing: [
-    { label: "Oui, je veux être rappelé", value: "Oui" },
+    { label: "Oui, je veux être aidé", value: "Oui" },
     { label: "Plus tard", value: "Non merci, plus tard" },
   ],
 };
@@ -75,14 +75,14 @@ function FormCTACard({ formUrl }) {
       <div className="form-cta-icon">👨‍🔧</div>
       <h3 className="form-cta-title">Passez à l'étape suivante</h3>
       <p className="form-cta-text">
-        Un expert Re-FAP va analyser votre situation et vous rappeler pour vous orienter vers la meilleure solution.
+        Un expert Re-FAP va analyser votre situation et vous orienter vers la meilleure solution.
         <strong> Pas de vente, juste des conseils.</strong>
       </p>
       
       <div className="form-cta-options">
         <div className="form-cta-option">
           <span className="option-icon">📞</span>
-          <span>Être rappelé rapidement</span>
+          <span>Être rappelé</span>
         </div>
         <div className="form-cta-option">
           <span className="option-icon">📝</span>
@@ -100,7 +100,7 @@ function FormCTACard({ formUrl }) {
         rel="noopener noreferrer"
         className="form-cta-button"
       >
-        Continuer vers le formulaire
+        Continuer
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
@@ -112,13 +112,13 @@ function FormCTACard({ formUrl }) {
 
       <style jsx>{`
         .form-cta-card {
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafe 100%);
-          border: 2px solid #e8f0fe;
+          background: linear-gradient(135deg, #ffffff 0%, #f8fdf8 100%);
+          border: 2px solid #e0f2e0;
           border-radius: 16px;
           padding: 24px 20px;
           margin: 4px 0;
           max-width: 300px;
-          box-shadow: 0 4px 20px rgba(30, 58, 95, 0.08);
+          box-shadow: 0 4px 20px rgba(76, 140, 43, 0.1);
         }
 
         .form-cta-icon {
@@ -130,7 +130,7 @@ function FormCTACard({ formUrl }) {
           margin: 0 0 10px 0;
           font-size: 17px;
           font-weight: 700;
-          color: #1e3a5f;
+          color: #2d5a27;
         }
 
         .form-cta-text {
@@ -141,11 +141,11 @@ function FormCTACard({ formUrl }) {
         }
 
         .form-cta-text strong {
-          color: #1e3a5f;
+          color: #2d5a27;
         }
 
         .form-cta-options {
-          background: #f5f8fc;
+          background: #f5f9f5;
           border-radius: 10px;
           padding: 10px 12px;
           margin-bottom: 14px;
@@ -161,7 +161,7 @@ function FormCTACard({ formUrl }) {
         }
 
         .form-cta-option:not(:last-child) {
-          border-bottom: 1px solid #e8ecf2;
+          border-bottom: 1px solid #e8f2e8;
         }
 
         .option-icon {
@@ -174,28 +174,28 @@ function FormCTACard({ formUrl }) {
           justify-content: center;
           gap: 8px;
           width: 100%;
-          background: linear-gradient(135deg, #e85a2c 0%, #d4461a 100%);
+          background: linear-gradient(135deg, #8bc34a 0%, #689f38 100%);
           color: white;
           border: none;
           padding: 13px 18px;
           border-radius: 25px;
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 600;
           cursor: pointer;
           text-decoration: none;
           transition: all 0.2s;
-          box-shadow: 0 4px 12px rgba(232, 90, 44, 0.3);
+          box-shadow: 0 4px 12px rgba(104, 159, 56, 0.3);
         }
 
         .form-cta-button:hover {
           transform: translateY(-1px);
-          box-shadow: 0 6px 16px rgba(232, 90, 44, 0.4);
+          box-shadow: 0 6px 16px rgba(104, 159, 56, 0.4);
         }
 
         .form-cta-reassurance {
           margin: 12px 0 0 0;
           font-size: 12px;
-          color: #22863a;
+          color: #2e7d32;
           font-weight: 500;
           text-align: center;
         }
@@ -326,8 +326,8 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>FAPexpert - Diagnostic FAP en ligne | Re-FAP</title>
-        <meta name="description" content="Diagnostic gratuit de votre Filtre à Particules (FAP). Voyant allumé ? Perte de puissance ? Notre expert IA vous guide." />
+        <title>FAPexpert - Un problème de FAP ? On vous guide | Re-FAP</title>
+        <meta name="description" content="Un problème de FAP ? On vous guide. Voyant allumé ? Perte de puissance ? FAPexpert vous aide et vous oriente gratuitement." />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -335,12 +335,15 @@ export default function Home() {
       <div className="chat-container">
         {/* HEADER */}
         <header className="chat-header">
-          <div className="header-content">
-            <h1>FAPexpert</h1>
-            <p className="header-subtitle">Diagnostic de votre Filtre à Particules</p>
+          <div className="header-left">
+            <img src="/logo-refap.png" alt="Re-FAP" className="header-logo" />
+            <div className="header-text">
+              <h1>FAPexpert</h1>
+              <p className="header-subtitle">Un problème de FAP ? On vous guide.</p>
+            </div>
           </div>
           <button onClick={startNewConversation} className="new-chat-btn">
-            Nouvelle conversation
+            Nouveau
           </button>
         </header>
 
@@ -350,7 +353,7 @@ export default function Home() {
             <div className="welcome-message">
               <p className="welcome-icon">💬</p>
               <p className="welcome-title">Bonjour ! Je suis FAPexpert</p>
-              <p className="welcome-text">Je vous aide à diagnostiquer les problèmes de Filtre à Particules. Décrivez votre souci ou cliquez sur un bouton ci-dessous.</p>
+              <p className="welcome-text">Je vous aide à comprendre votre problème de Filtre à Particules et vous oriente vers la meilleure solution. Décrivez votre souci ou cliquez sur un bouton ci-dessous.</p>
             </div>
           )}
 
@@ -413,7 +416,7 @@ export default function Home() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Décrivez votre problème de FAP..."
+              placeholder="Décrivez votre problème..."
               disabled={isLoading || !sessionId}
               className="chat-input"
             />
@@ -439,44 +442,61 @@ export default function Home() {
           max-width: 600px;
           margin: 0 auto;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-          background: #f5f7fa;
+          background: #f5f7f5;
         }
 
         .chat-header {
-          background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+          background: linear-gradient(135deg, #8bc34a 0%, #689f38 100%);
           color: white;
-          padding: 16px 20px;
+          padding: 12px 16px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-shrink: 0;
+          box-shadow: 0 2px 8px rgba(104, 159, 56, 0.3);
         }
 
-        .header-content h1 {
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .header-logo {
+          height: 40px;
+          width: auto;
+          border-radius: 6px;
+          background: white;
+          padding: 4px 8px;
+        }
+
+        .header-text h1 {
           margin: 0;
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 700;
         }
 
         .header-subtitle {
           margin: 2px 0 0 0;
-          font-size: 12px;
-          opacity: 0.85;
+          font-size: 11px;
+          opacity: 0.95;
+          font-weight: 500;
         }
 
         .new-chat-btn {
-          background: rgba(255,255,255,0.15);
-          border: 1px solid rgba(255,255,255,0.3);
+          background: rgba(255,255,255,0.2);
+          border: 1px solid rgba(255,255,255,0.4);
           color: white;
           padding: 8px 14px;
           border-radius: 20px;
           cursor: pointer;
           font-size: 12px;
+          font-weight: 500;
           transition: background 0.2s;
         }
 
         .new-chat-btn:hover {
-          background: rgba(255,255,255,0.25);
+          background: rgba(255,255,255,0.3);
         }
 
         .chat-messages {
@@ -494,6 +514,7 @@ export default function Home() {
           border-radius: 16px;
           text-align: center;
           box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+          border: 1px solid #e8f5e9;
         }
 
         .welcome-icon {
@@ -505,7 +526,7 @@ export default function Home() {
           margin: 0 0 8px 0;
           font-size: 18px;
           font-weight: 600;
-          color: #1e3a5f;
+          color: #2d5a27;
         }
 
         .welcome-text {
@@ -544,7 +565,7 @@ export default function Home() {
         .avatar {
           width: 32px;
           height: 32px;
-          background: #e8f4f8;
+          background: #e8f5e9;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -562,7 +583,7 @@ export default function Home() {
         }
 
         .message-user .message-content {
-          background: #1e3a5f;
+          background: #689f38;
           color: white;
           border-bottom-right-radius: 4px;
         }
@@ -583,7 +604,7 @@ export default function Home() {
         .typing-indicator span {
           width: 8px;
           height: 8px;
-          background: #1e3a5f;
+          background: #689f38;
           border-radius: 50%;
           animation: bounce 1.4s infinite ease-in-out;
         }
@@ -607,8 +628,8 @@ export default function Home() {
 
         .quick-reply-btn {
           background: white;
-          border: 1.5px solid #1e3a5f;
-          color: #1e3a5f;
+          border: 1.5px solid #689f38;
+          color: #689f38;
           padding: 10px 16px;
           border-radius: 20px;
           font-size: 14px;
@@ -618,7 +639,7 @@ export default function Home() {
         }
 
         .quick-reply-btn:hover {
-          background: #1e3a5f;
+          background: #689f38;
           color: white;
         }
 
@@ -639,7 +660,7 @@ export default function Home() {
 
         .chat-input-wrapper {
           background: white;
-          border-top: 1px solid #e5e7eb;
+          border-top: 1px solid #e0e0e0;
           padding: 16px;
           flex-shrink: 0;
         }
@@ -652,7 +673,7 @@ export default function Home() {
         .chat-input {
           flex: 1;
           padding: 14px 18px;
-          border: 2px solid #e5e7eb;
+          border: 2px solid #e0e0e0;
           border-radius: 24px;
           font-size: 16px;
           outline: none;
@@ -660,11 +681,11 @@ export default function Home() {
         }
 
         .chat-input:focus {
-          border-color: #1e3a5f;
+          border-color: #8bc34a;
         }
 
         .send-btn {
-          background: #1e3a5f;
+          background: linear-gradient(135deg, #8bc34a 0%, #689f38 100%);
           color: white;
           border: none;
           padding: 14px 24px;
@@ -672,11 +693,12 @@ export default function Home() {
           font-size: 15px;
           font-weight: 600;
           cursor: pointer;
-          transition: background 0.2s;
+          transition: all 0.2s;
         }
 
         .send-btn:hover:not(:disabled) {
-          background: #2d5a87;
+          box-shadow: 0 4px 12px rgba(104, 159, 56, 0.4);
+          transform: translateY(-1px);
         }
 
         .send-btn:disabled {
@@ -693,8 +715,10 @@ export default function Home() {
 
         @media (max-width: 600px) {
           .chat-container { max-width: 100%; }
-          .chat-header { padding: 14px 16px; }
-          .header-content h1 { font-size: 18px; }
+          .chat-header { padding: 10px 12px; }
+          .header-logo { height: 36px; }
+          .header-text h1 { font-size: 16px; }
+          .header-subtitle { font-size: 10px; }
           .chat-messages { padding: 16px 12px; }
           .message { max-width: 90%; }
           .cta-message { max-width: 95%; }
@@ -706,7 +730,7 @@ export default function Home() {
 
       <style jsx global>{`
         * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; background: #f5f7fa; }
+        html, body { margin: 0; padding: 0; background: #f5f7f5; }
       `}</style>
     </>
   );
