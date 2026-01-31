@@ -1,17 +1,4 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 4.4 OPTIMISÉE
-// Flow : rassurance immédiate → symptôme → véhicule → closing argumenté
-
-import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
-
-// ============================================================
-// CONFIG
-// ============================================================
-const FORM_URL = "https://auto.re-fap.fr/#devis";
-const MAX_USER_TURNS = 3; // Réduit à 3 pour aller plus vite au closing
-
-// ================================================// /pages/api/chat.js
 // FAPexpert Re-FAP — VERSION 5.0 AMÉLIORÉE
 // Basé sur l'analyse de ~1000 conversations réelles
 // Améliorations : collecte véhicule obligatoire, questions fréquentes, data enrichi
@@ -619,10 +606,10 @@ export default async function handler(req, res) {
     const userTurns = countUserTurns(history) + 1;
 
     // --------------------------------------------------------
-    // OVERRIDE 4 : Symptôme OK mais pas de véhicule → demander
-    // (seulement si on n'a pas DÉJÀ demandé le véhicule)
+    // OVERRIDE 4 : Tour 3+ sans véhicule → FORCER la question véhicule
+    // C'est CRITIQUE : on ne veut JAMAIS closer sans le véhicule
     // --------------------------------------------------------
-    if (userTurns >= 2 && hasSymptomeButNoVehicle(lastExtracted) && !lastAssistantAskedVehicle(history) && !lastAssistantAskedClosingQuestion(history)) {
+    if (userTurns >= 3 && !lastExtracted.marque && !lastAssistantAskedVehicle(history) && !lastAssistantAskedClosingQuestion(history)) {
       const vehicleQ = buildVehicleQuestion(lastExtracted);
 
       await supabase.from("messages").insert({
@@ -641,9 +628,9 @@ export default async function handler(req, res) {
     }
     
     // --------------------------------------------------------
-    // OVERRIDE 5 : Trop de tours → closing forcé
+    // OVERRIDE 5 : Trop de tours → closing forcé (mais seulement si on a le véhicule)
     // --------------------------------------------------------
-    if (userTurns >= MAX_USER_TURNS && !lastAssistantAskedClosingQuestion(history)) {
+    if (userTurns >= MAX_USER_TURNS && lastExtracted.marque && !lastAssistantAskedClosingQuestion(history)) {
       const closing = buildClosingQuestion(lastExtracted);
 
       await supabase.from("messages").insert({
@@ -722,6 +709,7 @@ export default async function handler(req, res) {
 
     // --------------------------------------------------------
     // AUTO-CLOSE si symptôme + véhicule
+    // SÉCURITÉ : on ne close JAMAIS sans le véhicule !
     // --------------------------------------------------------
     if (hasEnoughToClose(extracted) && !lastAssistantAskedClosingQuestion(history)) {
       const closing = buildClosingQuestion(extracted);
@@ -742,543 +730,24 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------------
-    // RÉPONSE NORMALE
+    // SÉCURITÉ : Si le LLM a généré un closing mais sans véhicule → forcer question véhicule
     // --------------------------------------------------------
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      role: "assistant",
-      content: replyFull,
-    });
-
-    return res.status(200).json({
-      reply: replyClean,
-      reply_full: replyFull,
-      session_id,
-      conversation_id: conversationId,
-      extracted_data: extracted,
-    });
-
-  } catch (error) {
-    console.error("❌ Erreur handler chat:", error);
-    return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
-  }
-}============
-// SYSTEM PROMPT - VERSION 4.4
-// ============================================================
-const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP. Tu rassures le client et collectes les infos clés pour l'orienter vers un diagnostic gratuit.
-
-DÉFINITION
-"FAP" = Filtre à Particules automobile. Aucune autre interprétation.
-
-MESSAGE CLÉ (à distiller naturellement)
-Dans la majorité des cas, un nettoyage professionnel suffit — bien moins cher qu'un remplacement (99-149€ vs 1500-2500€).
-
-COMPORTEMENT
-- Une seule question par message.
-- Rassure dès le premier échange : "Pas de panique, c'est souvent réparable."
-- Pars toujours de ce que le client vient de dire.
-- Si l'entrée est courte ou ambiguë, pose une question factuelle.
-- Accepte les réponses floues, incomplètes, contradictoires.
-- Ne corrige jamais son vocabulaire.
-- Ne reformule jamais en jargon technique.
-
-STYLE
-- Ton naturel, bref, rassurant, humain.
-- Pas de listes, pas de parenthèses explicatives.
-- Tutoiement.
-
-INTERDITS
-- Diagnostic définitif avant d'avoir assez d'éléments.
-- Résumés non demandés.
-- Réponses longues.
-- Ton professoral ou alarmiste.
-- Sujets hors automobile.
-- Conseils de suppression FAP ou reprogrammation.
-- Ne promets jamais de délai précis.
-- Ne demande pas le code postal (le formulaire s'en charge).
-
-LONGUEUR
-2 phrases max. 1 question max.
-
-OBJECTIF (3 tours max)
-- Tour 1 : identifier le symptôme + rassurer ("Pas de panique, on va voir ça ensemble.")
-- Tour 2 : identifier le véhicule (marque + modèle).
-- Tour 3 : closing avec argument.
-
-ARGUMENTS DE CLOSING (à utiliser)
-- "Gratuit et sans engagement"
-- "Un expert Re-FAP analyse ta situation"
-- "On te rappelle rapidement"
-- "Nettoyage pro = 99-149€ vs remplacement 1500€+"
-
-DATA
-À la fin de chaque message, ajoute une seule ligne :
-DATA: {"symptome":"<enum>","codes":[],"intention":"<enum>","urgence":"<enum>","vehicule":<string|null>,"next_best_action":"<enum>"}
-
-Enums :
-- symptome : "voyant_fap" | "perte_puissance" | "mode_degrade" | "fumee" | "odeur" | "regeneration_impossible" | "code_obd" | "autre" | "inconnu"
-- codes : tableau de strings (ex: ["P2002"]) ou []
-- intention : "diagnostic" | "devis" | "rdv" | "info_generale" | "comparaison" | "urgence" | "inconnu"
-- urgence : "haute" | "moyenne" | "basse" | "inconnue"
-- vehicule : string descriptif ou null
-- next_best_action : "poser_question" | "proposer_diagnostic" | "proposer_rdv" | "proposer_devis" | "rediriger_garage" | "clore"`;
-
-// ============================================================
-// SUPABASE - Variables
-// ============================================================
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// Fonction pour obtenir le client (créé à la demande)
-function getSupabase() {
-  if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("❌ Variables Supabase manquantes:", { url: !!supabaseUrl, key: !!supabaseServiceKey });
-    return null;
-  }
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-// ============================================================
-// CORS
-// ============================================================
-const ALLOWED_ORIGINS = [
-  "https://autoai-re-fap-v2.vercel.app",
-  "https://re-fap.fr",
-  "https://www.re-fap.fr",
-  "http://localhost:3000",
-];
-
-// ============================================================
-// DEFAULT DATA
-// ============================================================
-const DEFAULT_DATA = {
-  symptome: "inconnu",
-  codes: [],
-  intention: "inconnu",
-  urgence: "inconnue",
-  vehicule: null,
-  next_best_action: "poser_question",
-};
-
-// ============================================================
-// HELPERS : Normalisation & Extraction DATA
-// ============================================================
-function normalizeDataPosition(reply) {
-  if (!reply) return "";
-  return reply.replace(/([^\n])\s*DATA:\s*\{/g, "$1\nDATA: {");
-}
-
-function cleanReplyForUI(fullReply) {
-  if (!fullReply) return "";
-  
-  let text = String(fullReply);
-  
-  // Supprimer tout ce qui commence par DATA: jusqu'à la fin
-  const dataIndex = text.indexOf("DATA:");
-  if (dataIndex !== -1) {
-    text = text.substring(0, dataIndex);
-  }
-  
-  // Nettoyer
-  text = text.trim();
-  
-  // Si vide après nettoyage, retourner chaîne vide (sera géré après)
-  return text;
-}
-
-function extractDataFromReply(fullReply) {
-  if (!fullReply) return null;
-  const normalized = normalizeDataPosition(fullReply);
-  const match = normalized.match(/\nDATA:\s*(\{[\s\S]*\})\s*$/);
-  if (match) {
-    try { return JSON.parse(match[1]); } catch { return null; }
-  }
-  return null;
-}
-
-function safeJsonStringify(obj) {
-  try { return JSON.stringify(obj); } catch { return JSON.stringify(DEFAULT_DATA); }
-}
-
-// ============================================================
-// HELPERS : Intent Detection
-// ============================================================
-function userWantsFormNow(text) {
-  const t = String(text || "").toLowerCase().trim();
-  const triggers = ["rdv", "rendez", "rendez-vous", "devis", "contact", "rappel", "rappelez", "formulaire", "expert"];
-  return triggers.some((k) => t.includes(k));
-}
-
-function userSaysYes(text) {
-  const t = String(text || "").toLowerCase().trim();
-  const yesWords = ["oui", "ouais", "ok", "d'accord", "go", "yes", "yep", "ouep", "volontiers", "je veux bien", "avec plaisir", "carrément", "bien sûr", "pourquoi pas", "allons-y", "vas-y"];
-  return yesWords.some((w) => t.includes(w)) || t === "o";
-}
-
-function userSaysNo(text) {
-  const t = String(text || "").toLowerCase().trim();
-  const noWords = ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci", "pas pour l'instant"];
-  return noWords.some((w) => t.includes(w));
-}
-
-// Vérifie si le dernier message assistant était la question closing
-function lastAssistantAskedClosingQuestion(history) {
-  if (!Array.isArray(history)) return false;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i]?.role === "assistant") {
-      const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      // Marqueurs de la question closing
-      if (content.includes("expert re-fap analyse") || content.includes("gratuit et sans engagement") || content.includes("qu'un expert")) {
-        return true;
-      }
-      return false;
-    }
-  }
-  return false;
-}
-
-function countUserTurns(history) {
-  if (!Array.isArray(history)) return 0;
-  return history.filter((m) => m?.role === "user").length;
-}
-
-// ============================================================
-// HELPERS : Closing Detection
-// ============================================================
-function hasEnoughToClose(extracted) {
-  if (!extracted) return false;
-  const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
-  const hasVehicule = extracted.vehicule && String(extracted.vehicule).trim().length >= 4;
-  return Boolean(hasSymptome && hasVehicule);
-}
-
-// ============================================================
-// MESSAGE CLOSING : Question avec arguments (version 4.4)
-// ============================================================
-function buildClosingQuestion(extracted) {
-  const symptome = extracted?.symptome || "inconnu";
-  const vehicule = extracted?.vehicule ? ` sur ta ${extracted.vehicule}` : "";
-  
-  const hints = {
-    voyant_fap: "un souci de FAP",
-    perte_puissance: "un FAP probablement encrassé",
-    mode_degrade: "un FAP saturé",
-    fumee: "un problème de combustion lié au FAP",
-    odeur: "un souci d'encrassement",
-    regeneration_impossible: "un FAP qui ne régénère plus",
-    code_obd: "un défaut lié au FAP",
-  };
-  const hint = hints[symptome] || "un souci lié au FAP";
-
-  const data = {
-    ...(extracted || DEFAULT_DATA),
-    intention: "diagnostic",
-    next_best_action: "proposer_devis",
-  };
-
-  // Message avec arguments de conversion
-  const replyClean = `D'après ce que tu décris${vehicule}, ça ressemble à ${hint}. Bonne nouvelle : dans la plupart des cas, un nettoyage pro suffit (99-149€ au lieu de 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement.`;
-  
-  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-
-  return { replyClean, replyFull, extracted: data };
-}
-
-// ============================================================
-// MESSAGE FORMULAIRE : Après accord utilisateur (version 4.4)
-// ============================================================
-function buildFormCTA(extracted) {
-  const data = {
-    ...(extracted || DEFAULT_DATA),
-    intention: "rdv",
-    next_best_action: "clore",
-  };
-
-  const replyClean = `Parfait ! Laisse tes coordonnées et un expert Re-FAP te rappelle rapidement pour t'orienter vers la meilleure solution près de chez toi.`;
-  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-
-  return { replyClean, replyFull, extracted: data };
-}
-
-// ============================================================
-// MESSAGE SI USER DIT NON
-// ============================================================
-function buildDeclinedResponse(extracted) {
-  const data = {
-    ...(extracted || DEFAULT_DATA),
-    next_best_action: "clore",
-  };
-
-  const replyClean = `Pas de souci ! Si tu changes d'avis ou si tu as d'autres questions, je suis là. Bonne route 👋`;
-  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-
-  return { replyClean, replyFull, extracted: data };
-}
-
-// ============================================================
-// AUTH : Cookie signé
-// ============================================================
-function getCookie(req, name) {
-  const cookieHeader = req.headers.cookie || "";
-  const found = cookieHeader.split(";").find((c) => c.trim().startsWith(name + "="));
-  if (!found) return null;
-  return decodeURIComponent(found.split("=").slice(1).join("="));
-}
-
-function verifySignedCookie(value, secret) {
-  if (!value || !secret) return false;
-  const [nonce, sig] = value.split(".");
-  if (!nonce || !sig) return false;
-  const expected = crypto.createHmac("sha256", secret).update(nonce).digest("hex");
-  return sig === expected;
-}
-
-// ============================================================
-// HELPER : Récupérer la dernière DATA extraite de l'historique
-// ============================================================
-function extractLastExtractedData(history) {
-  if (!Array.isArray(history)) return DEFAULT_DATA;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i]?.role === "assistant") {
-      const content = history[i].raw || history[i].content || "";
-      const extracted = extractDataFromReply(content);
-      if (extracted) return extracted;
-    }
-  }
-  return DEFAULT_DATA;
-}
-
-// ============================================================
-// HANDLER
-// ============================================================
-export default async function handler(req, res) {
-  const origin = req.headers.origin;
-
-  // AUTH
-  const cookieName = process.env.CHAT_COOKIE_NAME || "re_fap_chat";
-  const secret = process.env.CHAT_API_TOKEN;
-  const cookieValue = getCookie(req, cookieName);
-  if (!verifySignedCookie(cookieValue, secret)) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  // CORS
-  if (origin) {
-    if (ALLOWED_ORIGINS.includes(origin)) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Access-Control-Allow-Credentials", "true");
-    } else {
-      return res.status(403).json({ error: "Origin non autorisée" });
-    }
-  }
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
-
-  try {
-    const { message, session_id, history = [] } = req.body;
-
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "Message requis" });
-    }
-    if (!session_id || typeof session_id !== "string") {
-      return res.status(400).json({ error: "session_id requis" });
-    }
-
-    // Obtenir client Supabase
-    const supabase = getSupabase();
-    if (!supabase) {
-      return res.status(500).json({ error: "Configuration Supabase manquante" });
-    }
-
-    // DB : upsert conversation
-    const { data: convData, error: convError } = await supabase
-      .from("conversations")
-      .upsert({ session_id, last_seen_at: new Date().toISOString() }, { onConflict: "session_id" })
-      .select("id")
-      .single();
-
-    if (convError) {
-      return res.status(500).json({ error: "Erreur DB conversation", details: convError.message });
-    }
-    const conversationId = convData.id;
-
-    // DB : insert message user
-    const { error: userMsgError } = await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      role: "user",
-      content: message,
-    });
-    
-    if (userMsgError) {
-      console.error("❌ Erreur insert message user:", userMsgError);
-    }
-
-    const lastExtracted = extractLastExtractedData(history);
-
-    // --------------------------------------------------------
-    // OVERRIDE 1 : User a reçu la question closing et répond OUI
-    // --------------------------------------------------------
-    if (lastAssistantAskedClosingQuestion(history) && userSaysYes(message)) {
-      const formResponse = buildFormCTA(lastExtracted);
+    const looksLikeClosing = replyClean.toLowerCase().includes("expert re-fap") || replyClean.toLowerCase().includes("gratuit et sans engagement");
+    if (looksLikeClosing && !extracted.marque) {
+      const vehicleQ = buildVehicleQuestion(extracted);
 
       await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "assistant",
-        content: formResponse.replyFull,
+        content: vehicleQ.replyFull,
       });
 
       return res.status(200).json({
-        reply: formResponse.replyClean,
-        reply_full: formResponse.replyFull,
+        reply: vehicleQ.replyClean,
+        reply_full: vehicleQ.replyFull,
         session_id,
         conversation_id: conversationId,
-        extracted_data: formResponse.extracted,
-        action: { type: "OPEN_FORM", url: FORM_URL },
-      });
-    }
-
-    // --------------------------------------------------------
-    // OVERRIDE 2 : User a reçu la question closing et répond NON
-    // --------------------------------------------------------
-    if (lastAssistantAskedClosingQuestion(history) && userSaysNo(message)) {
-      const declinedResponse = buildDeclinedResponse(lastExtracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: declinedResponse.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: declinedResponse.replyClean,
-        reply_full: declinedResponse.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: declinedResponse.extracted,
-      });
-    }
-
-    // --------------------------------------------------------
-    // OVERRIDE 3 : User demande explicitement formulaire/rdv
-    // --------------------------------------------------------
-    if (userWantsFormNow(message)) {
-      const formResponse = buildFormCTA(lastExtracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: formResponse.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: formResponse.replyClean,
-        reply_full: formResponse.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: formResponse.extracted,
-        action: { type: "OPEN_FORM", url: FORM_URL },
-      });
-    }
-
-    // --------------------------------------------------------
-    // OVERRIDE 4 : Trop de tours → question closing forcée
-    // --------------------------------------------------------
-    const userTurns = countUserTurns(history) + 1;
-    if (userTurns >= MAX_USER_TURNS && !lastAssistantAskedClosingQuestion(history)) {
-      const closing = buildClosingQuestion(lastExtracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: closing.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: closing.replyClean,
-        reply_full: closing.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: closing.extracted,
-      });
-    }
-
-    // --------------------------------------------------------
-    // LLM PATH
-    // --------------------------------------------------------
-    const messagesForMistral = [{ role: "system", content: SYSTEM_PROMPT }];
-    if (Array.isArray(history)) {
-      for (const msg of history) {
-        if (msg.role === "user") {
-          messagesForMistral.push({ role: "user", content: msg.content });
-        } else if (msg.role === "assistant") {
-          messagesForMistral.push({ role: "assistant", content: msg.raw || msg.content });
-        }
-      }
-    }
-    messagesForMistral.push({ role: "user", content: message });
-
-    const mistralResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-        messages: messagesForMistral,
-        temperature: 0.4,
-        max_tokens: 180,
-      }),
-    });
-
-    if (!mistralResponse.ok) {
-      const errText = await mistralResponse.text();
-      return res.status(500).json({ error: "Erreur Mistral API", details: errText });
-    }
-
-    const mistralData = await mistralResponse.json();
-    let replyFull = mistralData.choices?.[0]?.message?.content || "";
-    
-    // Extraire DATA
-    const extracted = extractDataFromReply(replyFull) || DEFAULT_DATA;
-    
-    // Nettoyer pour l'UI
-    let replyClean = cleanReplyForUI(replyFull);
-    
-    // FALLBACK : Si le LLM n'a généré que DATA sans texte
-    if (!replyClean || replyClean.length < 5) {
-      if (!extracted.vehicule) {
-        replyClean = "D'accord. C'est quelle voiture ?";
-      } else {
-        replyClean = "Je comprends. Autre chose à signaler ?";
-      }
-    }
-    
-    // Reconstruire replyFull propre
-    replyFull = `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`;
-
-    // --------------------------------------------------------
-    // AUTO-CLOSE : symptôme + véhicule → question closing
-    // MAIS seulement si on n'a pas déjà posé la question
-    // --------------------------------------------------------
-    if (hasEnoughToClose(extracted) && !lastAssistantAskedClosingQuestion(history)) {
-      const closing = buildClosingQuestion(extracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: closing.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: closing.replyClean,
-        reply_full: closing.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: closing.extracted,
+        extracted_data: vehicleQ.extracted,
       });
     }
 
@@ -1304,4 +773,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
-
