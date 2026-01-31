@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 4.6 FINALE - Header vert + Logo + Nouveau slogan
+// VERSION 5.0 - Quick replies véhicules enrichis
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -23,7 +23,7 @@ function generateSessionId() {
 }
 
 // ============================================================
-// QUICK REPLIES CONFIG
+// QUICK REPLIES CONFIG - VERSION 5.0 (marques étendues)
 // ============================================================
 const QUICK_REPLIES_CONFIG = {
   initial: [
@@ -35,7 +35,11 @@ const QUICK_REPLIES_CONFIG = {
     { label: "Peugeot", value: "C'est une Peugeot" },
     { label: "Renault", value: "C'est une Renault" },
     { label: "Citroën", value: "C'est une Citroën" },
-    { label: "Autre marque", value: "Autre marque" },
+    { label: "Volkswagen", value: "C'est une Volkswagen" },
+    { label: "BMW", value: "C'est une BMW" },
+    { label: "Audi", value: "C'est une Audi" },
+    { label: "Mercedes", value: "C'est une Mercedes" },
+    { label: "Autre", value: "Autre marque" },
   ],
   closing: [
     { label: "Oui, je veux être aidé", value: "Oui" },
@@ -55,11 +59,19 @@ function getQuickRepliesForContext(messages, showFormCTA) {
   
   const content = (lastAssistant.raw || lastAssistant.content || "").toLowerCase();
   
+  // Détection closing
   if (content.includes("expert re-fap analyse") || content.includes("gratuit et sans engagement")) {
     return QUICK_REPLIES_CONFIG.closing;
   }
   
-  if (content.includes("quelle voiture") || content.includes("quel véhicule") || content.includes("marque") || content.includes("modèle") || content.includes("c'est quoi comme")) {
+  // Détection demande véhicule (enrichi)
+  if (
+    content.includes("quelle voiture") || 
+    content.includes("quel véhicule") || 
+    content.includes("c'est quoi comme") ||
+    content.includes("tu roules en quoi") ||
+    content.includes("comme véhicule")
+  ) {
     return QUICK_REPLIES_CONFIG.vehicule;
   }
   
