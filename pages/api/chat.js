@@ -478,7 +478,7 @@ function buildDetailsQuestion(extracted) {
     next_best_action: "demander_details",
   };
 
-  const replyClean = `Ok, une ${marque}. Tu connais l'année et le kilométrage environ ?`;
+  const replyClean = `Ok, une ${marque}. Tu peux me dire le moteur, l'année et le kilométrage environ ?`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
   return { replyClean, replyFull, extracted: data };
@@ -928,4 +928,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
