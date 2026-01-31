@@ -1,7 +1,6 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 5.0 AMÉLIORÉE
-// Basé sur l'analyse de ~1000 conversations réelles
-// Améliorations : collecte véhicule obligatoire, questions fréquentes, data enrichi
+// FAPexpert Re-FAP — VERSION 5.1 avec SCÉNARIOS
+// Approche honnête : ne pas diagnostiquer FAP sans éléments concrets
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -10,112 +9,139 @@ import crypto from "crypto";
 // CONFIG
 // ============================================================
 const FORM_URL = "https://auto.re-fap.fr/#devis";
-const MAX_USER_TURNS = 4; // Augmenté de 3 à 4 pour collecter plus d'infos
+const MAX_USER_TURNS = 5; // Augmenté pour collecter plus d'infos
 
 // ============================================================
-// SYSTEM PROMPT - VERSION 5.0
+// SYSTEM PROMPT - VERSION 5.1 avec SCÉNARIOS
 // ============================================================
-const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP. Tu rassures le client et collectes les infos clés pour l'orienter vers un diagnostic gratuit.
+const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP. Tu rassures le client, tu collectes les infos clés, et tu es HONNÊTE quand tu ne peux pas savoir.
 
-DÉFINITION ABSOLUE (PRIORITÉ MAXIMALE)
+DÉFINITION ABSOLUE
 "FAP" = Filtre à Particules automobile diesel. JAMAIS d'autre interprétation.
-Même si l'utilisateur écrit "fap" en minuscules ou répète le mot, c'est TOUJOURS le filtre auto.
-Tu es un assistant AUTOMOBILE, rien d'autre.
 
-MESSAGE CLÉ (à distiller naturellement)
-Dans la majorité des cas, un nettoyage professionnel suffit — bien moins cher qu'un remplacement (99-149€ vs 1500-2500€).
-
-COMPORTEMENT
-- Une seule question par message.
-- Rassure dès le premier échange : "Pas de panique, c'est souvent réparable."
-- Pars toujours de ce que le client vient de dire.
-- Si l'entrée est courte ou ambiguë, pose une question factuelle.
-- Accepte les réponses floues, incomplètes, contradictoires.
-- Ne corrige jamais son vocabulaire.
-- Ne reformule jamais en jargon technique.
+RÈGLE D'OR
+Ne JAMAIS diagnostiquer "problème de FAP" si tu n'as pas assez d'éléments. 
+Si l'utilisateur ne sait pas quel voyant c'est, DIS-LE : on ne peut pas deviner.
 
 STYLE
 - Ton naturel, bref, rassurant, humain.
-- Pas de listes, pas de parenthèses explicatives, pas de bullet points.
 - Tutoiement.
+- Pas de listes, pas de bullet points.
+- 2-3 phrases max par message.
+- UNE question max par message.
+
+INFOS À COLLECTER (dans cet ordre de priorité)
+1. Le symptôme / voyant (obligatoire)
+2. La marque du véhicule (obligatoire avant closing)
+3. Le modèle (si possible)
+4. L'année ou génération (si possible)
+5. Le kilométrage approximatif (si possible)
+
+---
+
+SCÉNARIOS ET RÉPONSES TYPES
+
+=== SCÉNARIO A : VOYANT CLAIREMENT IDENTIFIÉ COMME FAP ===
+Indices : "voyant FAP", "filtre à particules", "le symbole du pot d'échappement avec des points"
+
+Réponse type Tour 1 :
+"Pas de panique, un voyant FAP c'est souvent réparable. C'est quelle voiture ?"
+
+Réponse type après avoir la marque :
+"Ok, une [MARQUE]. Tu connais l'année et le kilométrage environ ?"
+
+Réponse type après avoir les infos :
+"D'accord. Sur une [MARQUE] [MODELE] à [KM] km, un voyant FAP c'est généralement un encrassement. Un nettoyage pro suffit souvent (99-149€ vs 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement."
+
+
+=== SCÉNARIO B : VOYANT NON IDENTIFIÉ ("je sais pas", "voyant orange", "moteur") ===
+Indices : "je sais pas", "un voyant", "voyant orange", "voyant moteur", "défaut moteur", "antipollution"
+
+IMPORTANT : Ne PAS diagnostiquer FAP si on ne sait pas quel voyant c'est !
+
+Réponse type :
+"Honnêtement, sans savoir quel voyant exactement, c'est difficile de dire si c'est lié au FAP. Le mieux serait de faire lire les codes défaut avec un outil diagnostic (valise OBD). Sinon, c'est quelle voiture ? Nos experts peuvent t'orienter."
+
+Si l'utilisateur n'a pas de valise OBD :
+"Pas de souci, beaucoup de centres auto font la lecture gratuite. Si tu penses que c'est peut-être le FAP, on peut t'aider à y voir plus clair. C'est quoi comme véhicule ?"
+
+
+=== SCÉNARIO C : SYMPTÔMES PHYSIQUES (perte puissance, fumée, à-coups) ===
+Indices : "perte de puissance", "moins de pêche", "fumée", "fume", "à-coups", "mode dégradé", "manque de puissance"
+
+Ces symptômes PEUVENT être liés au FAP, mais pas sûr à 100%.
+
+Réponse type Tour 1 :
+"Pas de panique, une perte de puissance ça peut venir de plusieurs choses, dont le FAP. C'est quelle voiture ?"
+
+Réponse type après marque :
+"Ok, une [MARQUE]. Elle a combien de km environ ? Et tu roules plutôt en ville ou autoroute ?"
+
+Réponse type avant closing :
+"Sur une [MARQUE] avec [KM] km et beaucoup de ville, c'est souvent un FAP encrassé. Mais sans diagnostic, on ne peut pas être sûr à 100%. Tu veux qu'un expert Re-FAP regarde ça avec toi ? C'est gratuit, et si c'est pas le FAP, on te le dira."
+
+
+=== SCÉNARIO D : UTILISATEUR TECHNIQUE (codes défaut, termes techniques) ===
+Indices : P2002, P2463, P242F, P2459, "régénération", "capteur différentiel", "cérine", "Eolys", "colmatage"
+
+Réponse type :
+"Ok, [CODE/TERME] c'est effectivement lié au FAP. C'est quoi comme véhicule et kilométrage ?"
+
+Closing adapté :
+"Avec un [CODE] sur ta [MARQUE] à [KM] km, c'est un cas classique. Un nettoyage pro peut souvent résoudre ça (99-149€). Tu veux qu'on regarde ton cas ?"
+
+
+=== SCÉNARIO E : QUESTIONS HORS DIAGNOSTIC ===
+
+"Vous faites l'EGR ?" →
+"Oui, on traite aussi l'EGR, c'est souvent lié au FAP. Tu as un souci en ce moment ?"
+
+"C'est combien ?" →
+"Le nettoyage pro c'est entre 99 et 149€ selon le niveau d'encrassement. Un remplacement c'est plutôt 1500€+. Tu as un souci sur ta voiture ?"
+
+"Vous êtes où ?" →
+"On a des partenaires partout en France. Dis-moi ta voiture et ton souci, on te trouve le plus proche."
+
+"La cérine / additif ?" →
+"Si ta voiture utilise de l'additif (Peugeot, Citroën, DS), on vérifie ça aussi. C'est quoi comme véhicule ?"
+
+"Quelles formules ?" →
+"On a deux formules : nettoyage standard (99€) et premium (149€) pour les cas plus avancés. Tu veux qu'on regarde ton cas ?"
+
+---
+
+CLOSING TYPE (à utiliser quand on a assez d'infos)
+
+Version courte (si peu d'infos ou incertitude) :
+"On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement."
+
+Version complète (si on a les infos ET certitude) :
+"Sur ta [MARQUE] [MODELE] à [KM] km, ça ressemble à un FAP encrassé. Un nettoyage pro peut suffire (99-149€ vs remplacement à 1500€+). Tu veux qu'un expert Re-FAP t'aide ? C'est gratuit et sans engagement."
+
+---
 
 INTERDITS ABSOLUS
-- Diagnostic définitif avant d'avoir assez d'éléments.
-- Résumés non demandés.
-- Réponses longues (plus de 3 phrases).
-- Ton professoral ou alarmiste.
-- Sujets hors automobile.
-- Conseils de suppression FAP ou reprogrammation.
-- Ne promets jamais de délai précis.
-- Ne demande pas le code postal (le formulaire s'en charge).
-- NE JAMAIS interpréter "FAP" autrement que comme Filtre à Particules.
+- Diagnostiquer "FAP" sans éléments concrets
+- Dire "ça ressemble à un problème de FAP" si l'utilisateur ne sait même pas quel voyant c'est
+- Closer sans avoir au moins la marque
+- Conseiller suppression FAP ou reprogrammation
+- Promettre un délai précis
+- Demander le code postal
 
-LONGUEUR
-2-3 phrases max. 1 question max.
+---
 
-OBJECTIF (4 tours max)
-- Tour 1 : identifier le symptôme principal + rassurer
-- Tour 2 : demander le véhicule (marque au minimum) SI pas encore connu
-- Tour 3 : question complémentaire OU closing si assez d'infos
-- Tour 4 : closing avec argument prix
-
-COLLECTE OBLIGATOIRE (avant closing)
-Tu DOIS avoir au minimum :
-1. Le symptôme (voyant, perte puissance, fumée, etc.)
-2. Le véhicule (au moins la marque)
-
-Si tu n'as pas le véhicule après avoir identifié le symptôme, demande-le :
-→ "C'est quelle voiture ?" ou "Tu roules en quoi ?"
-
-QUESTIONS BONUS (si l'occasion se présente, pas obligatoire)
-- Kilométrage approximatif : "Elle a combien de km environ ?"
-- Type trajets : "Tu roules plutôt en ville ou autoroute ?"
-
-RÉPONSES AUX QUESTIONS FRÉQUENTES
-Réponds naturellement à ces questions courantes SANS ignorer la question :
-
-Q: "Vous faites aussi l'EGR / vanne EGR ?"
-R: "Oui, on traite aussi l'EGR, c'est souvent lié au FAP. Tu as un souci en ce moment ?"
-
-Q: "C'est combien ?" / "Quels sont les tarifs ?" / "Quel prix ?"
-R: "Le nettoyage pro c'est entre 99 et 149€ selon le niveau d'encrassement. Bien moins cher qu'un remplacement à 1500€+."
-
-Q: "Vous êtes où ?" / "Quel garage ?" / "C'est où ?"
-R: "On a des partenaires partout en France. Dis-moi ta voiture et ton souci, on te trouve le plus proche."
-
-Q: "La cérine ?" / "L'additif ?" / "L'Eolys ?" / "La poche de cérine ?"
-R: "Si ta voiture utilise de l'additif (Peugeot, Citroën, DS), on vérifie ça aussi lors du diagnostic."
-
-Q: "Comment ça marche ?" / "C'est quoi le process ?"
-R: "Un expert analyse ton cas, te conseille, et si besoin te met en contact avec un pro près de chez toi. Gratuit et sans engagement."
-
-Q: "Quelles sont les formules ?" / "Les différentes options ?"
-R: "On a deux formules : nettoyage standard (99€) pour encrassement léger, et premium (149€) pour les cas plus avancés."
-
-DÉTECTION DU NIVEAU TECHNIQUE
-Si l'utilisateur mentionne : cérine, Eolys, P2002, P2463, régénération, capteur différentiel, mode dégradé forcé, valise OBD, code défaut...
-→ C'est un utilisateur technique, tu peux être légèrement plus précis
-→ Sinon, reste simple et rassurant
-
-ARGUMENTS DE CLOSING
-- "Gratuit et sans engagement"
-- "Un expert Re-FAP analyse ta situation"
-- "On te rappelle rapidement"
-- "Nettoyage pro = 99-149€ vs remplacement 1500€+"
-- "On a des partenaires partout en France"
-
-DATA (ajouter à CHAQUE réponse, sur une seule ligne à la fin)
-DATA: {"symptome":"<voyant_fap|perte_puissance|fumee|mode_degrade|acoups|bruit|autre|inconnu>","codes":[],"marque":"<string|null>","modele":"<string|null>","kilometrage":"<moins_50k|50k_100k|100k_150k|plus_150k|inconnu>","urgence":"<basse|moyenne|haute>","intention":"<diagnostic|devis|rdv|question|inconnu>","next_best_action":"<poser_question|demander_vehicule|proposer_devis|clore>"}`;
+DATA (à la fin de chaque réponse, sur une seule ligne)
+DATA: {"symptome":"<voyant_fap|voyant_inconnu|perte_puissance|fumee|mode_degrade|code_obd|autre|inconnu>","codes":[],"marque":"<string|null>","modele":"<string|null>","annee":"<string|null>","kilometrage":"<string|null>","type_trajets":"<ville|autoroute|mixte|inconnu>","certitude_fap":"<haute|moyenne|basse|inconnue>","intention":"<diagnostic|devis|rdv|question|inconnu>","next_best_action":"<poser_question|demander_vehicule|demander_details|proposer_devis|clore>"}`;
 
 // ============================================================
-// SUPABASE - Variables
+// SUPABASE
 // ============================================================
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function getSupabase() {
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("❌ Variables Supabase manquantes:", { url: !!supabaseUrl, key: !!supabaseServiceKey });
+    console.error("❌ Variables Supabase manquantes");
     return null;
   }
   return createClient(supabaseUrl, supabaseServiceKey);
@@ -133,15 +159,17 @@ const ALLOWED_ORIGINS = [
 ];
 
 // ============================================================
-// DEFAULT DATA - VERSION 5.0
+// DEFAULT DATA - VERSION 5.1
 // ============================================================
 const DEFAULT_DATA = {
   symptome: "inconnu",
   codes: [],
   marque: null,
   modele: null,
-  kilometrage: "inconnu",
-  urgence: "inconnue",
+  annee: null,
+  kilometrage: null,
+  type_trajets: "inconnu",
+  certitude_fap: "inconnue",
   intention: "inconnu",
   next_best_action: "poser_question",
 };
@@ -156,17 +184,12 @@ function normalizeDataPosition(reply) {
 
 function cleanReplyForUI(fullReply) {
   if (!fullReply) return "";
-  
   let text = String(fullReply);
-  
   const dataIndex = text.indexOf("DATA:");
   if (dataIndex !== -1) {
     text = text.substring(0, dataIndex);
   }
-  
-  text = text.trim();
-  
-  return text;
+  return text.trim();
 }
 
 function extractDataFromReply(fullReply) {
@@ -181,8 +204,10 @@ function extractDataFromReply(fullReply) {
         codes: parsed.codes || [],
         marque: parsed.marque || null,
         modele: parsed.modele || null,
-        kilometrage: parsed.kilometrage || "inconnu",
-        urgence: parsed.urgence || "inconnue",
+        annee: parsed.annee || null,
+        kilometrage: parsed.kilometrage || null,
+        type_trajets: parsed.type_trajets || "inconnu",
+        certitude_fap: parsed.certitude_fap || "inconnue",
         intention: parsed.intention || "inconnu",
         next_best_action: parsed.next_best_action || "poser_question",
       };
@@ -223,7 +248,7 @@ function lastAssistantAskedClosingQuestion(history) {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("expert re-fap analyse") || content.includes("gratuit et sans engagement") || content.includes("qu'un expert")) {
+      if (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement"))) {
         return true;
       }
       return false;
@@ -237,7 +262,7 @@ function lastAssistantAskedVehicle(history) {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("quelle voiture") || content.includes("roules en quoi") || content.includes("comme véhicule")) {
+      if (content.includes("quelle voiture") || content.includes("roules en quoi") || content.includes("comme véhicule") || content.includes("quoi comme voiture")) {
         return true;
       }
       return false;
@@ -252,7 +277,7 @@ function countUserTurns(history) {
 }
 
 // ============================================================
-// HELPERS : Véhicule Detection (NOUVEAU v5)
+// HELPERS : Véhicule Detection
 // ============================================================
 function extractVehicleFromMessage(text) {
   const t = String(text || "").toLowerCase();
@@ -302,55 +327,50 @@ function extractVehicleFromMessage(text) {
 }
 
 // ============================================================
-// HELPERS : Closing Detection (MODIFIÉ v5)
+// HELPERS : Closing Detection
 // ============================================================
 function hasEnoughToClose(extracted) {
   if (!extracted) return false;
-  
   const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
   const hasMarque = extracted.marque && extracted.marque !== null;
-  
   return Boolean(hasSymptome && hasMarque);
 }
 
-function hasSymptomeButNoVehicle(extracted) {
-  if (!extracted) return false;
-  const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
-  const hasMarque = extracted.marque && extracted.marque !== null;
-  return hasSymptome && !hasMarque;
-}
-
 // ============================================================
-// MESSAGE CLOSING (version 5.0)
+// MESSAGE CLOSING
 // ============================================================
 function buildClosingQuestion(extracted) {
-  const symptome = extracted?.symptome || "inconnu";
   const marque = extracted?.marque;
   const modele = extracted?.modele;
+  const kilometrage = extracted?.kilometrage;
+  const certitude = extracted?.certitude_fap;
   
   let vehicleInfo = "";
   if (marque) {
-    vehicleInfo = modele ? ` pour ta ${marque} ${modele}` : ` pour ta ${marque}`;
+    vehicleInfo = modele ? `ta ${marque} ${modele}` : `ta ${marque}`;
+    if (kilometrage) {
+      vehicleInfo += ` à ${kilometrage}`;
+    }
   }
   
-  const hints = {
-    voyant_fap: "un souci de FAP",
-    perte_puissance: "un FAP probablement encrassé",
-    mode_degrade: "un FAP saturé",
-    fumee: "un problème de combustion lié au FAP",
-    acoups: "un encrassement du FAP",
-    bruit: "un souci lié au FAP",
-    autre: "un souci lié au FAP",
-  };
-  const hint = hints[symptome] || "un souci lié au FAP";
-
   const data = {
     ...(extracted || DEFAULT_DATA),
     intention: "diagnostic",
     next_best_action: "proposer_devis",
   };
 
-  const replyClean = `D'après ce que tu décris, ça ressemble à ${hint}. Bonne nouvelle : un nettoyage pro suffit souvent (99-149€ au lieu de 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP analyse ta situation${vehicleInfo} ? C'est gratuit et sans engagement.`;
+  let replyClean;
+  
+  if (certitude === "haute" && vehicleInfo) {
+    // Closing confiant avec infos
+    replyClean = `Sur ${vehicleInfo}, ça ressemble à un FAP encrassé. Un nettoyage pro peut suffire (99-149€ vs 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement.`;
+  } else if (vehicleInfo) {
+    // Closing avec véhicule mais incertitude
+    replyClean = `On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation pour ${vehicleInfo} ? C'est gratuit et sans engagement.`;
+  } else {
+    // Closing minimal
+    replyClean = `On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement.`;
+  }
   
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
@@ -358,7 +378,7 @@ function buildClosingQuestion(extracted) {
 }
 
 // ============================================================
-// MESSAGE DEMANDE VÉHICULE (NOUVEAU v5)
+// MESSAGE DEMANDE VÉHICULE
 // ============================================================
 function buildVehicleQuestion(extracted) {
   const data = {
@@ -367,11 +387,27 @@ function buildVehicleQuestion(extracted) {
   };
 
   const variants = [
-    "D'accord, je comprends. C'est quelle voiture ?",
-    "Ok, on va regarder ça. Tu roules en quoi ?",
+    "D'accord. C'est quelle voiture ?",
+    "Ok, je comprends. Tu roules en quoi ?",
     "Compris. C'est quoi comme véhicule ?",
   ];
   const replyClean = variants[Math.floor(Math.random() * variants.length)];
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================================
+// MESSAGE DEMANDE DÉTAILS (année/km)
+// ============================================================
+function buildDetailsQuestion(extracted) {
+  const marque = extracted?.marque || "ta voiture";
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    next_best_action: "demander_details",
+  };
+
+  const replyClean = `Ok, une ${marque}. Tu connais l'année et le kilométrage environ ?`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
   return { replyClean, replyFull, extracted: data };
@@ -409,7 +445,7 @@ function buildDeclinedResponse(extracted) {
 }
 
 // ============================================================
-// AUTH : Cookie signé
+// AUTH
 // ============================================================
 function getCookie(req, name) {
   const cookieHeader = req.headers.cookie || "";
@@ -427,7 +463,7 @@ function verifySignedCookie(value, secret) {
 }
 
 // ============================================================
-// HELPER : Récupérer la dernière DATA extraite de l'historique
+// HELPER : Récupérer la dernière DATA extraite
 // ============================================================
 function extractLastExtractedData(history) {
   if (!Array.isArray(history)) return { ...DEFAULT_DATA };
@@ -442,7 +478,7 @@ function extractLastExtractedData(history) {
 }
 
 // ============================================================
-// HELPER : Merge les données extraites (NOUVEAU v5)
+// HELPER : Merge les données extraites
 // ============================================================
 function mergeExtractedData(previous, current, userMessage) {
   const merged = { ...DEFAULT_DATA };
@@ -451,11 +487,14 @@ function mergeExtractedData(previous, current, userMessage) {
   merged.codes = (current?.codes?.length > 0) ? current.codes : previous?.codes || [];
   merged.marque = current?.marque || previous?.marque || null;
   merged.modele = current?.modele || previous?.modele || null;
-  merged.kilometrage = (current?.kilometrage && current.kilometrage !== "inconnu") ? current.kilometrage : previous?.kilometrage || "inconnu";
-  merged.urgence = (current?.urgence && current.urgence !== "inconnue") ? current.urgence : previous?.urgence || "inconnue";
+  merged.annee = current?.annee || previous?.annee || null;
+  merged.kilometrage = current?.kilometrage || previous?.kilometrage || null;
+  merged.type_trajets = (current?.type_trajets && current.type_trajets !== "inconnu") ? current.type_trajets : previous?.type_trajets || "inconnu";
+  merged.certitude_fap = (current?.certitude_fap && current.certitude_fap !== "inconnue") ? current.certitude_fap : previous?.certitude_fap || "inconnue";
   merged.intention = (current?.intention && current.intention !== "inconnu") ? current.intention : previous?.intention || "inconnu";
   merged.next_best_action = current?.next_best_action || "poser_question";
   
+  // Extraire marque du message user
   if (!merged.marque) {
     const detectedMarque = extractVehicleFromMessage(userMessage);
     if (detectedMarque) {
@@ -606,10 +645,9 @@ export default async function handler(req, res) {
     const userTurns = countUserTurns(history) + 1;
 
     // --------------------------------------------------------
-    // OVERRIDE 4 : Tour 3+ sans véhicule → FORCER la question véhicule
-    // C'est CRITIQUE : on ne veut JAMAIS closer sans le véhicule
+    // OVERRIDE 4 : Tour 4+ sans véhicule → FORCER la question véhicule
     // --------------------------------------------------------
-    if (userTurns >= 3 && !lastExtracted.marque && !lastAssistantAskedVehicle(history) && !lastAssistantAskedClosingQuestion(history)) {
+    if (userTurns >= 4 && !lastExtracted.marque && !lastAssistantAskedVehicle(history) && !lastAssistantAskedClosingQuestion(history)) {
       const vehicleQ = buildVehicleQuestion(lastExtracted);
 
       await supabase.from("messages").insert({
@@ -628,7 +666,7 @@ export default async function handler(req, res) {
     }
     
     // --------------------------------------------------------
-    // OVERRIDE 5 : Trop de tours → closing forcé (mais seulement si on a le véhicule)
+    // OVERRIDE 5 : Tour 5+ avec véhicule → closing forcé
     // --------------------------------------------------------
     if (userTurns >= MAX_USER_TURNS && lastExtracted.marque && !lastAssistantAskedClosingQuestion(history)) {
       const closing = buildClosingQuestion(lastExtracted);
@@ -673,7 +711,7 @@ export default async function handler(req, res) {
         model: process.env.MISTRAL_MODEL || "mistral-small-latest",
         messages: messagesForMistral,
         temperature: 0.4,
-        max_tokens: 200,
+        max_tokens: 250,
       }),
     });
 
@@ -708,31 +746,9 @@ export default async function handler(req, res) {
     replyFull = `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`;
 
     // --------------------------------------------------------
-    // AUTO-CLOSE si symptôme + véhicule
-    // SÉCURITÉ : on ne close JAMAIS sans le véhicule !
+    // SÉCURITÉ : Si le LLM génère un closing mais sans véhicule → bloquer
     // --------------------------------------------------------
-    if (hasEnoughToClose(extracted) && !lastAssistantAskedClosingQuestion(history)) {
-      const closing = buildClosingQuestion(extracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: closing.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: closing.replyClean,
-        reply_full: closing.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: closing.extracted,
-      });
-    }
-
-    // --------------------------------------------------------
-    // SÉCURITÉ : Si le LLM a généré un closing mais sans véhicule → forcer question véhicule
-    // --------------------------------------------------------
-    const looksLikeClosing = replyClean.toLowerCase().includes("expert re-fap") || replyClean.toLowerCase().includes("gratuit et sans engagement");
+    const looksLikeClosing = replyClean.toLowerCase().includes("expert re-fap") && (replyClean.toLowerCase().includes("gratuit") || replyClean.toLowerCase().includes("sans engagement"));
     if (looksLikeClosing && !extracted.marque) {
       const vehicleQ = buildVehicleQuestion(extracted);
 
@@ -748,6 +764,27 @@ export default async function handler(req, res) {
         session_id,
         conversation_id: conversationId,
         extracted_data: vehicleQ.extracted,
+      });
+    }
+
+    // --------------------------------------------------------
+    // AUTO-CLOSE si symptôme + véhicule + assez de tours
+    // --------------------------------------------------------
+    if (hasEnoughToClose(extracted) && userTurns >= 3 && !lastAssistantAskedClosingQuestion(history)) {
+      const closing = buildClosingQuestion(extracted);
+
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: closing.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: closing.replyClean,
+        reply_full: closing.replyFull,
+        session_id,
+        conversation_id: conversationId,
+        extracted_data: closing.extracted,
       });
     }
 
