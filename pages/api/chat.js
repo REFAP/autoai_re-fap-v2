@@ -48,7 +48,7 @@ Réponse type Tour 1 :
 "Pas de panique, un voyant FAP c'est souvent réparable. C'est quelle voiture ?"
 
 Réponse type après avoir la marque :
-"Ok, une [MARQUE]. Tu connais l'année et le kilométrage environ ?"
+"Ok, une [MARQUE]. Tu peux me dire le moteur, l'année et le kilométrage environ ?"
 
 Réponse type après avoir les infos :
 "D'accord. Sur une [MARQUE] [MODELE] à [KM] km, un voyant FAP c'est généralement un encrassement. Un nettoyage pro suffit souvent (99-149€ vs 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement."
@@ -928,3 +928,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
