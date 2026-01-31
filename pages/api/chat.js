@@ -271,6 +271,28 @@ function lastAssistantAskedVehicle(history) {
   return false;
 }
 
+function lastAssistantAskedDetails(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("année") || content.includes("kilométrage") || content.includes("combien de km")) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+function hasVehicleButNoDetails(extracted) {
+  if (!extracted) return false;
+  const hasMarque = extracted.marque && extracted.marque !== null;
+  const hasAnnee = extracted.annee && extracted.annee !== null;
+  const hasKm = extracted.kilometrage && extracted.kilometrage !== null;
+  return hasMarque && !hasAnnee && !hasKm;
+}
+
 function countUserTurns(history) {
   if (!Array.isArray(history)) return 0;
   return history.filter((m) => m?.role === "user").length;
@@ -326,14 +348,58 @@ function extractVehicleFromMessage(text) {
   return null;
 }
 
+// Extraire l'année depuis le message (ex: "2019", "de 2018")
+function extractYearFromMessage(text) {
+  const t = String(text || "");
+  // Chercher un nombre à 4 chiffres commençant par 19 ou 20
+  const match = t.match(/\b(19[89]\d|20[0-2]\d)\b/);
+  if (match) {
+    return match[1];
+  }
+  return null;
+}
+
+// Extraire le kilométrage depuis le message (ex: "130000km", "120 000 km", "150k")
+function extractKmFromMessage(text) {
+  const t = String(text || "").toLowerCase().replace(/\s/g, "");
+  
+  // Format: 130000km, 130000, 130 000 km
+  let match = t.match(/(\d{2,3})[\s]?000[\s]?k?m?/);
+  if (match) {
+    return match[1] + "000 km";
+  }
+  
+  // Format: 130k, 150k km
+  match = t.match(/(\d{2,3})k/);
+  if (match) {
+    return match[1] + "000 km";
+  }
+  
+  // Format: nombre seul > 10000 (probablement des km)
+  match = t.match(/\b(\d{5,6})\b/);
+  if (match) {
+    return match[1] + " km";
+  }
+  
+  return null;
+}
+
 // ============================================================
 // HELPERS : Closing Detection
 // ============================================================
-function hasEnoughToClose(extracted) {
+function hasEnoughToClose(extracted, history) {
   if (!extracted) return false;
   const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
   const hasMarque = extracted.marque && extracted.marque !== null;
-  return Boolean(hasSymptome && hasMarque);
+  const hasDetails = (extracted.annee && extracted.annee !== null) || (extracted.kilometrage && extracted.kilometrage !== null);
+  
+  // Idéal : symptôme + marque + détails
+  if (hasSymptome && hasMarque && hasDetails) return true;
+  
+  // Acceptable : symptôme + marque, et on a déjà demandé les détails (même si pas de réponse)
+  if (hasSymptome && hasMarque && lastAssistantAskedDetails(history)) return true;
+  
+  return false;
 }
 
 // ============================================================
@@ -342,15 +408,17 @@ function hasEnoughToClose(extracted) {
 function buildClosingQuestion(extracted) {
   const marque = extracted?.marque;
   const modele = extracted?.modele;
+  const annee = extracted?.annee;
   const kilometrage = extracted?.kilometrage;
   const certitude = extracted?.certitude_fap;
   
+  // Construire la description du véhicule
   let vehicleInfo = "";
   if (marque) {
-    vehicleInfo = modele ? `ta ${marque} ${modele}` : `ta ${marque}`;
-    if (kilometrage) {
-      vehicleInfo += ` à ${kilometrage}`;
-    }
+    vehicleInfo = `ta ${marque}`;
+    if (modele) vehicleInfo += ` ${modele}`;
+    if (annee) vehicleInfo += ` de ${annee}`;
+    if (kilometrage) vehicleInfo += ` à ${kilometrage}`;
   }
   
   const data = {
@@ -362,10 +430,13 @@ function buildClosingQuestion(extracted) {
   let replyClean;
   
   if (certitude === "haute" && vehicleInfo) {
-    // Closing confiant avec infos
-    replyClean = `Sur ${vehicleInfo}, ça ressemble à un FAP encrassé. Un nettoyage pro peut suffire (99-149€ vs 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement.`;
+    // Closing confiant avec infos complètes
+    replyClean = `Sur ${vehicleInfo}, ça ressemble à un FAP encrassé. Un nettoyage pro peut suffire (99-149€ vs 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP t'aide ? C'est gratuit et sans engagement.`;
+  } else if (vehicleInfo && (annee || kilometrage)) {
+    // Closing avec véhicule + détails mais incertitude
+    replyClean = `On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation pour ${vehicleInfo} ? C'est gratuit et sans engagement.`;
   } else if (vehicleInfo) {
-    // Closing avec véhicule mais incertitude
+    // Closing avec véhicule seul
     replyClean = `On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation pour ${vehicleInfo} ? C'est gratuit et sans engagement.`;
   } else {
     // Closing minimal
@@ -502,6 +573,22 @@ function mergeExtractedData(previous, current, userMessage) {
     }
   }
   
+  // Extraire année du message user
+  if (!merged.annee) {
+    const detectedYear = extractYearFromMessage(userMessage);
+    if (detectedYear) {
+      merged.annee = detectedYear;
+    }
+  }
+  
+  // Extraire km du message user
+  if (!merged.kilometrage) {
+    const detectedKm = extractKmFromMessage(userMessage);
+    if (detectedKm) {
+      merged.kilometrage = detectedKm;
+    }
+  }
+  
   return merged;
 }
 
@@ -571,10 +658,20 @@ export default async function handler(req, res) {
     // Récupérer les données précédentes
     let lastExtracted = extractLastExtractedData(history);
     
-    // Détecter la marque dans le message actuel
+    // Détecter la marque, année, km dans le message actuel
     const detectedMarque = extractVehicleFromMessage(message);
     if (detectedMarque && !lastExtracted.marque) {
       lastExtracted = { ...lastExtracted, marque: detectedMarque };
+    }
+    
+    const detectedYear = extractYearFromMessage(message);
+    if (detectedYear && !lastExtracted.annee) {
+      lastExtracted = { ...lastExtracted, annee: detectedYear };
+    }
+    
+    const detectedKm = extractKmFromMessage(message);
+    if (detectedKm && !lastExtracted.kilometrage) {
+      lastExtracted = { ...lastExtracted, kilometrage: detectedKm };
     }
 
     // --------------------------------------------------------
@@ -662,6 +759,27 @@ export default async function handler(req, res) {
         session_id,
         conversation_id: conversationId,
         extracted_data: vehicleQ.extracted,
+      });
+    }
+
+    // --------------------------------------------------------
+    // OVERRIDE 4b : On a la marque mais pas les détails → demander année/km
+    // --------------------------------------------------------
+    if (lastExtracted.marque && hasVehicleButNoDetails(lastExtracted) && !lastAssistantAskedDetails(history) && !lastAssistantAskedClosingQuestion(history)) {
+      const detailsQ = buildDetailsQuestion(lastExtracted);
+
+      await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        content: detailsQ.replyFull,
+      });
+
+      return res.status(200).json({
+        reply: detailsQ.replyClean,
+        reply_full: detailsQ.replyFull,
+        session_id,
+        conversation_id: conversationId,
+        extracted_data: detailsQ.extracted,
       });
     }
     
@@ -770,7 +888,7 @@ export default async function handler(req, res) {
     // --------------------------------------------------------
     // AUTO-CLOSE si symptôme + véhicule + assez de tours
     // --------------------------------------------------------
-    if (hasEnoughToClose(extracted) && userTurns >= 3 && !lastAssistantAskedClosingQuestion(history)) {
+    if (hasEnoughToClose(extracted, history) && userTurns >= 3 && !lastAssistantAskedClosingQuestion(history)) {
       const closing = buildClosingQuestion(extracted);
 
       await supabase.from("messages").insert({
