@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 5.0 - Quick replies véhicules enrichis
+// VERSION 5.1 - Quick replies véhicules enrichis + UTM propagation
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -20,6 +20,18 @@ function cleanMessageForDisplay(content) {
 
 function generateSessionId() {
   return "session_" + Date.now() + "_" + Math.random().toString(36).substring(2, 11);
+}
+
+function getTrackingParams() {
+  if (typeof window === 'undefined') return '';
+  var params = new URLSearchParams(window.location.search);
+  var keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'];
+  var parts = [];
+  keys.forEach(function(key) {
+    var val = params.get(key);
+    if (val) parts.push(key + '=' + encodeURIComponent(val));
+  });
+  return parts.join('&');
 }
 
 // ============================================================
@@ -294,9 +306,19 @@ export default function Home() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // HANDLE ACTION : Afficher carte CTA après délai
+      // HANDLE ACTION : Afficher carte CTA après délai + propager UTM/fbclid
       if (data.action?.type === "OPEN_FORM" && data.action?.url) {
-        setFormUrl(data.action.url);
+        var tracking = getTrackingParams();
+        var url = data.action.url;
+        if (tracking) {
+          var hashIdx = url.indexOf('#');
+          if (hashIdx !== -1) {
+            url = url.substring(0, hashIdx) + (url.substring(0, hashIdx).indexOf('?') !== -1 ? '&' : '?') + tracking + url.substring(hashIdx);
+          } else {
+            url = url + (url.indexOf('?') !== -1 ? '&' : '?') + tracking;
+          }
+        }
+        setFormUrl(url);
         setTimeout(() => setShowFormCTA(true), 1200);
       }
 
