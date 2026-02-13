@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 5.1 - Quick replies véhicules enrichis + UTM propagation
+// VERSION 6.0 - Dynamic suggested_replies from backend + static fallback + UTM propagation
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -35,7 +35,8 @@ function getTrackingParams() {
 }
 
 // ============================================================
-// QUICK REPLIES CONFIG - VERSION 5.0 (marques étendues)
+// QUICK REPLIES CONFIG — FALLBACK STATIQUE
+// Utilisé uniquement quand le backend n'envoie pas de suggested_replies
 // ============================================================
 const QUICK_REPLIES_CONFIG = {
   initial: [
@@ -54,12 +55,12 @@ const QUICK_REPLIES_CONFIG = {
     { label: "Autre", value: "Autre marque" },
   ],
   closing: [
-    { label: "Oui, je veux être aidé", value: "Oui" },
-    { label: "Plus tard", value: "Non merci, plus tard" },
+    { label: "✅ Oui, rappelez-moi", value: "oui je veux être rappelé" },
+    { label: "Non merci", value: "non merci" },
   ],
 };
 
-function getQuickRepliesForContext(messages, showFormCTA) {
+function getStaticQuickReplies(messages, showFormCTA) {
   if (showFormCTA) return null;
   
   if (messages.length === 0) {
@@ -72,11 +73,11 @@ function getQuickRepliesForContext(messages, showFormCTA) {
   const content = (lastAssistant.raw || lastAssistant.content || "").toLowerCase();
   
   // Détection closing
-  if (content.includes("expert re-fap analyse") || content.includes("gratuit et sans engagement")) {
+  if (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement") || content.includes("te rappelle") || content.includes("qu'on te rappelle"))) {
     return QUICK_REPLIES_CONFIG.closing;
   }
   
-  // Détection demande véhicule (enrichi)
+  // Détection demande véhicule
   if (
     content.includes("quelle voiture") || 
     content.includes("quel véhicule") || 
@@ -239,6 +240,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [showFormCTA, setShowFormCTA] = useState(false);
   const [formUrl, setFormUrl] = useState("");
+  const [dynamicReplies, setDynamicReplies] = useState(null); // suggested_replies du backend
   const messagesEndRef = useRef(null);
 
   // Init session + bootstrap cookie
@@ -267,6 +269,7 @@ export default function Home() {
     setInput("");
     setError(null);
     setShowFormCTA(false);
+    setDynamicReplies(null); // Clear les boutons dès que l'user envoie un message
 
     const newUserMessage = { role: "user", content: userMessage };
     setMessages((prev) => [...prev, newUserMessage]);
@@ -305,6 +308,13 @@ export default function Home() {
         raw: data.reply_full,
       };
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // SUGGESTED REPLIES du backend (prioritaire sur les statiques)
+      if (data.suggested_replies && Array.isArray(data.suggested_replies) && data.suggested_replies.length > 0) {
+        setDynamicReplies(data.suggested_replies);
+      } else {
+        setDynamicReplies(null);
+      }
 
       // HANDLE ACTION : Afficher carte CTA après délai + propager UTM/fbclid
       if (data.action?.type === "OPEN_FORM" && data.action?.url) {
@@ -349,10 +359,13 @@ export default function Home() {
     setMessages([]);
     setError(null);
     setShowFormCTA(false);
+    setDynamicReplies(null);
   };
 
-  // Quick replies
-  const quickReplies = !isLoading ? getQuickRepliesForContext(messages, showFormCTA) : null;
+  // Quick replies : backend dynamiques > fallback statiques
+  const quickReplies = isLoading ? null
+    : showFormCTA ? null
+    : dynamicReplies || getStaticQuickReplies(messages, showFormCTA);
 
   // --------------------------------------------------------
   // RENDER
@@ -426,7 +439,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* QUICK REPLIES */}
+          {/* QUICK REPLIES — dynamiques (backend) ou statiques (fallback) */}
           {quickReplies && !isLoading && (
             <div className="quick-replies">
               {quickReplies.map((qr, idx) => (
