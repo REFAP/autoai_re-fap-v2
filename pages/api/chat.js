@@ -89,6 +89,7 @@ const DEFAULT_DATA = {
   intention: "inconnu",
   previous_attempts: null,
   roulable: null,
+  demontage: null,
   next_best_action: "poser_question",
 };
 
@@ -318,7 +319,8 @@ function lastAssistantAskedClosingQuestion(history) {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
       if (
         (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement") || content.includes("te rappelle"))) ||
-        (content.includes("qu'on te rappelle") && content.includes("organiser"))
+        (content.includes("qu'on te rappelle")) ||
+        (content.includes("tu veux qu'un expert"))
       ) {
         return true;
       }
@@ -373,13 +375,50 @@ function lastAssistantAskedCity(history) {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("quel coin") || content.includes("quelle ville") || content.includes("où tu habites") || content.includes("près de chez toi")) {
+      if (content.includes("quel coin") || content.includes("quelle ville") || content.includes("où tu habites") || content.includes("près de chez toi") || content.includes("carter-cash le plus proche")) {
         return true;
       }
       return false;
     }
   }
   return false;
+}
+
+function lastAssistantAskedDemontage(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("démonté du véhicule") && content.includes("garage s'en occupe")) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+function everAskedDemontage(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("démonté du véhicule") && content.includes("garage s'en occupe")) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function userSaysSelfRemoval(msg) {
+  const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /je (le )?demonte|moi[- ]?meme|je m.?en occupe|je peux (le )?demonte|je (le )?fais|j.?ai (un )?pont|j.?ai les outils|deja demonte|fap (est )?demonte|il est demonte|c.?est demonte/.test(t);
+}
+
+function userNeedsGarage(msg) {
+  const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /garage|j.?ai besoin|je (ne )?peux pas|pas (les )?outils|pas de pont|je sais pas demonte|faut un pro|un professionnel|prise en charge|tout faire|s.?en occupe/.test(t);
 }
 
 function everAskedCity(history) {
@@ -400,7 +439,7 @@ function everGaveExpertOrientation(history) {
   for (let i = 0; i < history.length; i++) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("cendres métalliques") || content.includes("en machine") || content.includes("carter-cash équipé")) {
+      if (content.includes("cendres métalliques") || content.includes("en machine") || content.includes("démonté du véhicule") || content.includes("carter-cash équipé")) {
         return true;
       }
     }
@@ -602,6 +641,7 @@ function mergeExtractedData(previous, current, userMessage, quickData) {
   merged.previous_attempts = current?.previous_attempts || (quickData?.previous_attempts?.length > 0 ? quickData.previous_attempts.join(", ") : null) || previous?.previous_attempts || null;
   merged.roulable = current?.roulable ?? previous?.roulable ?? null;
   merged.next_best_action = current?.next_best_action || "poser_question";
+  merged.demontage = current?.demontage || previous?.demontage || null;
 
   // Si quickExtract a trouvé une marque que Mistral n'a pas vue
   if (!merged.marque) {
@@ -895,8 +935,208 @@ function buildSnippetResponse(quickData, extracted, metier) {
 }
 
 // --- CLOSING (avec prix de la BDD) ---
-// --- EXPLICATION EXPERT + DEMANDE VILLE (remplace l'ancien closing commercial) ---
-// Tour "après déjà essayé" : on explique POURQUOI, on donne les options, on demande la ville
+// ============================================
+// CARTER-CASH DATABASE (94 magasins)
+// ============================================
+const CARTER_CASH_LIST = [
+  // EQUIPPED (4 machines)
+  {name:"Carter-Cash Thiais",city:"Thiais",postal:"94320",dept:"94",equipped:true},
+  {name:"Carter-Cash Sarcelles",city:"Sarcelles",postal:"95200",dept:"95",equipped:true},
+  {name:"Carter-Cash Lambres-lez-Douai",city:"Lambres-lez-Douai",postal:"59552",dept:"59",equipped:true},
+  {name:"Carter-Cash Villeneuve-d'Ascq",city:"Villeneuve-d'Ascq",postal:"59650",dept:"59",equipped:true},
+  // DEPOT (90)
+  {name:"Carter-Cash Viriat",city:"Viriat",postal:"01440",dept:"01",equipped:false},
+  {name:"Carter-Cash Barberey-Saint-Sulpice",city:"Barberey-Saint-Sulpice",postal:"10600",dept:"10",equipped:false},
+  {name:"Carter-Cash Narbonne",city:"Narbonne",postal:"11100",dept:"11",equipped:false},
+  {name:"Carter-Cash Marseille La Valentine",city:"Marseille",postal:"13011",dept:"13",equipped:false},
+  {name:"Carter-Cash Marseille",city:"Marseille",postal:"13014",dept:"13",equipped:false},
+  {name:"Carter-Cash Les Pennes-Mirabeau",city:"Les Pennes-Mirabeau",postal:"13170",dept:"13",equipped:false},
+  {name:"Carter-Cash Saint-Mitre-les-Remparts",city:"Saint-Mitre-les-Remparts",postal:"13920",dept:"13",equipped:false},
+  {name:"Carter-Cash Mondeville",city:"Mondeville",postal:"14120",dept:"14",equipped:false},
+  {name:"Carter-Cash Champniers",city:"Champniers",postal:"16430",dept:"16",equipped:false},
+  {name:"Carter-Cash Saint-Germain-du-Puy",city:"Saint-Germain-du-Puy",postal:"18390",dept:"18",equipped:false},
+  {name:"Carter-Cash Quetigny",city:"Quetigny",postal:"21800",dept:"21",equipped:false},
+  {name:"Carter-Cash Tregueux",city:"Tregueux",postal:"22950",dept:"22",equipped:false},
+  {name:"Carter-Cash Bethoncourt",city:"Bethoncourt",postal:"25200",dept:"25",equipped:false},
+  {name:"Carter-Cash Chalezeule",city:"Chalezeule",postal:"25220",dept:"25",equipped:false},
+  {name:"Carter-Cash Valence",city:"Valence",postal:"26000",dept:"26",equipped:false},
+  {name:"Carter-Cash Evreux",city:"Evreux",postal:"27000",dept:"27",equipped:false},
+  {name:"Carter-Cash Quimper",city:"Quimper",postal:"29000",dept:"29",equipped:false},
+  {name:"Carter-Cash Brest",city:"Brest",postal:"29200",dept:"29",equipped:false},
+  {name:"Carter-Cash Nimes",city:"Nimes",postal:"30000",dept:"30",equipped:false},
+  {name:"Carter-Cash Ales",city:"Ales",postal:"30100",dept:"30",equipped:false},
+  {name:"Carter-Cash Portet-sur-Garonne",city:"Portet-sur-Garonne",postal:"31120",dept:"31",equipped:false},
+  {name:"Carter-Cash Aucamville",city:"Aucamville",postal:"31140",dept:"31",equipped:false},
+  {name:"Carter-Cash L'Union",city:"L'Union",postal:"31240",dept:"31",equipped:false},
+  {name:"Carter-Cash Toulouse",city:"Toulouse",postal:"31300",dept:"31",equipped:false},
+  {name:"Carter-Cash Le Haillan",city:"Le Haillan",postal:"33185",dept:"33",equipped:false},
+  {name:"Carter-Cash Artigues-pres-Bordeaux",city:"Artigues-pres-Bordeaux",postal:"33370",dept:"33",equipped:false},
+  {name:"Carter-Cash Mauguio",city:"Mauguio",postal:"34130",dept:"34",equipped:false},
+  {name:"Carter-Cash Castelnau-le-Lez",city:"Castelnau-le-Lez",postal:"34170",dept:"34",equipped:false},
+  {name:"Carter-Cash Beziers",city:"Beziers",postal:"34500",dept:"34",equipped:false},
+  {name:"Carter-Cash Rennes",city:"Rennes",postal:"35000",dept:"35",equipped:false},
+  {name:"Carter-Cash Tours",city:"Tours",postal:"37100",dept:"37",equipped:false},
+  {name:"Carter-Cash Echirolles",city:"Echirolles",postal:"38130",dept:"38",equipped:false},
+  {name:"Carter-Cash Saint-Martin-d'Heres",city:"Saint-Martin-d'Heres",postal:"38400",dept:"38",equipped:false},
+  {name:"Carter-Cash Saint-Etienne",city:"Saint-Etienne",postal:"42000",dept:"42",equipped:false},
+  {name:"Carter-Cash La Ricamarie",city:"La Ricamarie",postal:"42150",dept:"42",equipped:false},
+  {name:"Carter-Cash Orvault",city:"Orvault",postal:"44700",dept:"44",equipped:false},
+  {name:"Carter-Cash Sainte-Luce-sur-Loire",city:"Sainte-Luce-sur-Loire",postal:"44980",dept:"44",equipped:false},
+  {name:"Carter-Cash Saran",city:"Saran",postal:"45770",dept:"45",equipped:false},
+  {name:"Carter-Cash Beaucouze",city:"Beaucouze",postal:"49070",dept:"49",equipped:false},
+  {name:"Carter-Cash Reims",city:"Reims",postal:"51100",dept:"51",equipped:false},
+  {name:"Carter-Cash Essey-les-Nancy",city:"Essey-les-Nancy",postal:"54270",dept:"54",equipped:false},
+  {name:"Carter-Cash Woippy",city:"Woippy",postal:"57140",dept:"57",equipped:false},
+  {name:"Carter-Cash Prouvy",city:"Prouvy",postal:"59121",dept:"59",equipped:false},
+  {name:"Carter-Cash Wattignies",city:"Wattignies",postal:"59139",dept:"59",equipped:false},
+  {name:"Carter-Cash Wattrelos",city:"Wattrelos",postal:"59150",dept:"59",equipped:false},
+  {name:"Carter-Cash Capinghem",city:"Capinghem",postal:"59160",dept:"59",equipped:false},
+  {name:"Carter-Cash Tourcoing",city:"Tourcoing",postal:"59200",dept:"59",equipped:false},
+  {name:"Carter-Cash Dunkerque",city:"Dunkerque",postal:"59640",dept:"59",equipped:false},
+  {name:"Carter-Cash Marcq-en-Baroeul",city:"Marcq-en-Baroeul",postal:"59700",dept:"59",equipped:false},
+  {name:"Carter-Cash Feignies",city:"Feignies",postal:"59750",dept:"59",equipped:false},
+  {name:"Carter-Cash Nogent-sur-Oise",city:"Nogent-sur-Oise",postal:"60180",dept:"60",equipped:false},
+  {name:"Carter-Cash Compiegne",city:"Compiegne",postal:"60200",dept:"60",equipped:false},
+  {name:"Carter-Cash Arras",city:"Arras",postal:"62000",dept:"62",equipped:false},
+  {name:"Carter-Cash Calais",city:"Calais",postal:"62100",dept:"62",equipped:false},
+  {name:"Carter-Cash Bruay-la-Buissiere",city:"Bruay-la-Buissiere",postal:"62700",dept:"62",equipped:false},
+  {name:"Carter-Cash Fouquieres-les-Lens",city:"Fouquieres-les-Lens",postal:"62740",dept:"62",equipped:false},
+  {name:"Carter-Cash Clermont-Ferrand",city:"Clermont-Ferrand",postal:"63000",dept:"63",equipped:false},
+  {name:"Carter-Cash Serres-Castet",city:"Serres-Castet",postal:"64121",dept:"64",equipped:false},
+  {name:"Carter-Cash Perpignan",city:"Perpignan",postal:"66000",dept:"66",equipped:false},
+  {name:"Carter-Cash Souffelweyersheim",city:"Souffelweyersheim",postal:"67460",dept:"67",equipped:false},
+  {name:"Carter-Cash Fegersheim",city:"Fegersheim",postal:"67640",dept:"67",equipped:false},
+  {name:"Carter-Cash Pfastatt",city:"Pfastatt",postal:"68120",dept:"68",equipped:false},
+  {name:"Carter-Cash Saint-Priest",city:"Saint-Priest",postal:"69800",dept:"69",equipped:false},
+  {name:"Carter-Cash Vinzelles",city:"Vinzelles",postal:"71680",dept:"71",equipped:false},
+  {name:"Carter-Cash Arnage-le-Mans",city:"Arnage",postal:"72230",dept:"72",equipped:false},
+  {name:"Carter-Cash La Ravoire",city:"La Ravoire",postal:"73490",dept:"73",equipped:false},
+  {name:"Carter-Cash Sotteville-les-Rouen",city:"Sotteville-les-Rouen",postal:"76300",dept:"76",equipped:false},
+  {name:"Carter-Cash Gonfreville l'Orcher",city:"Gonfreville l'Orcher",postal:"76700",dept:"76",equipped:false},
+  {name:"Carter-Cash Meaux",city:"Meaux",postal:"77100",dept:"77",equipped:false},
+  {name:"Carter-Cash Brie-Comte-Robert",city:"Brie-Comte-Robert",postal:"77170",dept:"77",equipped:false},
+  {name:"Carter-Cash Savigny-le-Temple",city:"Savigny-le-Temple",postal:"77176",dept:"77",equipped:false},
+  {name:"Carter-Cash Pontault-Combault",city:"Pontault-Combault",postal:"77340",dept:"77",equipped:false},
+  {name:"Carter-Cash Lagny-sur-Marne",city:"Lagny-sur-Marne",postal:"77400",dept:"77",equipped:false},
+  {name:"Carter-Cash Claye-Souilly",city:"Claye-Souilly",postal:"77410",dept:"77",equipped:false},
+  {name:"Carter-Cash Buchelay",city:"Buchelay",postal:"78200",dept:"78",equipped:false},
+  {name:"Carter-Cash Coignieres",city:"Coignieres",postal:"78310",dept:"78",equipped:false},
+  {name:"Carter-Cash Chauray",city:"Chauray",postal:"79180",dept:"79",equipped:false},
+  {name:"Carter-Cash Longueau",city:"Longueau",postal:"80330",dept:"80",equipped:false},
+  {name:"Carter-Cash Lescure-d'Albigeois",city:"Lescure-d'Albigeois",postal:"81380",dept:"81",equipped:false},
+  {name:"Carter-Cash La-Valette-du-Var",city:"La-Valette-du-Var",postal:"83160",dept:"83",equipped:false},
+  {name:"Carter-Cash La Seyne-sur-Mer",city:"La Seyne-sur-Mer",postal:"83500",dept:"83",equipped:false},
+  {name:"Carter-Cash Avignon",city:"Avignon",postal:"84000",dept:"84",equipped:false},
+  {name:"Carter-Cash Chasseneuil-du-Poitou",city:"Chasseneuil-du-Poitou",postal:"86360",dept:"86",equipped:false},
+  {name:"Carter-Cash Limoges",city:"Limoges",postal:"87000",dept:"87",equipped:false},
+  {name:"Carter-Cash Corbeil-Essonnes",city:"Corbeil-Essonnes",postal:"91100",dept:"91",equipped:false},
+  {name:"Carter-Cash Ris-Orangis",city:"Ris-Orangis",postal:"91130",dept:"91",equipped:false},
+  {name:"Carter-Cash Ballainvilliers",city:"Ballainvilliers",postal:"91160",dept:"91",equipped:false},
+  {name:"Carter-Cash Sainte-Genevieve-des-Bois",city:"Sainte-Genevieve-des-Bois",postal:"91700",dept:"91",equipped:false},
+  {name:"Carter-Cash Aulnay-sous-Bois",city:"Aulnay-sous-Bois",postal:"93600",dept:"93",equipped:false},
+  {name:"Carter-Cash Saint-Ouen-l'Aumone",city:"Saint-Ouen-l'Aumone",postal:"95310",dept:"95",equipped:false},
+];
+
+// Villes connues → département (pour matcher quand pas de CC direct)
+const CITY_TO_DEPT = {
+  "paris":"75","lyon":"69","marseille":"13","toulouse":"31","nice":"06","nantes":"44",
+  "strasbourg":"67","montpellier":"34","bordeaux":"33","lille":"59","rennes":"35",
+  "reims":"51","toulon":"83","saint-etienne":"42","le havre":"76","grenoble":"38",
+  "dijon":"21","angers":"49","nimes":"30","villeurbanne":"69","clermont-ferrand":"63",
+  "le mans":"72","aix-en-provence":"13","brest":"29","tours":"37","amiens":"80",
+  "limoges":"87","perpignan":"66","metz":"57","besancon":"25","orleans":"45",
+  "rouen":"76","mulhouse":"68","caen":"14","nancy":"54","avignon":"84",
+  "valence":"26","calais":"62","dunkerque":"59","troyes":"10","la rochelle":"17",
+  "lorient":"56","pau":"64","bayonne":"64","poitiers":"86","chambery":"73",
+  "colmar":"68","boulogne-billancourt":"92","montreuil":"93","saint-denis":"93",
+  "argenteuil":"95","vitry-sur-seine":"94","creteil":"94","aubervilliers":"93",
+  "aulnay-sous-bois":"93","colombes":"92","courbevoie":"92","nanterre":"92",
+  "bobigny":"93","pantin":"93","bondy":"93","sevran":"93","drancy":"93",
+  "noisy-le-grand":"93","epinay-sur-seine":"93","villepinte":"93","tremblay":"93",
+  "livry-gargan":"93","le blanc-mesnil":"93","rosny-sous-bois":"93","gagny":"93",
+  "stains":"93","la courneuve":"93","clichy-sous-bois":"93","montfermeil":"93",
+  "neuilly-sur-marne":"93","neuilly-sur-seine":"92","bagneux":"92","suresnes":"92",
+  "thiais":"94","choisy-le-roi":"94","orly":"94","ivry-sur-seine":"94",
+  "villejuif":"94","maisons-alfort":"94","champigny-sur-marne":"94",
+  "saint-maur-des-fosses":"94","fontenay-sous-bois":"94","nogent-sur-marne":"94",
+  "vincennes":"94","alfortville":"94","cachan":"94","fresnes":"94","rungis":"94",
+  "evry":"91","corbeil-essonnes":"91","massy":"91","savigny-sur-orge":"91",
+  "palaiseau":"91","longjumeau":"91","sainte-genevieve-des-bois":"91",
+  "sarcelles":"95","cergy":"95","pontoise":"95","garges-les-gonesse":"95",
+  "goussainville":"95","bezons":"95","ermont":"95","franconville":"95",
+  "meaux":"77","melun":"77","chelles":"77","pontault-combault":"77",
+  "savigny-le-temple":"77","torcy":"77","lognes":"77","bussy-saint-georges":"77",
+  "versailles":"78","saint-germain-en-laye":"78","poissy":"78","mantes-la-jolie":"78",
+  "sartrouville":"78","chatou":"78","houilles":"78","conflans":"78",
+  "douai":"59","valenciennes":"59","cambrai":"59","maubeuge":"59",
+  "roubaix":"59","tourcoing":"59","wattrelos":"59","arras":"62","lens":"62",
+  "bethune":"62","boulogne-sur-mer":"62","henin-beaumont":"62",
+};
+
+// Départements proches des CC équipés (pour recommander le plus proche)
+const NEARBY_EQUIPPED = {
+  "94": [{dept:"94",name:"Carter-Cash Thiais",city:"Thiais"}],
+  "75": [{dept:"94",name:"Carter-Cash Thiais",city:"Thiais"}],
+  "92": [{dept:"94",name:"Carter-Cash Thiais",city:"Thiais"}],
+  "93": [{dept:"94",name:"Carter-Cash Thiais",city:"Thiais"},{dept:"95",name:"Carter-Cash Sarcelles",city:"Sarcelles"}],
+  "91": [{dept:"94",name:"Carter-Cash Thiais",city:"Thiais"}],
+  "77": [{dept:"94",name:"Carter-Cash Thiais",city:"Thiais"}],
+  "78": [{dept:"95",name:"Carter-Cash Sarcelles",city:"Sarcelles"},{dept:"94",name:"Carter-Cash Thiais",city:"Thiais"}],
+  "95": [{dept:"95",name:"Carter-Cash Sarcelles",city:"Sarcelles"}],
+  "60": [{dept:"95",name:"Carter-Cash Sarcelles",city:"Sarcelles"}],
+  "59": [{dept:"59",name:"Carter-Cash Lambres-lez-Douai",city:"Lambres-lez-Douai"},{dept:"59",name:"Carter-Cash Villeneuve-d'Ascq",city:"Villeneuve-d'Ascq"}],
+  "62": [{dept:"59",name:"Carter-Cash Lambres-lez-Douai",city:"Lambres-lez-Douai"}],
+  "80": [{dept:"59",name:"Carter-Cash Lambres-lez-Douai",city:"Lambres-lez-Douai"}],
+  "02": [{dept:"59",name:"Carter-Cash Lambres-lez-Douai",city:"Lambres-lez-Douai"},{dept:"95",name:"Carter-Cash Sarcelles",city:"Sarcelles"}],
+};
+
+// --- MATCHING : ville/département → Carter-Cash ---
+function extractDeptFromInput(input) {
+  const t = input.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  
+  // 1. Code postal complet (5 chiffres)
+  const postalMatch = t.match(/\b(\d{5})\b/);
+  if (postalMatch) return postalMatch[1].substring(0, 2);
+  
+  // 2. Numéro de département (le 93, dans le 59, département 94)
+  const deptMatch = t.match(/(?:le |dans le |departement |dept |dpt )?(\d{2})\b/);
+  if (deptMatch) {
+    const num = deptMatch[1];
+    if (parseInt(num) >= 1 && parseInt(num) <= 95) return num.padStart(2, "0");
+  }
+  
+  // 3. Ville connue dans la base CC (exact ou partial match)
+  for (const cc of CARTER_CASH_LIST) {
+    const ccCity = cc.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (t.includes(ccCity) || ccCity.includes(t)) return cc.dept;
+    // Partial match: "aulnay" → "aulnay-sous-bois"
+    const ccFirst = ccCity.split(/[- ]/)[0]; // Premier mot de la ville CC
+    if (ccFirst.length >= 4 && t.includes(ccFirst)) return cc.dept;
+  }
+  
+  // 4. Ville connue dans le mapping (exact ou partial)
+  for (const [city, dept] of Object.entries(CITY_TO_DEPT)) {
+    const cityNorm = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (t.includes(cityNorm)) return dept;
+    const cityFirst = cityNorm.split(/[- ]/)[0];
+    if (cityFirst.length >= 4 && t.includes(cityFirst)) return dept;
+  }
+  
+  return null;
+}
+
+function findCCForDept(dept) {
+  if (!dept) return { equipped: [], depot: [], nearbyEquipped: [] };
+  const equipped = CARTER_CASH_LIST.filter(c => c.dept === dept && c.equipped);
+  const depot = CARTER_CASH_LIST.filter(c => c.dept === dept && !c.equipped);
+  const nearbyEquipped = NEARBY_EQUIPPED[dept] || [];
+  return { equipped, depot, nearbyEquipped };
+}
+
+// ============================================
+// EXPERT ORIENTATION + QUESTION DÉMONTAGE
+// ============================================
+
 function buildExpertOrientation(extracted, metier) {
   const marque = extracted?.marque;
   const modele = extracted?.modele;
@@ -920,7 +1160,6 @@ function buildExpertOrientation(extracted, metier) {
   } else if (attempts.includes("defapage")) {
     techExplanation = "La suppression du FAP rend le véhicule non conforme au contrôle technique et c'est interdit par la loi. Le nettoyage professionnel est la solution légale qui remet le FAP en état.";
   } else {
-    // L'user n'a rien essayé ou a dit "rien"
     if (certitude === "haute") {
       techExplanation = "Ce que tu décris, c'est typiquement un FAP qui est arrivé à saturation. Les suies et les cendres se sont accumulées au point où le filtre ne laisse plus passer assez de gaz d'échappement — d'où le voyant et la perte de puissance.";
     } else {
@@ -928,15 +1167,32 @@ function buildExpertOrientation(extracted, metier) {
     }
   }
 
-  // --- PARTIE 2 : Ce que fait le nettoyage pro (explication, pas pitch) ---
+  // --- PARTIE 2 : Ce que fait le nettoyage + QUESTION DÉMONTAGE ---
   let processExplanation = "";
   if (metier?.vehicle?.systeme_additif && metier.vehicle.systeme_additif !== "aucun") {
-    processExplanation = `Le nettoyage professionnel retire les suies ET les cendres en machine, avec un contrôle avant/après. Sur une ${marque || "voiture"} avec le système ${metier.vehicle.systeme_additif}, on vérifie aussi le circuit d'additif.`;
+    processExplanation = `Le nettoyage professionnel retire les suies ET les cendres en machine, avec un contrôle avant/après. Sur une ${marque || "voiture"} avec le système ${metier.vehicle.systeme_additif}, on vérifie aussi le circuit d'additif. Résultat garanti 1 an.`;
   } else {
     processExplanation = "Le nettoyage professionnel retire les suies ET les cendres en machine, avec un contrôle de l'état du FAP avant et après. Résultat garanti 1 an.";
   }
 
-  // --- PARTIE 3 : Les options concrètes avec prix ---
+  const demontageQuestion = "Point important : pour le nettoyage, le FAP doit être démonté du véhicule. Tu as la possibilité de le démonter toi-même (ou de le faire démonter), ou tu préfères qu'un garage s'en occupe ?";
+
+  const replyClean = `${techExplanation}\n\n${processExplanation}\n\n${demontageQuestion}`;
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "diagnostic",
+    next_best_action: "demander_demontage",
+  };
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================
+// RÉPONSE DÉMONTAGE : SELF → ask ville
+// ============================================
+function buildSelfRemovalResponse(extracted, metier) {
   let prixCC = "99-149€";
   let prixEnvoi = "199€";
   if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
@@ -946,14 +1202,12 @@ function buildExpertOrientation(extracted, metier) {
     if (matchEnvoi) prixEnvoi = `${matchEnvoi.price_ttc}€`;
   }
 
-  const options = `Concrètement, deux options : dans un Carter-Cash équipé d'une machine (sur place en 4h, ${prixCC}), ou en envoi 48-72h (${prixEnvoi} port inclus). Dans les deux cas, le FAP doit être démonté du véhicule.`;
-
-  // --- ASSEMBLAGE ---
-  const replyClean = `${techExplanation}\n\n${processExplanation} ${options}\n\nTu es dans quel coin ? Je regarde la meilleure option près de chez toi.`;
+  const replyClean = `C'est la solution la plus économique. Une fois le FAP démonté, tu as deux options :\n\n→ Le déposer dans un Carter-Cash équipé d'une machine : nettoyage sur place en ~4h, ${prixCC}.\n→ Le déposer dans n'importe quel Carter-Cash (point dépôt) : envoi au centre Re-FAP, retour en 48-72h, ${prixEnvoi} port inclus.\n\nTu es dans quel coin ? Je regarde le Carter-Cash le plus proche de chez toi.`;
 
   const data = {
     ...(extracted || DEFAULT_DATA),
     intention: "diagnostic",
+    demontage: "self",
     next_best_action: "demander_ville",
   };
 
@@ -961,17 +1215,90 @@ function buildExpertOrientation(extracted, metier) {
   return { replyClean, replyFull, extracted: data };
 }
 
-// --- ORIENTATION CONCRÈTE APRÈS VILLE ---
+// ============================================
+// RÉPONSE DÉMONTAGE : GARAGE → ask ville
+// ============================================
+function buildGarageNeededResponse(extracted, metier) {
+  let prixNettoyage = "99-149€";
+  if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
+    const matchCC = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
+    if (matchCC) prixNettoyage = `${matchCC.price_ttc}€`;
+  }
+
+  const replyClean = `Pas de souci, c'est le cas le plus courant. Voilà comment ça se passe :\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP pour le nettoyage, remontage et réinitialisation du système.\n\nCôté tarif, le nettoyage Re-FAP c'est ${prixNettoyage}, et le garage facture en plus sa main d'œuvre pour le démontage/remontage. Le total dépend du véhicule (l'accès au FAP est plus ou moins facile selon les modèles), mais dans tous les cas ça reste bien en dessous d'un remplacement de FAP (1 500€ à 3 000€+).\n\nOn travaille avec plus de 800 garages partenaires en France. Tu es dans quel coin ? Et si tu as déjà un garage de confiance, on peut aussi travailler directement avec lui.`;
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "diagnostic",
+    demontage: "garage",
+    next_best_action: "demander_ville",
+  };
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================
+// ORIENTATION CONCRÈTE APRÈS VILLE (avec matching CC)
+// ============================================
 function buildLocationOrientationResponse(extracted, metier, ville) {
+  const dept = extractDeptFromInput(ville);
+  const cc = dept ? findCCForDept(dept) : { equipped: [], depot: [], nearbyEquipped: [] };
+  const vehicleInfo = extracted?.marque ? `ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}` : "ton véhicule";
+  const demontage = extracted?.demontage || "unknown";
+
   let prixCC = "99-149€";
+  let prixEnvoi = "199€";
   if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
     const matchCC = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
     if (matchCC) prixCC = `${matchCC.price_ttc}€`;
+    const matchEnvoi = metier.pricing.find((p) => p.equipped_machine === false);
+    if (matchEnvoi) prixEnvoi = `${matchEnvoi.price_ttc}€`;
   }
 
-  const vehicleInfo = extracted?.marque ? `ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}` : "ton véhicule";
+  let replyClean = "";
 
-  const replyClean = `OK, ${ville}. On a des centres Carter-Cash et plus de 800 garages partenaires en France. Pour ${vehicleInfo}, le mieux c'est qu'un expert Re-FAP vérifie le centre le plus adapté près de chez toi et te confirme le prix exact et le délai. Tu veux qu'on te rappelle pour organiser ça ?`;
+  if (demontage === "self") {
+    // ── SELF REMOVAL : orienter vers le CC le plus adapté ──
+    if (cc.equipped.length > 0) {
+      // CC ÉQUIPÉ dans le département → jackpot
+      const best = cc.equipped[0];
+      replyClean = `Bonne nouvelle ! Il y a un Carter-Cash équipé d'une machine Re-FAP près de chez toi : ${best.name} (${best.postal} ${best.city}). Tu y déposes ton FAP démonté, nettoyage sur place en ~4h, ${prixCC}. Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
+    } else if (cc.depot.length > 0) {
+      // CC DÉPÔT dans le département
+      const depotCC = cc.depot[0];
+      let equippedHint = "";
+      if (cc.nearbyEquipped.length > 0) {
+        const nearest = cc.nearbyEquipped[0];
+        equippedHint = `\n\nSinon, le Carter-Cash équipé le plus proche de toi c'est ${nearest.name} (${nearest.city}) — là-bas c'est nettoyage sur place en 4h à ${prixCC}.`;
+      }
+      replyClean = `OK, près de chez toi il y a le ${depotCC.name} (${depotCC.postal} ${depotCC.city}). C'est un point dépôt : tu y laisses ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.${equippedHint}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
+    } else if (cc.nearbyEquipped.length > 0) {
+      // Pas de CC dans le dept, mais un équipé pas trop loin
+      const nearest = cc.nearbyEquipped[0];
+      replyClean = `Il n'y a pas de Carter-Cash directement dans ton secteur, mais le plus proche équipé d'une machine c'est ${nearest.name} (${nearest.city}). Sinon, tu peux envoyer ton FAP directement par transporteur : ${prixEnvoi} port inclus, retour en 48-72h.\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour toi ?`;
+    } else {
+      // Aucun CC trouvé → envoi direct
+      replyClean = `Pour ton secteur, la solution la plus simple c'est l'envoi direct : tu nous envoies ton FAP démonté par transporteur, on le nettoie et on te le retourne en 48-72h, ${prixEnvoi} port inclus. Tu veux qu'un expert Re-FAP t'envoie les détails ?`;
+    }
+  } else if (demontage === "garage") {
+    // ── GARAGE : orienter vers partenaire + mentionner CC si pertinent ──
+    if (cc.equipped.length > 0) {
+      const best = cc.equipped[0];
+      replyClean = `OK, ${ville}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine près de chez toi (${best.name}). Certains garages travaillent directement avec ce centre. On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo} et te donne un chiffre précis. Tu veux qu'on te rappelle ?`;
+    } else {
+      replyClean = `OK, ${ville}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est ${prixCC}, et le garage te chiffrera la main d'œuvre selon ${vehicleInfo}.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
+    }
+  } else {
+    // ── DEMONTAGE INCONNU (fallback) ──
+    if (dept && (cc.equipped.length > 0 || cc.depot.length > 0)) {
+      const anyCC = cc.equipped[0] || cc.depot[0];
+      const typeCC = anyCC.equipped ? `équipé d'une machine (nettoyage sur place en 4h, ${prixCC})` : `point dépôt (envoi 48-72h, ${prixEnvoi})`;
+      replyClean = `OK, ${ville}. Il y a le ${anyCC.name} (${anyCC.postal}) qui est un ${typeCC}. On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+    } else {
+      replyClean = `OK, ${ville}. On a des centres Carter-Cash et plus de 800 garages partenaires en France. Pour ${vehicleInfo}, le mieux c'est qu'un expert Re-FAP vérifie le centre le plus adapté près de chez toi et te confirme le prix exact. Tu veux qu'on te rappelle ?`;
+    }
+  }
 
   const data = {
     ...(extracted || DEFAULT_DATA),
@@ -1248,11 +1575,39 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // OVERRIDE 1b : Bot a demandé la ville, user répond avec une ville → orientation concrète
-    // (si ce n'est pas un "oui" ou "non", c'est probablement la ville)
+    // OVERRIDE 1b : Bot a demandé le démontage → détecter self/garage
+    // ========================================
+    if (lastAssistantAskedDemontage(history)) {
+      if (userSaysSelfRemoval(message)) {
+        return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
+      } else if (userNeedsGarage(message) || userSaysNo(message)) {
+        return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
+      }
+      // Si ni self ni garage détecté, on essaie comme ville (l'user a peut-être skip la question et donné directement sa ville)
+      const deptTest = extractDeptFromInput(message);
+      if (deptTest) {
+        let ville = message.trim()
+          .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
+          .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
+          .replace(/[.!?]+$/, "")
+          .trim();
+        if (!ville) ville = message.trim();
+        return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville));
+      }
+      // Sinon fallback: on considère que c'est "garage" (cas le plus courant)
+      return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
+    }
+
+    // ========================================
+    // OVERRIDE 1c : Bot a demandé la ville, user répond avec une ville → orientation concrète
     // ========================================
     if (lastAssistantAskedCity(history) && !userSaysYes(message) && !userSaysNo(message) && message.length > 1) {
-      const ville = message.trim();
+      let ville = message.trim()
+        .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
+        .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
+        .replace(/[.!?]+$/, "")
+        .trim();
+      if (!ville) ville = message.trim();
       return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville));
     }
 
