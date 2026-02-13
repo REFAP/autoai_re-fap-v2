@@ -350,6 +350,8 @@ function everAskedClosing(history) {
 // ============================================================
 function extractVehicleFromMessage(text) {
   const t = String(text || "").toLowerCase();
+
+  // 1. Marques directes
   const marques = {
     peugeot: "Peugeot", renault: "Renault", citroen: "Citroën", "citroën": "Citroën",
     volkswagen: "Volkswagen", vw: "Volkswagen", audi: "Audi", bmw: "BMW",
@@ -364,6 +366,97 @@ function extractVehicleFromMessage(text) {
   for (const [key, value] of Object.entries(marques)) {
     if (t.includes(key)) return value;
   }
+
+  // 2. Modèles → marque (quand l'user dit "Golf" sans dire "Volkswagen")
+  const modeles = {
+    // Volkswagen
+    golf: "Volkswagen", polo: "Volkswagen", tiguan: "Volkswagen", passat: "Volkswagen",
+    touran: "Volkswagen", touareg: "Volkswagen", "t-roc": "Volkswagen", caddy: "Volkswagen",
+    transporter: "Volkswagen", "t5": "Volkswagen", "t6": "Volkswagen",
+    // Peugeot (numéros)
+    "108": "Peugeot", "208": "Peugeot", "308": "Peugeot", "408": "Peugeot",
+    "508": "Peugeot", "2008": "Peugeot", "3008": "Peugeot", "5008": "Peugeot",
+    "207": "Peugeot", "307": "Peugeot", "407": "Peugeot", "607": "Peugeot",
+    "807": "Peugeot", "206": "Peugeot", "306": "Peugeot", partner: "Peugeot",
+    expert: "Peugeot", boxer: "Peugeot", bipper: "Peugeot", rifter: "Peugeot",
+    // Renault
+    clio: "Renault", megane: "Renault", mégane: "Renault", scenic: "Renault",
+    scénic: "Renault", captur: "Renault", kadjar: "Renault", koleos: "Renault",
+    talisman: "Renault", laguna: "Renault", espace: "Renault", kangoo: "Renault",
+    trafic: "Renault", master: "Renault", twingo: "Renault", arkana: "Renault",
+    austral: "Renault",
+    // Citroën
+    "c1": "Citroën", "c2": "Citroën", "c3": "Citroën", "c4": "Citroën",
+    "c5": "Citroën", "c6": "Citroën", "c8": "Citroën",
+    picasso: "Citroën", spacetourer: "Citroën", berlingo: "Citroën",
+    aircross: "Citroën", cactus: "Citroën", "ds3": "DS", "ds4": "DS",
+    "ds5": "DS", "ds7": "DS",
+    // Dacia
+    duster: "Dacia", sandero: "Dacia", logan: "Dacia", jogger: "Dacia",
+    dokker: "Dacia", lodgy: "Dacia", spring: "Dacia",
+    // Audi
+    "a1": "Audi", "a3": "Audi", "a4": "Audi", "a5": "Audi", "a6": "Audi",
+    "a7": "Audi", "a8": "Audi", "q2": "Audi", "q3": "Audi", "q5": "Audi",
+    "q7": "Audi", "q8": "Audi", "tt": "Audi",
+    // BMW (séries)
+    "serie 1": "BMW", "serie 2": "BMW", "serie 3": "BMW", "serie 4": "BMW",
+    "serie 5": "BMW", "x1": "BMW", "x2": "BMW", "x3": "BMW", "x4": "BMW",
+    "x5": "BMW", "x6": "BMW",
+    // Ford
+    focus: "Ford", fiesta: "Ford", kuga: "Ford", puma: "Ford", mondeo: "Ford",
+    "c-max": "Ford", "s-max": "Ford", transit: "Ford", ranger: "Ford",
+    // Opel
+    corsa: "Opel", astra: "Opel", mokka: "Opel", grandland: "Opel",
+    crossland: "Opel", insignia: "Opel", zafira: "Opel", vivaro: "Opel",
+    // Skoda
+    octavia: "Skoda", fabia: "Skoda", superb: "Skoda", kodiaq: "Skoda",
+    karoq: "Skoda", yeti: "Skoda", scala: "Skoda", scout: "Skoda",
+    // Fiat
+    punto: "Fiat", tipo: "Fiat", "500x": "Fiat", "500l": "Fiat",
+    panda: "Fiat", ducato: "Fiat", doblo: "Fiat", "500": "Fiat",
+    // Toyota
+    yaris: "Toyota", corolla: "Toyota", "rav4": "Toyota", "c-hr": "Toyota",
+    auris: "Toyota", hilux: "Toyota", "land cruiser": "Toyota", proace: "Toyota",
+    // Nissan
+    qashqai: "Nissan", juke: "Nissan", "x-trail": "Nissan", micra: "Nissan",
+    navara: "Nissan", leaf: "Nissan", note: "Nissan",
+    // Hyundai
+    tucson: "Hyundai", "i10": "Hyundai", "i20": "Hyundai", "i30": "Hyundai",
+    kona: "Hyundai", "santa fe": "Hyundai", "ix35": "Hyundai",
+    // Kia
+    sportage: "Kia", ceed: "Kia", niro: "Kia", sorento: "Kia", stonic: "Kia",
+    picanto: "Kia", venga: "Kia",
+    // Seat
+    leon: "Seat", ibiza: "Seat", ateca: "Seat", arona: "Seat", tarraco: "Seat",
+    alhambra: "Seat",
+    // Mercedes
+    "classe a": "Mercedes", "classe b": "Mercedes", "classe c": "Mercedes",
+    "classe e": "Mercedes", "classe v": "Mercedes", vito: "Mercedes",
+    sprinter: "Mercedes", "glc": "Mercedes", "gla": "Mercedes", "glb": "Mercedes",
+    // Volvo
+    "xc40": "Volvo", "xc60": "Volvo", "xc90": "Volvo", "v40": "Volvo",
+    "v60": "Volvo", "v90": "Volvo", "s60": "Volvo", "s90": "Volvo",
+    // Mitsubishi
+    outlander: "Mitsubishi", "l200": "Mitsubishi", "asx": "Mitsubishi",
+    pajero: "Mitsubishi",
+    // Suzuki
+    vitara: "Suzuki", "sx4": "Suzuki", "s-cross": "Suzuki", jimny: "Suzuki",
+    swift: "Suzuki",
+    // Mazda
+    "cx-5": "Mazda", "cx-3": "Mazda", "cx-30": "Mazda", "mazda3": "Mazda",
+    "mazda6": "Mazda",
+    // Honda
+    "cr-v": "Honda", civic: "Honda", "hr-v": "Honda", jazz: "Honda",
+    // Jeep
+    compass: "Jeep", renegade: "Jeep", wrangler: "Jeep", cherokee: "Jeep",
+  };
+
+  for (const [key, value] of Object.entries(modeles)) {
+    // Boundary check pour éviter les faux positifs ("c3" dans "10c30")
+    const regex = new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    if (regex.test(t)) return value;
+  }
+
   return null;
 }
 
