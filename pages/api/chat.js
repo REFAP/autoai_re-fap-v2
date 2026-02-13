@@ -37,6 +37,7 @@ RÈGLES ABSOLUES
 5. Ne JAMAIS promettre un délai précis.
 6. Ne JAMAIS demander le code postal.
 7. Si l'utilisateur ne sait pas quel voyant c'est, dis-le honnêtement.
+8. Ne JAMAIS comparer avec le "remplacement FAP à 1500€" — les clients n'y pensent pas. Leurs vraies alternatives : défapage (illégal), additif (temporaire, suies seules), karcher (risque céramique), FAP adaptable chinois (qualité incertaine). Positionne Re-FAP face à CES solutions, pas face au remplacement constructeur.
 
 FACTS
 Tu reçois des FACTS vérifiés avant chaque réponse. UTILISE-LES OBLIGATOIREMENT :
@@ -1175,7 +1176,7 @@ function buildFacts(metier, quickData, extracted, flowHint) {
     if (!ccEquipped && generic) {
       lines.push(`PRIX NETTOYAGE: entre 99€ et 149€ chez Carter-Cash (machine sur place), 199€ en envoi ou garage partenaire.`);
     }
-    lines.push(`COMPARAISON: Remplacement FAP neuf = 1500-2500€. Nettoyage Re-FAP = à partir de 99€.`);
+    lines.push(`COMPARAISON: Additif = 15-30€ mais ne retire que les suies (temporaire). FAP adaptable = 300-400€ qualité aléatoire. Défapage = illégal. Nettoyage Re-FAP = à partir de 99€, retire suies + cendres, garanti 1 an.`);
   }
 
   // Snippets
@@ -1597,7 +1598,7 @@ function buildExpertOrientation(extracted, metier) {
     attemptResponses.push("Pour les produits nettoyants/additifs : ils agissent uniquement sur les suies (particules de combustion). Mais dans un FAP, il y a aussi des cendres métalliques — résidus d'huile moteur — qui s'accumulent et que ces produits ne dissolvent pas.");
   }
   if (attempts.includes("garage")) {
-    attemptResponses.push("Le garage t'a probablement proposé un remplacement. C'est souvent la solution la plus simple pour eux, mais un FAP encrassé ne veut pas dire FAP mort — dans la majorité des cas, il peut être remis en état.");
+    attemptResponses.push("Le garage a pu proposer une regen, un additif ou un remplacement. Mais un FAP encrassé ne veut pas dire FAP mort — dans la majorité des cas, il peut être remis en état par un nettoyage en machine qui retire les cendres, ce que les autres solutions ne font pas.");
   }
   if (attempts.includes("karcher")) {
     attemptResponses.push("Le jet haute pression risque d'endommager la structure céramique interne du FAP (le substrat en nid d'abeille). Et l'eau seule ne dissout pas les cendres métalliques.");
@@ -1610,6 +1611,9 @@ function buildExpertOrientation(extracted, metier) {
   }
   if (attempts.includes("defapage")) {
     attemptResponses.push("La suppression du FAP rend le véhicule non conforme au contrôle technique et c'est interdit par la loi (Art. L318-3). En cas d'accident, l'expertise peut aussi poser problème.");
+  }
+  if (attempts.includes("remplacement_envisage")) {
+    attemptResponses.push("Avant de remplacer, sache que dans la grande majorité des cas un FAP encrassé peut être remis en état. Le remplacement est la solution la plus radicale — mais rarement nécessaire si le nid d'abeille n'est pas fissuré.");
   }
 
   // Assembler les réponses aux tentatives
@@ -1733,7 +1737,7 @@ function buildSelfRemovalResponse(extracted, metier) {
 function buildGarageNeededResponse(extracted, metier) {
   const { prixCC: prixNettoyage } = getPricing(extracted, metier);
 
-  const replyClean = `Pas de souci, c'est le cas le plus courant. Voilà comment ça se passe :\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP pour le nettoyage, remontage et réinitialisation du système.\n\nCôté tarif, le nettoyage Re-FAP c'est ${prixNettoyage}, et le garage facture en plus sa main d'œuvre pour le démontage/remontage. Le total dépend du véhicule (l'accès au FAP est plus ou moins facile selon les modèles), mais dans tous les cas ça reste bien en dessous d'un remplacement de FAP (1 500€ à 3 000€+).\n\nOn travaille avec plus de 800 garages partenaires en France. Tu es dans quel coin ? Et si tu as déjà un garage de confiance, on peut aussi travailler directement avec lui.`;
+  const replyClean = `Pas de souci, c'est le cas le plus courant. Voilà comment ça se passe :\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP pour le nettoyage, remontage et réinitialisation du système.\n\nCôté tarif, le nettoyage Re-FAP c'est ${prixNettoyage}, et le garage facture en plus sa main d'œuvre pour le démontage/remontage. Le total dépend du véhicule (l'accès au FAP est plus ou moins facile selon les modèles), mais c'est une solution durable contrairement à un additif qui ne traite que les suies.\n\nOn travaille avec plus de 800 garages partenaires en France. Tu es dans quel coin ? Et si tu as déjà un garage de confiance, on peut aussi travailler directement avec lui.`;
 
   const data = {
     ...(extracted || DEFAULT_DATA),
@@ -1878,9 +1882,9 @@ function buildClosingQuestion(extracted, metier) {
 
   let replyClean;
   if (vehicleInfo) {
-    replyClean = `Sur ${vehicleInfo}, le nettoyage professionnel du FAP c'est ${prixText} au lieu de 1500€+ pour un remplacement. Tu veux qu'un expert Re-FAP regarde ta situation ? C'est gratuit, on te rappelle pour t'orienter.`;
+    replyClean = `Sur ${vehicleInfo}, le nettoyage professionnel du FAP c'est ${prixText}, garanti 1 an. C'est la seule solution qui retire les cendres en plus des suies. Tu veux qu'un expert Re-FAP regarde ta situation ? C'est gratuit, on te rappelle pour t'orienter.`;
   } else {
-    replyClean = `Le nettoyage professionnel du FAP c'est ${prixText} au lieu de 1500€+ pour un remplacement. Tu veux qu'un expert Re-FAP regarde ta situation ?`;
+    replyClean = `Le nettoyage professionnel du FAP c'est ${prixText}, garanti 1 an — et c'est la seule solution qui retire aussi les cendres. Tu veux qu'un expert Re-FAP regarde ta situation ?`;
   }
 
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
