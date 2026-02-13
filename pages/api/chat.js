@@ -456,6 +456,64 @@ function lastAssistantAskedVehicle(history) {
 }
 
 function everAskedPreviousAttempts(history) {
+
+// ── DÉTECTION : bot a demandé le modèle ──
+function lastAssistantAskedModel(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("quel modèle") || content.includes("quel mod\u00e8le") || content.includes("modèle exact")) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+function everAskedModel(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("quel modèle") || content.includes("modèle exact")) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// ── DÉTECTION : bot a demandé le kilométrage ──
+function lastAssistantAskedKm(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("combien de km") || content.includes("kilom")) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+function everAskedKm(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("combien de km") || content.includes("kilom")) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function everAskedPreviousAttempts(history) {
   if (!Array.isArray(history)) return false;
   for (let i = 0; i < history.length; i++) {
     if (history[i]?.role === "assistant") {
@@ -1205,25 +1263,12 @@ function buildMetierResponse(quickData, extracted, metier, userTurns, history) {
     data.next_best_action = "demander_vehicule";
   }
 
-  // ── CAS 2 : On a le symptôme + véhicule, le bot vient de recevoir le véhicule ──
-  // → Personnaliser avec vehicle_patterns + demander "déjà essayé"
-  // (ce cas est déjà géré par les overrides, mais on le couvre si un override a été skippé)
+  // ── CAS 2 : On a le symptôme + véhicule → laisser les overrides gérer le flow séquentiel ──
+  // (modèle → km → tentatives, chaque tour une question)
+  // On retourne null pour que les overrides prennent la main
   if (metier.routing && extracted.marque && !extracted.previous_attempts && !everAskedPreviousAttempts(history) && !everAskedClosing(history)) {
-    // Personnalisation véhicule
-    let vehicleNote = "";
-    if (metier.vehicle) {
-      const v = metier.vehicle;
-      if (v.systeme_additif && v.systeme_additif !== "aucun") {
-        vehicleNote = `Sur une ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} avec le système ${v.systeme_additif}, c'est un souci qu'on connaît bien.`;
-      } else {
-        vehicleNote = `Ok, sur une ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} c'est un souci qu'on voit régulièrement.`;
-      }
-    } else {
-      vehicleNote = `Ok, sur une ${extracted.marque} c'est un souci qu'on voit souvent.`;
-    }
-
-    replyClean = `${vehicleNote} Avant de t'orienter, tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
-    data.next_best_action = "demander_deja_essaye";
+    // Ne rien faire ici — les overrides 5a/5b/5c gèrent le formulaire séquentiel
+    return null;
   }
 
   // ── CAS 3 : On a le symptôme + véhicule + previous_attempts → explication expert ──
@@ -1789,26 +1834,28 @@ function buildVehicleQuestion(extracted) {
   return { replyClean, replyFull, extracted: data };
 }
 
-// --- DEMANDE "DÉJÀ ESSAYÉ" (NOUVEAU V6) ---
+// --- DEMANDE MODÈLE + ANNÉE (formulaire étape 1) ---
+function buildModelQuestion(extracted) {
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_modele" };
+  const marque = extracted?.marque || "ta voiture";
+  const replyClean = `Ok, sur une ${marque} c'est un souci qu'on voit souvent. C'est quel modèle exactement et quelle année ? Ça me permet de vérifier s'il y a un souci connu sur cette version.`;
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// --- DEMANDE KILOMÉTRAGE (formulaire étape 2) ---
+function buildKmQuestion(extracted) {
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_km" };
+  const vehicleStr = extracted?.marque ? `ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}` : "ton véhicule";
+  const replyClean = `Et ${vehicleStr}, elle a combien de km à peu près ? C'est important pour évaluer l'état du FAP.`;
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// --- DEMANDE "DÉJÀ ESSAYÉ" (formulaire étape 3) ---
 function buildPreviousAttemptsQuestion(extracted, metier) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_deja_essaye" };
-  const marque = extracted?.marque || "ta voiture";
-  const hasModele = !!extracted?.modele;
-  const hasKm = !!extracted?.kilometrage;
-
-  let replyClean;
-
-  if (!hasModele && !hasKm) {
-    // Cas courant : on a la marque mais rien d'autre → demander modèle + km + tentatives en une question naturelle
-    replyClean = `Ok, sur une ${marque} c'est un souci qu'on voit souvent. C'est quel modèle exactement, et à combien de km à peu près ?\n\nEt avant de t'orienter : tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
-  } else if (!hasModele) {
-    replyClean = `Ok, sur une ${marque} c'est un souci qu'on voit souvent. C'est quel modèle exactement ? Et tu as déjà essayé quelque chose ? Additif, passage garage, ou rien du tout ?`;
-  } else {
-    // On a déjà le modèle → question classique
-    const vehicleStr = `${marque}${extracted.modele ? " " + extracted.modele : ""}`;
-    replyClean = `Ok, sur une ${vehicleStr} c'est un souci qu'on voit souvent. Avant de t'orienter, tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
-  }
-
+  const replyClean = `Avant de t'orienter : tu as déjà essayé quelque chose pour régler ça ? Additif, régénération, passage garage, ou rien du tout ?`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
@@ -2226,16 +2273,42 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // OVERRIDE 5 : A le symptôme + véhicule, pas encore demandé "déjà essayé"
-    // Sauf si l'user a déjà mentionné des tentatives ou si on a déjà demandé
+    // OVERRIDE 5 : FORMULAIRE SÉQUENTIEL — 1 question par tour
+    // Marque → Modèle → Km → Tentatives (chaque tour = 1 case remplie)
     // ========================================
+
+    // 5a : A la marque, PAS le modèle → demander modèle + année
     if (
       lastExtracted.marque &&
       lastExtracted.symptome !== "inconnu" &&
+      !lastExtracted.modele &&
+      !everAskedModel(history) &&
+      !everAskedClosing(history)
+    ) {
+      return sendResponse(buildModelQuestion(lastExtracted));
+    }
+
+    // 5b : A la marque + modèle, PAS le km → demander km
+    if (
+      lastExtracted.marque &&
+      lastExtracted.symptome !== "inconnu" &&
+      (lastExtracted.modele || everAskedModel(history)) &&
+      !lastExtracted.kilometrage &&
+      !everAskedKm(history) &&
+      !everAskedClosing(history)
+    ) {
+      return sendResponse(buildKmQuestion(lastExtracted));
+    }
+
+    // 5c : A marque + (modèle ou demandé) + (km ou demandé), PAS tentatives → demander tentatives
+    if (
+      lastExtracted.marque &&
+      lastExtracted.symptome !== "inconnu" &&
+      (lastExtracted.modele || everAskedModel(history)) &&
+      (lastExtracted.kilometrage || everAskedKm(history)) &&
       !lastExtracted.previous_attempts &&
       !everAskedPreviousAttempts(history) &&
-      !everAskedClosing(history) &&
-      userTurns >= 2
+      !everAskedClosing(history)
     ) {
       return sendResponse(buildPreviousAttemptsQuestion(lastExtracted, metier));
     }
