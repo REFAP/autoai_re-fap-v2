@@ -635,13 +635,13 @@ function everAskedDemontage(history) {
 }
 
 function userSaysSelfRemoval(msg) {
-  const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return /je (le )?demonte|moi[- ]?meme|je m.?en occupe|je peux (le |l.?)?(demonte|enleve|retire)|je (le )?fais|j.?ai (un )?pont|j.?ai les outils|deja demonte|fap (est )?demonte|il est demonte|c.?est demonte|mecanicien|mecano|je suis meca/.test(t);
+  const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
+  return /je (le )?demonte|moi[- ]?meme|je m.?en occupe|je peux (le |l ?)?(demonte|enleve|retire)|je (le )?fais|j ai (un )?pont|j ai les outils|deja (demonte|enleve|retire|fait|sorti)|fap (est )?(demonte|enleve|retire|sorti)|il est (demonte|enleve|retire|sorti)|c est (demonte|fait)|je l ai (demonte|enleve|retire|sorti|fait)|on l a (demonte|enleve|retire)|mecanicien|mecano|je suis meca/.test(t);
 }
 
 function userNeedsGarage(msg) {
-  const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return /garage|j.?ai besoin|je (ne )?peux pas|pas (les )?outils|pas de pont|je (ne )?sais pas demonte|faut un pro|un professionnel|prise en charge|tout faire|s.?en occupe|pas equipe|j.?ai pas de garage/.test(t);
+  const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
+  return /garage|j ai besoin|je (ne )?peux pas|pas (les )?outils|pas de pont|je (ne )?sais pas demonte|faut un pro|un professionnel|prise en charge|tout faire|s en occupe|pas equipe|j ai pas de garage|pas capable|pas les competence/.test(t);
 }
 
 function everAskedCity(history) {
@@ -1670,7 +1670,13 @@ function buildExpertOrientation(extracted, metier) {
   };
 
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-  return { replyClean, replyFull, extracted: data };
+  return {
+    replyClean, replyFull, extracted: data,
+    suggested_replies: [
+      { label: "Oui, explique-moi", value: "oui" },
+      { label: "Non merci", value: "non merci" },
+    ],
+  };
 }
 
 // ============================================
@@ -1693,7 +1699,14 @@ function buildSolutionExplanation(extracted, metier) {
   };
 
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-  return { replyClean, replyFull, extracted: data };
+  return {
+    replyClean, replyFull, extracted: data,
+    suggested_replies: [
+      { label: "🔧 Je peux le démonter", value: "je le demonte moi-meme" },
+      { label: "🏭 Un garage s'en occupe", value: "j'ai besoin d'un garage" },
+      { label: "📦 Il est déjà démonté", value: "il est deja demonte" },
+    ],
+  };
 }
 
 // ============================================
@@ -1873,7 +1886,13 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
   };
 
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-  return { replyClean, replyFull, extracted: data };
+  return {
+    replyClean, replyFull, extracted: data,
+    suggested_replies: [
+      { label: "✅ Oui, rappelez-moi", value: "oui je veux être rappelé" },
+      { label: "Non merci", value: "non merci" },
+    ],
+  };
 }
 
 // --- CLOSING FORCÉ (fallback quand on a pas pu faire le parcours expert complet) ---
@@ -1900,7 +1919,13 @@ function buildClosingQuestion(extracted, metier) {
   }
 
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-  return { replyClean, replyFull, extracted: data };
+  return {
+    replyClean, replyFull, extracted: data,
+    suggested_replies: [
+      { label: "✅ Oui, rappelez-moi", value: "oui je veux être rappelé" },
+      { label: "Non merci", value: "non merci" },
+    ],
+  };
 }
 
 // --- DEMANDE VÉHICULE ---
@@ -1939,7 +1964,15 @@ function buildPreviousAttemptsQuestion(extracted, metier) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_deja_essaye" };
   const replyClean = `Avant de t'orienter : tu as déjà essayé quelque chose pour régler ça ? Additif, régénération, passage garage, ou rien du tout ?`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-  return { replyClean, replyFull, extracted: data };
+  return {
+    replyClean, replyFull, extracted: data,
+    suggested_replies: [
+      { label: "Additif / nettoyant", value: "j'ai essayé un additif" },
+      { label: "Régénération forcée", value: "j'ai tenté une régénération forcée" },
+      { label: "Passage garage", value: "je suis passé au garage" },
+      { label: "Rien du tout", value: "rien du tout" },
+    ],
+  };
 }
 
 // ============================================================
@@ -2070,7 +2103,8 @@ function withDataRelance(response, history) {
   // Ajouter la question à la fin du message
   const replyClean = response.replyClean + "\n\n" + relance;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(response.extracted)}`;
-  return { ...response, replyClean, replyFull };
+  // Pas de suggested_replies quand il y a une double question (principal + relance data)
+  return { ...response, replyClean, replyFull, suggested_replies: undefined };
 }
 
 // --- FORMULAIRE CTA ---
@@ -2311,6 +2345,7 @@ export default async function handler(req, res) {
         extracted_data: response.extracted,
       };
       if (action) result.action = action;
+      if (response.suggested_replies) result.suggested_replies = response.suggested_replies;
       return res.status(200).json(result);
     }
 
