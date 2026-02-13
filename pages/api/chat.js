@@ -234,11 +234,11 @@ function quickExtract(text) {
     result.symptome_key = "voyant_fap";
   } else if (hasModeDegrade) {
     result.symptome_key = "mode_degrade";
-  } else if (/fap\s*(bouch|colmat|encras|satur|block)/i.test(t) || /filtre.*(bouch|colmat)/i.test(t)) {
+  } else if (/fap\b.*?(bouch|colmat|encras|satur|block)/i.test(t) || /filtre.*(bouch|colmat)/i.test(t)) {
     result.symptome_key = "fap_bouche_declare";
-  } else if (/ct\s*(refus|recal|pas\s*pass)|contre.?visite|controle\s*technique.*(refus|pollution)|opacit[eé]/i.test(t)) {
+  } else if (/ct\s*(refus|recal|pas\s*pass)|contre.?visite|controle\s*technique.*(refus|pollution)|recal[eé].*contr[oô]le|recal[eé].*ct\b|opacit[eé]/i.test(t)) {
     result.symptome_key = "ct_refuse";
-  } else if (/r[eé]g[eé]n[eé]ration.*(impossible|echou|rat|marche\s*pas)|valise.*(impossible|echou)/i.test(t)) {
+  } else if (/r[eé]g[eé]n[eé]?(ration)?.*(impossible|[eé]chou|rat[eé]|marche\s*pas|foir)|valise.*(impossible|[eé]chou)/i.test(t)) {
     result.symptome_key = "regeneration_impossible";
   } else if (hasPuissance) {
     result.symptome_key = "perte_puissance";
@@ -255,15 +255,16 @@ function quickExtract(text) {
   }
 
   // --- CODES OBD ---
-  const codesFound = t.match(/[pP]\s*\d{4}[a-zA-Z]?\s*\d{0,2}/g);
+  const codesFound = t.match(/[pPcCbBuU]\s*[\dA-Fa-f]{4}/g);
   if (codesFound) {
     result.codes = codesFound.map((c) => c.toUpperCase().replace(/\s/g, ""));
-    // Codes spécifiques → routing
-    if (result.codes.some((c) => c.startsWith("P2002")) && !result.symptome_key) {
+    // Codes spécifiques → routing (override generic symptoms like fumée/puissance)
+    const weakSymptoms = [null, "perte_puissance", "fumee", "fumee_noire", "fumee_blanche", "voyant_moteur_seul", "odeur_anormale"];
+    if (result.codes.some((c) => c.startsWith("P2002")) && weakSymptoms.includes(result.symptome_key)) {
       result.symptome_key = "code_p2002";
-    } else if (result.codes.some((c) => c.startsWith("P0420")) && !result.symptome_key) {
+    } else if (result.codes.some((c) => c.startsWith("P0420")) && weakSymptoms.includes(result.symptome_key)) {
       result.symptome_key = "code_p0420";
-    } else if (result.codes.some((c) => c.startsWith("P1490")) && !result.symptome_key) {
+    } else if (result.codes.some((c) => c.startsWith("P1490")) && weakSymptoms.includes(result.symptome_key)) {
       result.symptome_key = "code_p1490";
     }
   }
@@ -358,12 +359,13 @@ function quickExtract(text) {
   }
 
   // --- TYPE TRAJETS --- V7.0
-  if (/\bville\b|urbain|petit(s)?\s*trajet|bouchon|embouteillage/i.test(t) && !/quelle\s*ville/i.test(t)) {
+  // Mixte FIRST (contient souvent "ville" ou "route" → évite faux positif urbain/autoroute)
+  if (/mix|les\s*deux|un\s*peu\s*de\s*tout|mixte|ville\s*(et|\/)\s*(route|autoroute)|autoroute\s*(et|\/)\s*ville/i.test(t)) {
+    result.type_trajets = "mixte";
+  } else if (/\bville\b|urbain|petit(s)?\s*trajet|bouchon|embouteillage/i.test(t) && !/quelle\s*ville/i.test(t)) {
     result.type_trajets = "urbain";
   } else if (/autoroute|long(s)?\s*trajet|route|national/i.test(t)) {
     result.type_trajets = "autoroute";
-  } else if (/mix|les\s*deux|un\s*peu\s*de\s*tout|mixte/i.test(t)) {
-    result.type_trajets = "mixte";
   }
 
   // --- SOURCE --- V7.0
@@ -408,14 +410,14 @@ function userWantsFormNow(text) {
 }
 
 function userSaysYes(text) {
-  const t = String(text || "").toLowerCase().trim();
-  const yesWords = ["oui", "ouais", "ok", "d'accord", "go", "yes", "yep", "ouep", "volontiers", "je veux bien", "avec plaisir", "carrément", "bien sûr", "pourquoi pas", "allons-y", "vas-y"];
+  const t = String(text || "").toLowerCase().replace(/['']/g, " ").trim();
+  const yesWords = ["oui", "ouais", "ok", "d accord", "go", "yes", "yep", "ouep", "volontiers", "je veux bien", "avec plaisir", "carrément", "bien sûr", "pourquoi pas", "allons-y", "vas-y", "ça marche", "ca marche", "c est parti", "banco", "parfait", "super"];
   return yesWords.some((w) => t.includes(w)) || t === "o";
 }
 
 function userSaysNo(text) {
-  const t = String(text || "").toLowerCase().trim();
-  const noWords = ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci", "pas pour l'instant"];
+  const t = String(text || "").toLowerCase().replace(/['']/g, " ").trim();
+  const noWords = ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci", "pas pour l instant", "c est bon", "pas la peine", "pas besoin", "je gère", "ça ira", "ca ira", "laisse tomber", "pas intéressé", "pas interesse", "sans façon", "je passe"];
   return noWords.some((w) => t.includes(w));
 }
 
@@ -624,12 +626,12 @@ function everAskedDemontage(history) {
 
 function userSaysSelfRemoval(msg) {
   const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return /je (le )?demonte|moi[- ]?meme|je m.?en occupe|je peux (le )?demonte|je (le )?fais|j.?ai (un )?pont|j.?ai les outils|deja demonte|fap (est )?demonte|il est demonte|c.?est demonte/.test(t);
+  return /je (le )?demonte|moi[- ]?meme|je m.?en occupe|je peux (le |l.?)?(demonte|enleve|retire)|je (le )?fais|j.?ai (un )?pont|j.?ai les outils|deja demonte|fap (est )?demonte|il est demonte|c.?est demonte|mecanicien|mecano|je suis meca/.test(t);
 }
 
 function userNeedsGarage(msg) {
   const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return /garage|j.?ai besoin|je (ne )?peux pas|pas (les )?outils|pas de pont|je sais pas demonte|faut un pro|un professionnel|prise en charge|tout faire|s.?en occupe/.test(t);
+  return /garage|j.?ai besoin|je (ne )?peux pas|pas (les )?outils|pas de pont|je (ne )?sais pas demonte|faut un pro|un professionnel|prise en charge|tout faire|s.?en occupe|pas equipe|j.?ai pas de garage/.test(t);
 }
 
 function everAskedCity(history) {
@@ -679,7 +681,12 @@ function extractVehicleFromMessage(text) {
     suzuki: "Suzuki", honda: "Honda", mitsubishi: "Mitsubishi",
   };
   for (const [key, value] of Object.entries(marques)) {
-    if (t.includes(key)) return value;
+    // For short keys (2-3 chars like "ds", "vw", "kia"), require word boundary to avoid false positives ("dsl" ≠ "ds")
+    if (key.length <= 3) {
+      if (new RegExp("\\b" + key + "\\b", "i").test(t)) return value;
+    } else {
+      if (t.includes(key)) return value;
+    }
   }
 
   // 2. Modèles → marque (quand l'user dit "Golf" sans dire "Volkswagen")
@@ -840,6 +847,14 @@ function extractModelFromMessage(text) {
     "vitara", "swift",
   ];
 
+  // Citroën C1-C8 (BEFORE named models: "c4 picasso" → C4, not Picasso)
+  const citMatch = tNorm.match(/\b(c[1-8])\b/i);
+  if (citMatch) return citMatch[1].toUpperCase();
+
+  // DS3-DS7
+  const dsMatch = tNorm.match(/\b(ds[3-7])\b/i);
+  if (dsMatch) return dsMatch[1].toUpperCase();
+
   for (const m of namedModels) {
     const mNorm = m.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const escaped = mNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -853,14 +868,6 @@ function extractModelFromMessage(text) {
   if (mercMatch) return "Classe " + mercMatch[1].toUpperCase();
   const mercModelMatch = tNorm.match(/\b(gl[abc]|gle|gls|cla|clk)\b/i);
   if (mercModelMatch) return mercModelMatch[1].toUpperCase();
-
-  // Citroën C1-C8 (BEFORE Peugeot to avoid C3→"2008" false positive)
-  const citMatch = tNorm.match(/\b(c[1-8])\b/i);
-  if (citMatch) return citMatch[1].toUpperCase();
-
-  // DS3-DS7
-  const dsMatch = tNorm.match(/\b(ds[3-7])\b/i);
-  if (dsMatch) return dsMatch[1].toUpperCase();
 
   // Peugeot: 108, 208, 308, 408, 508, 2008, 3008, 5008, 206, 207, 307, 407, 607, 807
   // Guard: "2008" est ambigu (année ou Peugeot 2008) — skip si contexte année
@@ -1512,9 +1519,24 @@ function extractDeptFromInput(input) {
   
   // 1. Code postal complet (5 chiffres)
   const postalMatch = t.match(/\b(\d{5})\b/);
-  if (postalMatch) return postalMatch[1].substring(0, 2);
+  if (postalMatch) {
+    const cp = postalMatch[1];
+    // DOM: 97xxx → dept = 3 premiers chiffres (971, 972, 973, 974, 976)
+    if (cp.startsWith("97")) return cp.substring(0, 3);
+    // Corse: 20xxx → 2A (20000-20190) ou 2B (20200-20299+)
+    if (cp.startsWith("20")) return parseInt(cp) < 20200 ? "2A" : "2B";
+    return cp.substring(0, 2);
+  }
   
-  // 2. Numéro de département (le 93, dans le 59, département 94)
+  // 2. Corse: 2A, 2B
+  const corseMatch = t.match(/\b(2[ab])\b/i);
+  if (corseMatch) return corseMatch[1].toUpperCase();
+  
+  // 3. DOM: 971-976
+  const domMatch = t.match(/\b(97[1-6])\b/);
+  if (domMatch) return domMatch[1];
+  
+  // 4. Numéro de département (le 93, dans le 59, département 94)
   const deptMatch = t.match(/(?:le |dans le |departement |dept |dpt )?(\d{2})\b/);
   if (deptMatch) {
     const num = deptMatch[1];
