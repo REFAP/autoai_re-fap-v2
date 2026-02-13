@@ -75,21 +75,43 @@ const ALLOWED_ORIGINS = [
 ];
 
 // ============================================================
-// DEFAULT DATA - VERSION 6.0 (champs enrichis)
+// DEFAULT DATA - VERSION 7.0 (data collection enrichie)
 // ============================================================
 const DEFAULT_DATA = {
+  // Symptôme
   symptome: "inconnu",
+  symptomes_secondaires: [],
   codes: [],
+  certitude_fap: "inconnue",
+  // Véhicule
   marque: null,
   modele: null,
+  motorisation: null,
   annee: null,
   kilometrage: null,
-  type_trajets: "inconnu",
-  certitude_fap: "inconnue",
-  intention: "inconnu",
+  type_fap: null,           // fap_seul | fap_catalyse
+  systeme_additif: null,    // eolys | cerine | aucun
+  // Historique panne
+  anciennete_probleme: null, // quelques_jours | quelques_semaines | plusieurs_mois | longtemps
+  frequence: null,           // permanent | intermittent | a_froid | a_chaud | acceleration
+  // Tentatives
   previous_attempts: null,
-  roulable: null,
+  previous_attempt_details: [],
+  // Contexte utilisateur
+  type_trajets: "inconnu",
+  usage: null,               // quotidien | weekend | pro | utilitaire
+  urgence: null,             // ct_bientot | immobilise | voyant_seulement | prevention
+  budget_evoque: null,
+  // Orientation
+  intention: "inconnu",
   demontage: null,
+  ville: null,
+  departement: null,
+  garage_confiance: null,
+  source: null,              // google | forum | bouche_a_oreille | garage
+  // Scoring
+  roulable: null,
+  engagement_score: null,
   next_best_action: "poser_question",
 };
 
@@ -123,17 +145,32 @@ function extractDataFromReply(fullReply) {
       const parsed = JSON.parse(match[1]);
       return {
         symptome: parsed.symptome || "inconnu",
+        symptomes_secondaires: parsed.symptomes_secondaires || [],
         codes: parsed.codes || [],
+        certitude_fap: parsed.certitude_fap || "inconnue",
         marque: parsed.marque || null,
         modele: parsed.modele || null,
+        motorisation: parsed.motorisation || null,
         annee: parsed.annee || null,
         kilometrage: parsed.kilometrage || null,
-        type_trajets: parsed.type_trajets || "inconnu",
-        certitude_fap: parsed.certitude_fap || "inconnue",
-        intention: parsed.intention || "inconnu",
+        type_fap: parsed.type_fap || null,
+        systeme_additif: parsed.systeme_additif || null,
+        anciennete_probleme: parsed.anciennete_probleme || null,
+        frequence: parsed.frequence || null,
         previous_attempts: parsed.previous_attempts || null,
-        roulable: parsed.roulable ?? null,
+        previous_attempt_details: parsed.previous_attempt_details || [],
+        type_trajets: parsed.type_trajets || "inconnu",
+        usage: parsed.usage || null,
+        urgence: parsed.urgence || null,
+        budget_evoque: parsed.budget_evoque || null,
+        intention: parsed.intention || "inconnu",
         demontage: parsed.demontage || null,
+        ville: parsed.ville || null,
+        departement: parsed.departement || null,
+        garage_confiance: parsed.garage_confiance ?? null,
+        source: parsed.source || null,
+        roulable: parsed.roulable ?? null,
+        engagement_score: parsed.engagement_score || null,
         next_best_action: parsed.next_best_action || "poser_question",
       };
     } catch {
@@ -162,9 +199,17 @@ function quickExtract(text) {
     symptome_key: null,
     codes: [],
     marque: null,
+    modele: null,
+    motorisation: null,
     intention: null,
     previous_attempts: [],
     urgency_signals: [],
+    anciennete: null,
+    frequence: null,
+    type_trajets: null,
+    source: null,
+    budget_evoque: null,
+    garage_confiance: null,
     is_off_topic: false,
   };
 
@@ -280,6 +325,71 @@ function quickExtract(text) {
     result.urgency_signals.push("ct_bientot");
   }
 
+  // --- MODÈLE (par marque) --- V7.0
+  result.modele = extractModelFromMessage(text);
+
+  // --- MOTORISATION --- V7.0
+  result.motorisation = extractMotorisationFromMessage(text);
+
+  // --- ANCIENNETÉ --- V7.0
+  if (/depuis\s*(hier|aujourd|ce\s*matin|quelques?\s*jours?|[23]\s*jours)/i.test(t)) {
+    result.anciennete = "quelques_jours";
+  } else if (/depuis\s*(une|[12]|deux|quelques?|cette)\s*semaine/i.test(t)) {
+    result.anciennete = "quelques_semaines";
+  } else if (/depuis\s*(un|[1-9]|deux|trois|quelques?|plusieurs|des)\s*mois/i.test(t)) {
+    result.anciennete = "plusieurs_mois";
+  } else if (/depuis\s*(longtemps|toujours|des\s*ann[eé]es|plus\s*d.un\s*an|\d+\s*ans?)/i.test(t)) {
+    result.anciennete = "longtemps";
+  } else if (/[cç]a\s*(vient\s*d|vient\s*juste)|tout\s*[aà]\s*l.heure|ce\s*matin|aujourd/i.test(t)) {
+    result.anciennete = "tres_recent";
+  }
+
+  // --- FRÉQUENCE --- V7.0
+  if (/tout\s*le\s*temps|permanent|toujours\s*(allum|l[aà])|en\s*continu|non\s*stop|sans\s*arr[eê]t/i.test(t)) {
+    result.frequence = "permanent";
+  } else if (/de\s*temps\s*en\s*temps|parfois|intermittent|des\s*fois|pas\s*toujours|ça\s*va\s*et/i.test(t)) {
+    result.frequence = "intermittent";
+  } else if (/[aà]\s*froid|au\s*d[eé]marrage|le\s*matin|quand\s*(c.est|il\s*fait)\s*froid/i.test(t)) {
+    result.frequence = "a_froid";
+  } else if (/[aà]\s*chaud|apr[eè]s\s*\d+\s*km|quand\s*c.est\s*chaud|apr[eè]s\s*(un\s*moment|20|30)/i.test(t)) {
+    result.frequence = "a_chaud";
+  } else if (/en\s*acc[eé]l[eé]r|[aà]\s*l.acc[eé]l[eé]r|quand\s*j.acc[eé]l[eè]re|[aà]\s*la\s*relance/i.test(t)) {
+    result.frequence = "acceleration";
+  }
+
+  // --- TYPE TRAJETS --- V7.0
+  if (/\bville\b|urbain|petit(s)?\s*trajet|bouchon|embouteillage/i.test(t) && !/quelle\s*ville/i.test(t)) {
+    result.type_trajets = "urbain";
+  } else if (/autoroute|long(s)?\s*trajet|route|national/i.test(t)) {
+    result.type_trajets = "autoroute";
+  } else if (/mix|les\s*deux|un\s*peu\s*de\s*tout|mixte/i.test(t)) {
+    result.type_trajets = "mixte";
+  }
+
+  // --- SOURCE --- V7.0
+  if (/google|cherch[eé]\s*sur\s*internet/i.test(t)) {
+    result.source = "google";
+  } else if (/forum|facebook|groupe|f(ace)?book/i.test(t)) {
+    result.source = "forum_social";
+  } else if (/on\s*m.a\s*(dit|conseill|recommand)|bouche\s*[aà]\s*oreille|(un|mon)\s*(ami|pote|coll[eè]gue|voisin|fr[eè]re|beau-?fr|belle-?s)|quelqu.un\s*m.a/i.test(t)) {
+    result.source = "bouche_a_oreille";
+  } else if (/mon\s*garage|mon\s*m[eé]cano|garagiste\s*m.a/i.test(t)) {
+    result.source = "garage";
+  }
+
+  // --- BUDGET ÉVOQUÉ --- V7.0
+  const budgetMatch = t.match(/(?:pay[eé]|co[uû]t[eé]|factur[eé]|devis\s*(?:de|[aà])|pour|[aà])\s*(\d{2,4})\s*(?:€|euro)/i)
+    || t.match(/(\d{3,4})\s*(?:€|euro)\s*(?:le|pour|de|la)\s/i)
+    || t.match(/(\d{3,4})\s*(?:€|euros?)\b/i);
+  if (budgetMatch) result.budget_evoque = budgetMatch[1] + "€";
+
+  // --- GARAGE DE CONFIANCE --- V7.0
+  if (/mon\s*garage|mon\s*m[eé]cano|j.?ai\s*un\s*garage|garage\s*de\s*confiance|garage\s*habituel/i.test(t)) {
+    result.garage_confiance = true;
+  } else if (/je\s*(connais|cherche)\s*(pas|aucun)\s*garage|pas\s*de\s*garage/i.test(t)) {
+    result.garage_confiance = false;
+  }
+
   // --- OFF-TOPIC ---
   if (/recette|couscous|toilettes|m[eé]t[eé]o|foot|politique/i.test(t) && !result.symptome_key) {
     result.is_off_topic = true;
@@ -390,7 +500,12 @@ function lastAssistantAskedDemontage(history) {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      // Version longue: "le FAP doit être démonté...garage s'occupe"
       if (content.includes("fap doit être démonté") && content.includes("garage s'occupe")) {
+        return true;
+      }
+      // Version courte (reformulation): "démonter le FAP toi-même...garage s'occupe"
+      if (content.includes("démonter le fap toi-même") && content.includes("garage s'occupe")) {
         return true;
       }
       return false;
@@ -419,6 +534,9 @@ function everAskedDemontage(history) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
       if (content.includes("fap doit être démonté") && content.includes("garage s'occupe")) {
+        return true;
+      }
+      if (content.includes("démonter le fap toi-même") && content.includes("garage s'occupe")) {
         return true;
       }
     }
@@ -595,6 +713,143 @@ function extractVehicleFromMessage(text) {
   return null;
 }
 
+// ============================================================
+// EXTRACT MODEL — Retourne le nom du modèle (ex: "308", "Golf")
+// ============================================================
+function extractModelFromMessage(text) {
+  const t = String(text || "").toLowerCase();
+  const tNorm = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  // Modèles nommés (non-numériques)
+  const namedModels = [
+    // VAG
+    "golf", "polo", "tiguan", "passat", "touran", "touareg", "t-roc", "caddy", "transporter", "arteon", "sharan",
+    // Renault
+    "clio", "megane", "scenic", "captur", "kadjar", "koleos", "talisman", "laguna", "espace", "kangoo", "trafic", "master", "arkana", "austral",
+    // Citroën
+    "berlingo", "spacetourer", "cactus", "aircross", "picasso",
+    // Ford
+    "focus", "fiesta", "kuga", "puma", "mondeo", "c-max", "s-max", "transit", "ranger",
+    // Opel
+    "corsa", "astra", "mokka", "grandland", "crossland", "insignia", "zafira", "vivaro",
+    // Skoda
+    "octavia", "fabia", "superb", "kodiaq", "karoq", "yeti", "scala",
+    // Fiat
+    "punto", "tipo", "panda", "ducato", "doblo",
+    // Dacia
+    "duster", "sandero", "logan", "jogger",
+    // Toyota
+    "yaris", "corolla", "auris", "hilux", "proace",
+    // Nissan
+    "qashqai", "juke", "x-trail", "navara", "note",
+    // Hyundai
+    "tucson", "kona",
+    // Kia
+    "sportage", "ceed", "niro", "sorento",
+    // Seat
+    "leon", "ibiza", "ateca", "arona",
+    // Mercedes
+    "sprinter", "vito",
+    // Mazda
+    "cx-5", "cx-3",
+    // Honda
+    "cr-v", "civic",
+    // Jeep
+    "compass", "renegade", "cherokee",
+    // Volvo
+    "xc60", "xc90",
+    // Suzuki
+    "vitara", "swift",
+  ];
+
+  for (const m of namedModels) {
+    const mNorm = m.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const escaped = mNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`\\b${escaped}\\b`, "i").test(tNorm)) {
+      return m.charAt(0).toUpperCase() + m.slice(1);
+    }
+  }
+
+  // Mercedes: Classe A/B/C/E/S/V, GLC, GLA, etc. (BEFORE BMW to avoid 220→BMW)
+  const mercMatch = tNorm.match(/\bclass?e?\s*([a-egsv])\b/i);
+  if (mercMatch) return "Classe " + mercMatch[1].toUpperCase();
+  const mercModelMatch = tNorm.match(/\b(gl[abc]|gle|gls|cla|clk)\b/i);
+  if (mercModelMatch) return mercModelMatch[1].toUpperCase();
+
+  // Peugeot: 108, 208, 308, 408, 508, 2008, 3008, 5008, 206, 207, 307, 407, 607, 807
+  const peugeotMatch = tNorm.match(/\b(1008|108|2008|208|3008|308|408|5008|508|206|207|306|307|407|607|807)\b/);
+  if (peugeotMatch) return peugeotMatch[1];
+
+  // Audi: A1-A8, Q2-Q8, TT
+  const audiMatch = tNorm.match(/\b(a[1-8]|q[2-8]|tt|rs[3-7])\b/i);
+  if (audiMatch) return audiMatch[1].toUpperCase();
+
+  // BMW: serie + chiffre, ou 118d, 320d, etc. (require d/i suffix for 3-digit), ou X1-X6
+  const bmwMatch = tNorm.match(/\b(x[1-6]|[1-8][1-5]\d[di])\b/i);
+  if (bmwMatch) return bmwMatch[1].toUpperCase();
+
+  // Citroën C1-C8
+  const citMatch = tNorm.match(/\b(c[1-8])\b/i);
+  if (citMatch) return citMatch[1].toUpperCase();
+
+  // DS3-DS7
+  const dsMatch = tNorm.match(/\b(ds[3-7])\b/i);
+  if (dsMatch) return dsMatch[1].toUpperCase();
+
+  // Hyundai/Kia numeric
+  const hyundaiMatch = tNorm.match(/\b(i[12340]{2}|ix[23]5|santa\s*fe)\b/i);
+  if (hyundaiMatch) return hyundaiMatch[1].charAt(0).toUpperCase() + hyundaiMatch[1].slice(1);
+
+  // Fiat 500/500X/500L
+  const fiatMatch = tNorm.match(/\b(500[xlc]?)\b/i);
+  if (fiatMatch) return fiatMatch[1];
+
+  return null;
+}
+
+// ============================================================
+// EXTRACT MOTORISATION — Retourne la motorisation (ex: "1.6 HDI", "2.0 TDI")
+// ============================================================
+function extractMotorisationFromMessage(text) {
+  const t = String(text || "").toLowerCase();
+
+  // Format générique: X.X + type (HDI, TDI, dCi, etc.)
+  const motorMatch = t.match(/(\d[.,]\d)\s*(?:l\s*)?(bluehdi|blue\s*hdi|e-?hdi|hdi|tdci|tdi|blue\s*dci|dci|ecoblue|eco\s*blue|cdti|crdi|jtd|multijet|d-?4d|skyactiv[- ]?d|cdi|diesel)/i);
+  if (motorMatch) {
+    const disp = motorMatch[1].replace(",", ".");
+    let type = motorMatch[2].replace(/\s+/g, "");
+    // Normaliser
+    if (/bluehdi|blue\s*hdi/i.test(type)) type = "BlueHDI";
+    else if (/^e-?hdi$/i.test(type)) type = "e-HDI";
+    else if (/hdi/i.test(type)) type = "HDI";
+    else if (/tdci/i.test(type)) type = "TDCi";
+    else if (/tdi/i.test(type)) type = "TDI";
+    else if (/bluedci|blue\s*dci/i.test(type)) type = "Blue dCi";
+    else if (/dci/i.test(type)) type = "dCi";
+    else if (/ecoblue|eco\s*blue/i.test(type)) type = "EcoBlue";
+    else if (/tdci/i.test(type)) type = "TDCi";
+    else if (/cdti/i.test(type)) type = "CDTi";
+    else if (/crdi/i.test(type)) type = "CRDi";
+    else if (/multijet/i.test(type)) type = "MultiJet";
+    else if (/d-?4d/i.test(type)) type = "D-4D";
+    else if (/skyactiv/i.test(type)) type = "SkyActiv-D";
+    else if (/cdi/i.test(type)) type = "CDI";
+    else type = type.toUpperCase();
+    return `${disp} ${type}`;
+  }
+
+  // Codes moteur connus
+  if (/\bdv6\b/i.test(t)) return "1.6 HDI (DV6)";
+  if (/\bdw10\b/i.test(t)) return "2.0 HDI (DW10)";
+  if (/\bdv5\b/i.test(t)) return "1.5 BlueHDI (DV5)";
+  if (/\bn47\b/i.test(t)) return "2.0d (N47)";
+  if (/\bb47\b/i.test(t)) return "2.0d (B47)";
+  if (/\bk9k\b/i.test(t)) return "1.5 dCi (K9K)";
+  if (/\bom651\b/i.test(t)) return "2.1 CDI (OM651)";
+
+  return null;
+}
+
 function extractYearFromMessage(text) {
   const match = String(text || "").match(/\b(19[89]\d|20[0-2]\d)\b/);
   return match ? match[1] : null;
@@ -644,24 +899,59 @@ function extractLastExtractedData(history) {
 function mergeExtractedData(previous, current, userMessage, quickData) {
   const merged = { ...DEFAULT_DATA };
 
+  // Symptôme
   merged.symptome = (current?.symptome && current.symptome !== "inconnu") ? current.symptome : (quickData?.symptome_key || previous?.symptome || "inconnu");
+  merged.symptomes_secondaires = current?.symptomes_secondaires?.length > 0 ? current.symptomes_secondaires : previous?.symptomes_secondaires || [];
   merged.codes = (current?.codes?.length > 0) ? current.codes : (quickData?.codes?.length > 0 ? quickData.codes : previous?.codes || []);
+  merged.certitude_fap = (current?.certitude_fap && current.certitude_fap !== "inconnue") ? current.certitude_fap : previous?.certitude_fap || "inconnue";
+
+  // Véhicule
   merged.marque = current?.marque || quickData?.marque || previous?.marque || null;
-  merged.modele = current?.modele || previous?.modele || null;
+  merged.modele = current?.modele || quickData?.modele || previous?.modele || null;
+  merged.motorisation = current?.motorisation || quickData?.motorisation || previous?.motorisation || null;
   merged.annee = current?.annee || previous?.annee || extractYearFromMessage(userMessage) || null;
   merged.kilometrage = current?.kilometrage || previous?.kilometrage || extractKmFromMessage(userMessage) || null;
-  merged.type_trajets = (current?.type_trajets && current.type_trajets !== "inconnu") ? current.type_trajets : previous?.type_trajets || "inconnu";
-  merged.certitude_fap = (current?.certitude_fap && current.certitude_fap !== "inconnue") ? current.certitude_fap : previous?.certitude_fap || "inconnue";
-  merged.intention = (current?.intention && current.intention !== "inconnu") ? current.intention : (quickData?.intention || previous?.intention || "inconnu");
+  merged.type_fap = current?.type_fap || previous?.type_fap || null;
+  merged.systeme_additif = current?.systeme_additif || previous?.systeme_additif || null;
+
+  // Historique panne
+  merged.anciennete_probleme = current?.anciennete_probleme || quickData?.anciennete || previous?.anciennete_probleme || null;
+  merged.frequence = current?.frequence || quickData?.frequence || previous?.frequence || null;
+
+  // Tentatives
   merged.previous_attempts = current?.previous_attempts || (quickData?.previous_attempts?.length > 0 ? quickData.previous_attempts.join(", ") : null) || previous?.previous_attempts || null;
+  merged.previous_attempt_details = current?.previous_attempt_details?.length > 0 ? current.previous_attempt_details : previous?.previous_attempt_details || [];
+
+  // Contexte utilisateur
+  merged.type_trajets = (current?.type_trajets && current.type_trajets !== "inconnu") ? current.type_trajets : (quickData?.type_trajets || previous?.type_trajets || "inconnu");
+  merged.usage = current?.usage || previous?.usage || null;
+  merged.urgence = current?.urgence || previous?.urgence || null;
+  merged.budget_evoque = current?.budget_evoque || quickData?.budget_evoque || previous?.budget_evoque || null;
+
+  // Orientation
+  merged.intention = (current?.intention && current.intention !== "inconnu") ? current.intention : (quickData?.intention || previous?.intention || "inconnu");
+  merged.demontage = current?.demontage || previous?.demontage || null;
+  merged.ville = current?.ville || previous?.ville || null;
+  merged.departement = current?.departement || previous?.departement || null;
+  merged.garage_confiance = current?.garage_confiance ?? quickData?.garage_confiance ?? previous?.garage_confiance ?? null;
+  merged.source = current?.source || quickData?.source || previous?.source || null;
+
+  // Scoring
   merged.roulable = current?.roulable ?? previous?.roulable ?? null;
   merged.next_best_action = current?.next_best_action || "poser_question";
-  merged.demontage = current?.demontage || previous?.demontage || null;
 
-  // Si quickExtract a trouvé une marque que Mistral n'a pas vue
+  // Fallback : quickExtract détecte des choses que Mistral rate
   if (!merged.marque) {
     const detected = extractVehicleFromMessage(userMessage);
     if (detected) merged.marque = detected;
+  }
+  if (!merged.modele) {
+    const detected = extractModelFromMessage(userMessage);
+    if (detected) merged.modele = detected;
+  }
+  if (!merged.motorisation) {
+    const detected = extractMotorisationFromMessage(userMessage);
+    if (detected) merged.motorisation = detected;
   }
 
   return merged;
@@ -826,17 +1116,39 @@ function upsertEnrichment(supabase, conversationId, extracted, quickData, metier
 
   const enrichment = {
     conversation_id: conversationId,
+    // Symptôme
     symptome_principal: extracted?.symptome || quickData?.symptome_key || null,
+    symptomes_secondaires: extracted?.symptomes_secondaires?.length > 0 ? extracted.symptomes_secondaires : null,
     codes_obd: (extracted?.codes?.length > 0) ? extracted.codes : (quickData?.codes?.length > 0 ? quickData.codes : null),
+    // Véhicule
     marque: extracted?.marque || quickData?.marque || null,
-    modele: extracted?.modele || null,
+    modele: extracted?.modele || quickData?.modele || null,
+    motorisation: extracted?.motorisation || quickData?.motorisation || null,
     annee: extracted?.annee ? parseInt(extracted.annee) : null,
     km: extracted?.kilometrage ? parseInt(String(extracted.kilometrage).replace(/\D/g, "")) : null,
+    type_fap: extracted?.type_fap || null,
+    systeme_additif: extracted?.systeme_additif || null,
+    // Historique panne
+    anciennete_probleme: extracted?.anciennete_probleme || quickData?.anciennete || null,
+    frequence: extracted?.frequence || quickData?.frequence || null,
+    // Tentatives
     previous_attempts: quickData?.previous_attempts?.length > 0 ? quickData.previous_attempts : null,
-    previous_attempt_details: typeof extracted?.previous_attempts === "string" ? extracted.previous_attempts : null,
+    previous_attempt_details: extracted?.previous_attempt_details?.length > 0 ? extracted.previous_attempt_details : (typeof extracted?.previous_attempts === "string" ? extracted.previous_attempts : null),
+    // Contexte
+    type_trajets: (extracted?.type_trajets && extracted.type_trajets !== "inconnu") ? extracted.type_trajets : (quickData?.type_trajets || null),
+    usage_vehicule: extracted?.usage || null,
+    budget_evoque: extracted?.budget_evoque || quickData?.budget_evoque || null,
+    // Orientation
+    demontage: extracted?.demontage || null,
+    ville: extracted?.ville || null,
+    departement: extracted?.departement || null,
+    garage_confiance: extracted?.garage_confiance ?? quickData?.garage_confiance ?? null,
+    source_decouverte: extracted?.source || quickData?.source || null,
+    // Scoring
     trigger_event: quickData?.symptome_key || null,
     urgency_level: urgencyLevel,
     roulable: extracted?.roulable ?? (quickData.urgency_signals?.includes("immobilise") ? false : null),
+    engagement_score: extracted?.engagement_score || null,
     a_demande_prix: quickData?.intention === "prix" || false,
     outcome: extracted?.next_best_action === "clore" ? "cta_clicked" : null,
     updated_at: new Date().toISOString(),
@@ -1121,9 +1433,15 @@ function extractDeptFromInput(input) {
   }
   
   // 3. Ville connue dans la base CC (exact ou partial match)
+  // Blacklist: mots courants qui ne sont jamais des villes
+  const NOT_CITIES = ["oui", "ouais", "ouep", "yep", "yes", "non", "nan", "nope", "ok", "merci", "bonjour", "salut", "rien", "pas", "moi", "toi", "lui", "elle", "tout", "bien", "bon", "mal", "car", "les", "des", "une", "par", "sur", "dans", "avec", "pour", "qui", "que", "comment", "quoi", "mais", "donc", "aussi", "encore", "tres", "plus", "garage", "additif", "fap", "voyant", "moteur", "super", "genial", "parfait", "cool", "allez", "allons"];
+  if (NOT_CITIES.includes(t)) return null;
+  
   for (const cc of CARTER_CASH_LIST) {
     const ccCity = cc.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    if (t.includes(ccCity) || ccCity.includes(t)) return cc.dept;
+    if (t.includes(ccCity)) return cc.dept;
+    // Reverse match: only if input is long enough (5+ chars) to be a real city name
+    if (t.length >= 5 && ccCity.includes(t)) return cc.dept;
     // Partial match: "aulnay" → "aulnay-sous-bois"
     const ccFirst = ccCity.split(/[- ]/)[0]; // Premier mot de la ville CC
     if (ccFirst.length >= 4 && t.includes(ccFirst)) return cc.dept;
@@ -1134,7 +1452,7 @@ function extractDeptFromInput(input) {
     const cityNorm = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     if (t.includes(cityNorm)) return dept;
     const cityFirst = cityNorm.split(/[- ]/)[0];
-    if (cityFirst.length >= 4 && t.includes(cityFirst)) return dept;
+    if (cityFirst.length >= 4 && t.length >= 4 && t.includes(cityFirst)) return dept;
   }
   
   return null;
@@ -1422,6 +1740,8 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
   const data = {
     ...(extracted || DEFAULT_DATA),
     intention: "rdv",
+    ville: villeDisplay || null,
+    departement: dept || null,
     next_best_action: "proposer_devis",
   };
 
@@ -1472,17 +1792,156 @@ function buildVehicleQuestion(extracted) {
 // --- DEMANDE "DÉJÀ ESSAYÉ" (NOUVEAU V6) ---
 function buildPreviousAttemptsQuestion(extracted, metier) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_deja_essaye" };
+  const marque = extracted?.marque || "ta voiture";
+  const hasModele = !!extracted?.modele;
+  const hasKm = !!extracted?.kilometrage;
 
   let replyClean;
-  if (metier?.vehicle) {
-    // Personnalisé avec le véhicule
-    replyClean = `Ok, sur une ${extracted?.marque || "ta voiture"} c'est un souci qu'on voit souvent. Avant de t'orienter, tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
+
+  if (!hasModele && !hasKm) {
+    // Cas courant : on a la marque mais rien d'autre → demander modèle + km + tentatives en une question naturelle
+    replyClean = `Ok, sur une ${marque} c'est un souci qu'on voit souvent. C'est quel modèle exactement, et à combien de km à peu près ?\n\nEt avant de t'orienter : tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
+  } else if (!hasModele) {
+    replyClean = `Ok, sur une ${marque} c'est un souci qu'on voit souvent. C'est quel modèle exactement ? Et tu as déjà essayé quelque chose ? Additif, passage garage, ou rien du tout ?`;
   } else {
-    replyClean = `D'accord. Tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
+    // On a déjà le modèle → question classique
+    const vehicleStr = `${marque}${extracted.modele ? " " + extracted.modele : ""}`;
+    replyClean = `Ok, sur une ${vehicleStr} c'est un souci qu'on voit souvent. Avant de t'orienter, tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
   }
 
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================================
+// ENGAGEMENT SCORING — Mesure l'engagement user pour déclencher le mode approfondi
+// ============================================================
+function computeEngagement(history) {
+  let score = 0;
+  let userTurns = 0;
+  let totalUserWords = 0;
+  let gaveDetails = 0;
+  let askedQuestions = 0;
+
+  if (!Array.isArray(history)) return 0;
+
+  for (const msg of history) {
+    if (msg?.role === "user") {
+      userTurns++;
+      const words = String(msg.content || "").split(/\s+/).length;
+      totalUserWords += words;
+      if (words > 15) gaveDetails++;
+      if (String(msg.content || "").includes("?")) askedQuestions++;
+    }
+  }
+
+  score += Math.min(userTurns, 5);            // max 5 pts pour la durée
+  score += gaveDetails;                        // 1 pt par message détaillé
+  score += askedQuestions;                      // 1 pt par question posée
+  if (userTurns > 0 && totalUserWords / userTurns > 10) score += 2; // réponses longues
+
+  return Math.min(score, 10);
+}
+
+// ============================================================
+// DATA RELANCE — Identifie la question la plus utile à poser
+// Retourne null si on a assez de data ou si la question serait redondante
+// ============================================================
+function getMissingDataQuestion(extracted, history) {
+  // Ne pas relancer si on a déjà posé une question data récemment
+  const lastBot = getLastAssistantMessage(history);
+  if (lastBot && /quel mod[eè]le|combien de km|quelle ann[eé]e|code erreur|type de trajet|quel coin/i.test(lastBot)) {
+    return null;
+  }
+
+  // P1 — Modèle (critique pour le pricing)
+  if (extracted?.marque && !extracted?.modele) {
+    return {
+      field: "modele",
+      question: `Au fait, c'est quel modèle exactement ta ${extracted.marque} ? (et l'année si tu l'as)`,
+    };
+  }
+
+  // P1 — Kilométrage (critique pour évaluer l'état du FAP)
+  if (extracted?.marque && !extracted?.kilometrage) {
+    return {
+      field: "kilometrage",
+      question: `Elle a combien de km à peu près ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} ?`,
+    };
+  }
+
+  // P2 — Ancienneté (utile pour diagnostic)
+  if (!extracted?.anciennete_probleme && extracted?.symptome !== "inconnu") {
+    return {
+      field: "anciennete",
+      question: "C'est depuis combien de temps ce problème ?",
+    };
+  }
+
+  // P3 — Code DTC (mode approfondi, engagement ≥ 6)
+  if (extracted?.codes?.length === 0) {
+    return {
+      field: "codes",
+      question: "Tu as un code erreur par hasard ? Si un garage ou un lecteur OBD t'a donné un code (genre P2002, P2463...), ça m'aide à affiner le diagnostic.",
+    };
+  }
+
+  // P3 — Type trajets
+  if (!extracted?.type_trajets || extracted.type_trajets === "inconnu") {
+    return {
+      field: "type_trajets",
+      question: "Tu fais surtout de la ville, de l'autoroute, ou un mix des deux ?",
+    };
+  }
+
+  return null;
+}
+
+function getLastAssistantMessage(history) {
+  if (!Array.isArray(history)) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      return String(history[i].raw || history[i].content || "");
+    }
+  }
+  return null;
+}
+
+// Relance intégrée : on ajoute la question data à la fin d'une réponse existante
+// Retourne la question à ajouter, ou null
+function getDataRelanceForResponse(extracted, history) {
+  const engagement = computeEngagement(history);
+  const missing = getMissingDataQuestion(extracted, history);
+  if (!missing) return null;
+
+  // P1 (modèle, km) → toujours relancer
+  if (missing.field === "modele" || missing.field === "kilometrage") {
+    return missing.question;
+  }
+
+  // P2 (ancienneté) → relancer si engagement ≥ 4
+  if (missing.field === "anciennete" && engagement >= 4) {
+    return missing.question;
+  }
+
+  // P3 (codes, trajets) → relancer si engagement ≥ 6 (mode approfondi)
+  if ((missing.field === "codes" || missing.field === "type_trajets") && engagement >= 6) {
+    return missing.question;
+  }
+
+  return null;
+}
+
+// Wrapper : ajoute une relance data à une réponse si pertinent
+function withDataRelance(response, history) {
+  if (!response) return response;
+  const relance = getDataRelanceForResponse(response.extracted, history);
+  if (!relance) return response;
+
+  // Ajouter la question à la fin du message
+  const replyClean = response.replyClean + "\n\n" + relance;
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(response.extracted)}`;
+  return { ...response, replyClean, replyFull };
 }
 
 // --- FORMULAIRE CTA ---
@@ -1655,6 +2114,11 @@ export default async function handler(req, res) {
     // HELPER : envoyer une réponse + save + enrichment
     // ========================================
     async function sendResponse(response, action = null) {
+      // Compute engagement score
+      if (response.extracted) {
+        response.extracted.engagement_score = computeEngagement(history);
+      }
+
       await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "assistant",
@@ -1705,7 +2169,7 @@ export default async function handler(req, res) {
       } else if (userNeedsGarage(message) || userSaysNo(message)) {
         return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
       }
-      // Si ni self ni garage détecté, on essaie comme ville (l'user a peut-être skip la question et donné directement sa ville)
+      // Si l'user donne directement une ville (skip la question), on traite
       const deptTest = extractDeptFromInput(message);
       if (deptTest) {
         let ville = message.trim()
@@ -1715,6 +2179,13 @@ export default async function handler(req, res) {
           .trim();
         if (!ville) ville = message.trim();
         return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
+      }
+      // "oui", "ok", réponse ambiguë → reformuler la question plus simplement
+      if (userSaysYes(message)) {
+        const clarifyReply = "Pour t'orienter au mieux : tu as la possibilité de démonter le FAP toi-même, ou tu préfères qu'un garage s'occupe de tout (démontage + remontage) ?";
+        const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_demontage" };
+        const replyFull = `${clarifyReply}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean: clarifyReply, replyFull, extracted: data });
       }
       // Sinon fallback: on considère que c'est "garage" (cas le plus courant)
       return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
@@ -1787,7 +2258,7 @@ export default async function handler(req, res) {
       !everAskedClosing(history) &&
       userTurns >= 3
     ) {
-      return sendResponse(buildExpertOrientation(lastExtracted, metier));
+      return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
     }
 
     // ========================================
@@ -1803,7 +2274,7 @@ export default async function handler(req, res) {
     // ========================================
     const metierResponse = buildMetierResponse(quickData, lastExtracted, metier, userTurns, history);
     if (metierResponse) {
-      return sendResponse(metierResponse);
+      return sendResponse(withDataRelance(metierResponse, history));
     }
 
     // ========================================
@@ -1919,7 +2390,7 @@ export default async function handler(req, res) {
       (everAskedPreviousAttempts(history) || extracted.previous_attempts || userTurns >= 4)
     ) {
       if (!everGaveExpertOrientation(history)) {
-        return sendResponse(buildExpertOrientation(extracted, metier));
+        return sendResponse(withDataRelance(buildExpertOrientation(extracted, metier), history));
       } else {
         return sendResponse(buildClosingQuestion(extracted, metier));
       }
