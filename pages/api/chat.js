@@ -167,9 +167,25 @@ function quickExtract(text) {
   };
 
   // --- SYMPTÔMES (ordre = priorité) ---
-  if (/voyant\s*(fap|filtre|dpf)|symbole.*(pot|echappement)|t[eé]moin\s*fap/.test(t)) {
+  
+  // D'abord, détecter les SIGNAUX individuels (pas exclusifs)
+  const hasVoyantFap = /voyant\s*(fap|filtre|dpf)|symbole.*(pot|echappement)|t[eé]moin\s*fap/i.test(t);
+  const hasVoyantGeneric = /voyant.*(allum|fixe|orange|clignot|permanent)|voyant\s*(moteur|orange)|check\s*engine|engine\s*light|t[eé]moin\s*(moteur|allum)/i.test(t);
+  const hasVoyantAny = hasVoyantFap || hasVoyantGeneric || /\bvoyant\b/i.test(t); // "voyant" seul = signal faible mais valide en combo
+  const hasPuissance = /(perte|plus|manque|baisse|perd).*(puissance|p[eê]che|patate)|(tire|avance)\s*(plus|pas)|n.?avance\s*plus|plus\s*de\s*puissance/i.test(t);
+  const hasModeDegrade = /mode\s*d[eé]grad[eé]|mode\s*limp|brid[eé]e?|limit[eé]e?\s*(à|a)\s*\d/i.test(t);
+  const hasFumee = /fum[eé]e|fume\b|smoke/i.test(t);
+
+  // COMBOS (prioritaires — couvrent les messages multi-symptômes)
+  if ((hasVoyantAny) && hasPuissance) {
+    result.symptome_key = "voyant_fap_puissance";
+  } else if (hasVoyantFap && hasModeDegrade) {
+    result.symptome_key = "voyant_fap_puissance"; // même routing : certitude haute
+  }
+  // SIMPLES (si pas de combo)
+  else if (hasVoyantFap) {
     result.symptome_key = "voyant_fap";
-  } else if (/mode\s*d[eé]grad[eé]|mode\s*limp|brid[eé]e?|limit[eé]e?\s*(à|a)\s*\d/.test(t)) {
+  } else if (hasModeDegrade) {
     result.symptome_key = "mode_degrade";
   } else if (/fap\s*(bouch|colmat|encras|satur|block)/i.test(t) || /filtre.*(bouch|colmat)/i.test(t)) {
     result.symptome_key = "fap_bouche_declare";
@@ -177,23 +193,18 @@ function quickExtract(text) {
     result.symptome_key = "ct_refuse";
   } else if (/r[eé]g[eé]n[eé]ration.*(impossible|echou|rat|marche\s*pas)|valise.*(impossible|echou)/i.test(t)) {
     result.symptome_key = "regeneration_impossible";
-  } else if (/(perte|plus|manque|baisse|perd).*(puissance|p[eê]che|patate)|(tire|avance)\s*(plus|pas)|n.?avance\s*plus/i.test(t)) {
+  } else if (hasPuissance) {
     result.symptome_key = "perte_puissance";
   } else if (/fum[eé]e\s*noire|black\s*smoke/i.test(t)) {
     result.symptome_key = "fumee_noire";
   } else if (/fum[eé]e\s*blanche|white\s*smoke/i.test(t)) {
     result.symptome_key = "fumee_blanche";
-  } else if (/fum[eé]e|fume\b|smoke/i.test(t)) {
+  } else if (hasFumee) {
     result.symptome_key = "fumee";
   } else if (/odeur|sent\s*mauvais|[aâ]cre|pu(e|anteur)/i.test(t)) {
     result.symptome_key = "odeur_anormale";
-  } else if (/voyant\s*(moteur|orange|allum)|check\s*engine|engine\s*light|t[eé]moin\s*moteur/i.test(t)) {
+  } else if (hasVoyantGeneric) {
     result.symptome_key = "voyant_moteur_seul";
-  }
-
-  // Combo voyant + puissance → certitude haute
-  if (result.symptome_key === "voyant_fap" && /(puissance|patate|tire\s*plus|avance\s*plus)/i.test(t)) {
-    result.symptome_key = "voyant_fap_puissance";
   }
 
   // --- CODES OBD ---
@@ -305,7 +316,10 @@ function lastAssistantAskedClosingQuestion(history) {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement"))) {
+      if (
+        (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement") || content.includes("te rappelle"))) ||
+        (content.includes("qu'on te rappelle") && content.includes("organiser"))
+      ) {
         return true;
       }
       return false;
@@ -346,7 +360,47 @@ function everAskedClosing(history) {
   for (let i = 0; i < history.length; i++) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement"))) {
+      if (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement") || content.includes("te rappelle"))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function lastAssistantAskedCity(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("quel coin") || content.includes("quelle ville") || content.includes("où tu habites") || content.includes("près de chez toi")) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+function everAskedCity(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("quel coin") || content.includes("quelle ville") || content.includes("meilleure option près")) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function everGaveExpertOrientation(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("cendres métalliques") || content.includes("en machine") || content.includes("carter-cash équipé")) {
         return true;
       }
     }
@@ -805,10 +859,9 @@ function buildMetierResponse(quickData, extracted, metier, userTurns, history) {
     data.next_best_action = "demander_deja_essaye";
   }
 
-  // ── CAS 3 : On a le symptôme + véhicule + previous_attempts → prêt à closer ──
-  // Même si userTurns < 3 (user efficace qui donne tout en 2 messages)
-  if (extracted.marque && extracted.symptome !== "inconnu" && (extracted.previous_attempts || everAskedPreviousAttempts(history)) && !everAskedClosing(history)) {
-    return buildClosingQuestion(extracted, metier);
+  // ── CAS 3 : On a le symptôme + véhicule + previous_attempts → explication expert ──
+  if (extracted.marque && extracted.symptome !== "inconnu" && (extracted.previous_attempts || everAskedPreviousAttempts(history)) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
+    return buildExpertOrientation(extracted, metier);
   }
 
   if (!replyClean) return null;
@@ -842,45 +895,106 @@ function buildSnippetResponse(quickData, extracted, metier) {
 }
 
 // --- CLOSING (avec prix de la BDD) ---
-function buildClosingQuestion(extracted, metier) {
+// --- EXPLICATION EXPERT + DEMANDE VILLE (remplace l'ancien closing commercial) ---
+// Tour "après déjà essayé" : on explique POURQUOI, on donne les options, on demande la ville
+function buildExpertOrientation(extracted, metier) {
   const marque = extracted?.marque;
   const modele = extracted?.modele;
-  const annee = extracted?.annee;
-  const kilometrage = extracted?.kilometrage;
   const certitude = extracted?.certitude_fap;
+  const attempts = extracted?.previous_attempts || "";
 
-  let vehicleInfo = "";
-  if (marque) {
-    vehicleInfo = `ta ${marque}`;
-    if (modele) vehicleInfo += ` ${modele}`;
-    if (annee) vehicleInfo += ` de ${annee}`;
-    if (kilometrage) vehicleInfo += ` à ${kilometrage}`;
+  // --- PARTIE 1 : Réponse technique à la tentative précédente ---
+  let techExplanation = "";
+  if (attempts.includes("additif") || attempts.includes("additif_cerine")) {
+    techExplanation = "Les additifs agissent uniquement sur les suies (particules de combustion). Mais dans un FAP, il y a aussi des cendres métalliques — résidus d'huile et d'additif — qui s'accumulent et que les additifs ne dissolvent pas. C'est pour ça que ça n'a rien changé.";
+  } else if (attempts.includes("regeneration_forcee")) {
+    techExplanation = "La régénération brûle les suies à ~600°C, mais elle ne peut rien contre les cendres métalliques accumulées. Si le FAP est trop chargé en cendres, même une régénération réussie ne suffit plus — le filtre reste partiellement bouché.";
+  } else if (attempts.includes("garage")) {
+    techExplanation = "Un garage qui propose le remplacement, c'est souvent la solution la plus simple pour eux. Mais un FAP encrassé ne veut pas dire FAP mort — dans la majorité des cas, un nettoyage professionnel suffit à le remettre en état.";
+  } else if (attempts.includes("karcher")) {
+    techExplanation = "Le jet haute pression risque d'endommager la structure céramique interne du FAP (le substrat). Et l'eau seule ne dissout pas les cendres métalliques. C'est pour ça que ça n'a pas réglé le problème.";
+  } else if (attempts.includes("nettoyage_anterieur")) {
+    techExplanation = "Si le voyant revient après un nettoyage, il faut chercher la cause en amont : capteur de pression, système d'additif, ou conditions d'utilisation (trop de petits trajets). Le nettoyage seul ne suffit pas si la cause persiste.";
+  } else if (attempts.includes("nettoyage_chimique")) {
+    techExplanation = "L'acide ou le vinaigre peuvent attaquer la céramique du FAP et créer des micro-fissures. Le nettoyage professionnel utilise un procédé spécifique qui préserve la structure interne du filtre.";
+  } else if (attempts.includes("defapage")) {
+    techExplanation = "La suppression du FAP rend le véhicule non conforme au contrôle technique et c'est interdit par la loi. Le nettoyage professionnel est la solution légale qui remet le FAP en état.";
+  } else {
+    // L'user n'a rien essayé ou a dit "rien"
+    if (certitude === "haute") {
+      techExplanation = "Ce que tu décris, c'est typiquement un FAP qui est arrivé à saturation. Les suies et les cendres se sont accumulées au point où le filtre ne laisse plus passer assez de gaz d'échappement — d'où le voyant et la perte de puissance.";
+    } else {
+      techExplanation = "D'après ce que tu décris, il y a de bonnes chances que ce soit lié au FAP.";
+    }
   }
 
-  // Prix depuis la BDD
+  // --- PARTIE 2 : Ce que fait le nettoyage pro (explication, pas pitch) ---
+  let processExplanation = "";
+  if (metier?.vehicle?.systeme_additif && metier.vehicle.systeme_additif !== "aucun") {
+    processExplanation = `Le nettoyage professionnel retire les suies ET les cendres en machine, avec un contrôle avant/après. Sur une ${marque || "voiture"} avec le système ${metier.vehicle.systeme_additif}, on vérifie aussi le circuit d'additif.`;
+  } else {
+    processExplanation = "Le nettoyage professionnel retire les suies ET les cendres en machine, avec un contrôle de l'état du FAP avant et après. Résultat garanti 1 an.";
+  }
+
+  // --- PARTIE 3 : Les options concrètes avec prix ---
+  let prixCC = "99-149€";
+  let prixEnvoi = "199€";
+  if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
+    const matchCC = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
+    if (matchCC) prixCC = `${matchCC.price_ttc}€`;
+    const matchEnvoi = metier.pricing.find((p) => p.equipped_machine === false);
+    if (matchEnvoi) prixEnvoi = `${matchEnvoi.price_ttc}€`;
+  }
+
+  const options = `Concrètement, deux options : dans un Carter-Cash équipé d'une machine (sur place en 4h, ${prixCC}), ou en envoi 48-72h (${prixEnvoi} port inclus). Dans les deux cas, le FAP doit être démonté du véhicule.`;
+
+  // --- ASSEMBLAGE ---
+  const replyClean = `${techExplanation}\n\n${processExplanation} ${options}\n\nTu es dans quel coin ? Je regarde la meilleure option près de chez toi.`;
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "diagnostic",
+    next_best_action: "demander_ville",
+  };
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// --- ORIENTATION CONCRÈTE APRÈS VILLE ---
+function buildLocationOrientationResponse(extracted, metier, ville) {
+  let prixCC = "99-149€";
+  if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
+    const matchCC = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
+    if (matchCC) prixCC = `${matchCC.price_ttc}€`;
+  }
+
+  const vehicleInfo = extracted?.marque ? `ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}` : "ton véhicule";
+
+  const replyClean = `OK, ${ville}. On a des centres Carter-Cash et plus de 800 garages partenaires en France. Pour ${vehicleInfo}, le mieux c'est qu'un expert Re-FAP vérifie le centre le plus adapté près de chez toi et te confirme le prix exact et le délai. Tu veux qu'on te rappelle pour organiser ça ?`;
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "rdv",
+    next_best_action: "proposer_devis",
+  };
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// --- CLOSING FORCÉ (fallback quand on a pas pu faire le parcours expert complet) ---
+function buildClosingQuestion(extracted, metier) {
   let prixText = "à partir de 99€";
   if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
     const match = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
     if (match) prixText = `${match.price_ttc}€`;
   }
 
-  // Réponse adaptée aux tentatives précédentes (data marché → réponse métier)
-  let attemptResponse = "";
-  const attempts = extracted?.previous_attempts || "";
-  if (attempts.includes("additif") || attempts.includes("additif_cerine")) {
-    attemptResponse = "Normal, les additifs n'agissent que sur les suies, pas sur les cendres accumulées. Le nettoyage pro fait les deux. ";
-  } else if (attempts.includes("regeneration_forcee")) {
-    attemptResponse = "Si la régénération ne passe plus, c'est souvent que le FAP est trop chargé en cendres pour se nettoyer tout seul. ";
-  } else if (attempts.includes("garage")) {
-    attemptResponse = "Le nettoyage pro est une alternative au remplacement, souvent bien moins cher. ";
-  } else if (attempts.includes("karcher")) {
-    attemptResponse = "Le karcher risque d'abîmer la céramique et ne retire pas les cendres. Le nettoyage pro est plus adapté. ";
-  } else if (attempts.includes("nettoyage_anterieur")) {
-    attemptResponse = "Si ça revient après un nettoyage, il faut vérifier la cause racine. Nos experts peuvent analyser ça. ";
-  } else if (attempts.includes("nettoyage_chimique")) {
-    attemptResponse = "L'acide ou le vinaigre peuvent attaquer la céramique du FAP. Le nettoyage pro utilise un procédé adapté. ";
-  } else if (attempts.includes("defapage")) {
-    attemptResponse = "La suppression du FAP est interdite et rend le véhicule non conforme. Le nettoyage pro est la solution légale. ";
+  let vehicleInfo = "";
+  if (extracted?.marque) {
+    vehicleInfo = `ta ${extracted.marque}`;
+    if (extracted?.modele) vehicleInfo += ` ${extracted.modele}`;
   }
 
   const data = {
@@ -890,12 +1004,10 @@ function buildClosingQuestion(extracted, metier) {
   };
 
   let replyClean;
-  if (certitude === "haute" && vehicleInfo) {
-    replyClean = `${attemptResponse}Sur ${vehicleInfo}, c'est un cas qu'on connaît bien. Le nettoyage pro c'est ${prixText} au lieu de 1500€+ pour un remplacement, garanti 1 an. Tu veux qu'un expert Re-FAP regarde ta situation ? C'est gratuit et sans engagement.`;
-  } else if (vehicleInfo) {
-    replyClean = `${attemptResponse}D'après ce que tu décris sur ${vehicleInfo}, on peut t'aider. Le nettoyage pro c'est ${prixText}. Tu veux qu'un expert Re-FAP analyse ça ? C'est gratuit et sans engagement.`;
+  if (vehicleInfo) {
+    replyClean = `Sur ${vehicleInfo}, le nettoyage professionnel du FAP c'est ${prixText} au lieu de 1500€+ pour un remplacement. Tu veux qu'un expert Re-FAP regarde ta situation ? C'est gratuit, on te rappelle pour t'orienter.`;
   } else {
-    replyClean = `${attemptResponse}On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement.`;
+    replyClean = `Le nettoyage professionnel du FAP c'est ${prixText} au lieu de 1500€+ pour un remplacement. Tu veux qu'un expert Re-FAP regarde ta situation ?`;
   }
 
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
@@ -1129,16 +1241,25 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // OVERRIDE 1 : Closing question + OUI → Formulaire
+    // OVERRIDE 1 : Closing/orientation question + OUI → Formulaire
     // ========================================
-    if (lastAssistantAskedClosingQuestion(history) && userSaysYes(message)) {
+    if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history)) && userSaysYes(message)) {
       return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: FORM_URL });
     }
 
     // ========================================
-    // OVERRIDE 2 : Closing question + NON → Poli
+    // OVERRIDE 1b : Bot a demandé la ville, user répond avec une ville → orientation concrète
+    // (si ce n'est pas un "oui" ou "non", c'est probablement la ville)
     // ========================================
-    if (lastAssistantAskedClosingQuestion(history) && userSaysNo(message)) {
+    if (lastAssistantAskedCity(history) && !userSaysYes(message) && !userSaysNo(message) && message.length > 1) {
+      const ville = message.trim();
+      return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville));
+    }
+
+    // ========================================
+    // OVERRIDE 2 : Closing/orientation question + NON → Poli
+    // ========================================
+    if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history)) && userSaysNo(message)) {
       return sendResponse(buildDeclinedResponse(lastExtracted));
     }
 
@@ -1179,15 +1300,17 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // OVERRIDE 7 : Assez d'infos pour closer (symptôme + véhicule + déjà essayé demandé)
+    // OVERRIDE 7 : Assez d'infos → EXPLICATION EXPERT + demande ville
+    // (au lieu de l'ancien closing commercial)
     // ========================================
     if (
       hasEnoughToClose(lastExtracted, history) &&
       (everAskedPreviousAttempts(history) || lastExtracted.previous_attempts) &&
+      !everGaveExpertOrientation(history) &&
       !everAskedClosing(history) &&
       userTurns >= 3
     ) {
-      return sendResponse(buildClosingQuestion(lastExtracted, metier));
+      return sendResponse(buildExpertOrientation(lastExtracted, metier));
     }
 
     // ========================================
@@ -1310,7 +1433,7 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // AUTO-CLOSE : assez d'infos → closer
+    // AUTO-CLOSE : assez d'infos → expert orientation ou closing
     // ========================================
     if (
       hasEnoughToClose(extracted, history) &&
@@ -1318,7 +1441,11 @@ export default async function handler(req, res) {
       !everAskedClosing(history) &&
       (everAskedPreviousAttempts(history) || extracted.previous_attempts || userTurns >= 4)
     ) {
-      return sendResponse(buildClosingQuestion(extracted, metier));
+      if (!everGaveExpertOrientation(history)) {
+        return sendResponse(buildExpertOrientation(extracted, metier));
+      } else {
+        return sendResponse(buildClosingQuestion(extracted, metier));
+      }
     }
 
     // ========================================
