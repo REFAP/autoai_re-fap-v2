@@ -243,6 +243,15 @@ function quickExtract(text) {
   if (/remplac.*(fap|filtre)|fap\s*(neuf|neuve)/i.test(t)) {
     result.previous_attempts.push("remplacement_envisage");
   }
+  if (/r[eé]g[eé]n[eé]r|roul[eé]?\s*(fort|autoroute|vite)|forc[eé]?\s*(la\s*)?r[eé]g[eé]n/i.test(t)) {
+    result.previous_attempts.push("regeneration_forcee");
+  }
+  if (/nettoy[eé]?\s*(fap|filtre)|d[eé]j[aà]\s*(fait\s*)?nettoy/i.test(t)) {
+    result.previous_attempts.push("nettoyage_anterieur");
+  }
+  if (/acide|vinaigre|soude/i.test(t)) {
+    result.previous_attempts.push("nettoyage_chimique");
+  }
 
   // --- URGENCY ---
   if (/ne\s*(roule|d[eé]marre)\s*(plus|pas)|immobilis|panne|en\s*rade/i.test(t)) {
