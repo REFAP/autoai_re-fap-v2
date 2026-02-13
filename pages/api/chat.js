@@ -832,9 +832,29 @@ function extractModelFromMessage(text) {
   const mercModelMatch = tNorm.match(/\b(gl[abc]|gle|gls|cla|clk)\b/i);
   if (mercModelMatch) return mercModelMatch[1].toUpperCase();
 
+  // Citroën C1-C8 (BEFORE Peugeot to avoid C3→"2008" false positive)
+  const citMatch = tNorm.match(/\b(c[1-8])\b/i);
+  if (citMatch) return citMatch[1].toUpperCase();
+
+  // DS3-DS7
+  const dsMatch = tNorm.match(/\b(ds[3-7])\b/i);
+  if (dsMatch) return dsMatch[1].toUpperCase();
+
   // Peugeot: 108, 208, 308, 408, 508, 2008, 3008, 5008, 206, 207, 307, 407, 607, 807
+  // Guard: "2008" est ambigu (année ou Peugeot 2008) — skip si contexte année
   const peugeotMatch = tNorm.match(/\b(1008|108|2008|208|3008|308|408|5008|508|206|207|306|307|407|607|807)\b/);
-  if (peugeotMatch) return peugeotMatch[1];
+  if (peugeotMatch) {
+    const val = peugeotMatch[1];
+    // "2008" ambigu : si un autre modèle est déjà trouvé avant (C3, Golf...) ou si contexte année
+    if (val === "2008") {
+      const yearCtx = /(?:de|en|ann[eé]e|depuis|fin|d[eé]but)\s+2008\b/i.test(tNorm);
+      const hasOtherModel = citMatch || /golf|clio|duster|focus/i.test(tNorm);
+      if (!yearCtx && !hasOtherModel) return val;
+      // else skip — c'est probablement l'année
+    } else {
+      return val;
+    }
+  }
 
   // Audi: A1-A8, Q2-Q8, TT
   const audiMatch = tNorm.match(/\b(a[1-8]|q[2-8]|tt|rs[3-7])\b/i);
@@ -843,14 +863,6 @@ function extractModelFromMessage(text) {
   // BMW: serie + chiffre, ou 118d, 320d, etc. (require d/i suffix for 3-digit), ou X1-X6
   const bmwMatch = tNorm.match(/\b(x[1-6]|[1-8][1-5]\d[di])\b/i);
   if (bmwMatch) return bmwMatch[1].toUpperCase();
-
-  // Citroën C1-C8
-  const citMatch = tNorm.match(/\b(c[1-8])\b/i);
-  if (citMatch) return citMatch[1].toUpperCase();
-
-  // DS3-DS7
-  const dsMatch = tNorm.match(/\b(ds[3-7])\b/i);
-  if (dsMatch) return dsMatch[1].toUpperCase();
 
   // Hyundai/Kia numeric
   const hyundaiMatch = tNorm.match(/\b(i[12340]{2}|ix[23]5|santa\s*fe)\b/i);
@@ -2127,8 +2139,10 @@ export default async function handler(req, res) {
     const quickData = quickExtract(message);
     let lastExtracted = extractLastExtractedData(history);
 
-    // Merger quickExtract dans lastExtracted
+    // Merger quickExtract dans lastExtracted (V7: tous les champs)
     if (quickData.marque && !lastExtracted.marque) lastExtracted.marque = quickData.marque;
+    if (quickData.modele && !lastExtracted.modele) lastExtracted.modele = quickData.modele;
+    if (quickData.motorisation && !lastExtracted.motorisation) lastExtracted.motorisation = quickData.motorisation;
     if (quickData.symptome_key && lastExtracted.symptome === "inconnu") lastExtracted.symptome = quickData.symptome_key;
     if (quickData.codes.length > 0 && lastExtracted.codes.length === 0) lastExtracted.codes = quickData.codes;
     if (quickData.previous_attempts.length > 0 && !lastExtracted.previous_attempts) {
@@ -2138,6 +2152,13 @@ export default async function handler(req, res) {
     if (detectedYear && !lastExtracted.annee) lastExtracted.annee = detectedYear;
     const detectedKm = extractKmFromMessage(message);
     if (detectedKm && !lastExtracted.kilometrage) lastExtracted.kilometrage = detectedKm;
+    // V7: nouveaux champs
+    if (quickData.anciennete && !lastExtracted.anciennete_probleme) lastExtracted.anciennete_probleme = quickData.anciennete;
+    if (quickData.frequence && !lastExtracted.frequence) lastExtracted.frequence = quickData.frequence;
+    if (quickData.type_trajets && (!lastExtracted.type_trajets || lastExtracted.type_trajets === "inconnu")) lastExtracted.type_trajets = quickData.type_trajets;
+    if (quickData.source && !lastExtracted.source) lastExtracted.source = quickData.source;
+    if (quickData.budget_evoque && !lastExtracted.budget_evoque) lastExtracted.budget_evoque = quickData.budget_evoque;
+    if (quickData.garage_confiance !== null && quickData.garage_confiance !== undefined && lastExtracted.garage_confiance === null) lastExtracted.garage_confiance = quickData.garage_confiance;
 
     // Certitude FAP depuis routing
     if (quickData.symptome_key && lastExtracted.certitude_fap === "inconnue") {
