@@ -511,6 +511,28 @@ function everAskedKm(history) {
   return false;
 }
 
+// ── DÉTECTION : bot a posé une question de qualification symptôme ──
+// (puissance, fumée, voyant → la réponse user enrichit le diagnostic)
+function lastAssistantAskedQualifyingQuestion(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (
+        (content.includes("perte de puissance") && content.includes("?")) ||
+        (content.includes("fumée") && content.includes("?")) ||
+        (content.includes("voyant") && content.includes("allumé") && content.includes("?")) ||
+        (content.includes("quel voyant") && content.includes("?")) ||
+        (content.includes("mode dégradé") && content.includes("?"))
+      ) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
 function everAskedPreviousAttempts(history) {
   if (!Array.isArray(history)) return false;
   for (let i = 0; i < history.length; i++) {
@@ -1249,8 +1271,20 @@ function buildMetierResponse(quickData, extracted, metier, userTurns, history) {
   if (metier.routing && !extracted.marque) {
     const r = metier.routing;
 
-    // Adapter le ton selon reponse_type
-    if (r.reponse_type === "rassurer") {
+    // Si on a déjà une certitude haute (combo cross-turn détecté) → skip qualifier, demander véhicule direct
+    const alreadyHighCertainty = extracted.certitude_fap === "haute";
+    // Si le bot vient de poser une question qualifier → l'user a répondu, on avance
+    const botJustQualified = lastAssistantAskedQualifyingQuestion(history);
+
+    if (alreadyHighCertainty || botJustQualified) {
+      // On a assez d'infos sur le symptôme → demander le véhicule
+      const rassurances = [
+        "Pas de panique, c'est un cas qu'on voit souvent et c'est généralement réparable.",
+        "OK, pas d'inquiétude, c'est un problème classique et ça se traite bien.",
+        "D'accord, c'est un souci fréquent et dans la plupart des cas ça se répare.",
+      ];
+      replyClean = rassurances[Math.floor(Math.random() * rassurances.length)] + " C'est quelle voiture ?";
+    } else if (r.reponse_type === "rassurer") {
       const rassurances = [
         "Pas de panique, c'est un cas qu'on voit souvent et c'est généralement réparable.",
         "OK, pas d'inquiétude, c'est un problème classique et ça se traite bien.",
@@ -2143,7 +2177,35 @@ export default async function handler(req, res) {
     if (quickData.marque && !lastExtracted.marque) lastExtracted.marque = quickData.marque;
     if (quickData.modele && !lastExtracted.modele) lastExtracted.modele = quickData.modele;
     if (quickData.motorisation && !lastExtracted.motorisation) lastExtracted.motorisation = quickData.motorisation;
-    if (quickData.symptome_key && lastExtracted.symptome === "inconnu") lastExtracted.symptome = quickData.symptome_key;
+
+    // SYMPTÔME : merge intelligent avec combos cross-turn
+    if (quickData.symptome_key) {
+      const prev = lastExtracted.symptome || "inconnu";
+      const curr = quickData.symptome_key;
+
+      // Combo cross-turn : voyant (tour N) + puissance (tour N+1) → voyant_fap_puissance
+      const voyantTypes = ["voyant_fap", "voyant_moteur_seul"];
+      const puissanceTypes = ["perte_puissance", "mode_degrade"];
+
+      if (voyantTypes.includes(prev) && puissanceTypes.includes(curr)) {
+        lastExtracted.symptome = "voyant_fap_puissance";
+        lastExtracted.certitude_fap = "haute";
+      } else if (puissanceTypes.includes(prev) && voyantTypes.includes(curr)) {
+        lastExtracted.symptome = "voyant_fap_puissance";
+        lastExtracted.certitude_fap = "haute";
+      } else if (voyantTypes.includes(prev) && /fumee/.test(curr)) {
+        lastExtracted.symptome = "voyant_fap";
+        lastExtracted.certitude_fap = "haute";
+      } else if (prev === "inconnu") {
+        // Pas encore de symptôme → prendre le nouveau
+        lastExtracted.symptome = curr;
+      } else if (curr === "voyant_fap_puissance" || curr === "voyant_fap") {
+        // Le nouveau est plus précis → upgrader
+        lastExtracted.symptome = curr;
+      }
+      // sinon on garde le symptôme existant (plus spécifique)
+    }
+
     if (quickData.codes.length > 0 && lastExtracted.codes.length === 0) lastExtracted.codes = quickData.codes;
     if (quickData.previous_attempts.length > 0 && !lastExtracted.previous_attempts) {
       lastExtracted.previous_attempts = quickData.previous_attempts.join(", ");
@@ -2160,13 +2222,13 @@ export default async function handler(req, res) {
     if (quickData.budget_evoque && !lastExtracted.budget_evoque) lastExtracted.budget_evoque = quickData.budget_evoque;
     if (quickData.garage_confiance !== null && quickData.garage_confiance !== undefined && lastExtracted.garage_confiance === null) lastExtracted.garage_confiance = quickData.garage_confiance;
 
-    // Certitude FAP depuis routing
-    if (quickData.symptome_key && lastExtracted.certitude_fap === "inconnue") {
-      const hauteCertitude = ["voyant_fap", "voyant_fap_puissance", "code_p2002", "fap_bouche_declare", "mode_degrade", "ct_refuse"];
-      const moyenneCertitude = ["perte_puissance", "code_p0420", "voyant_moteur_seul", "fumee", "fumee_noire"];
-      if (hauteCertitude.includes(quickData.symptome_key)) lastExtracted.certitude_fap = "haute";
-      else if (moyenneCertitude.includes(quickData.symptome_key)) lastExtracted.certitude_fap = "moyenne";
-      else lastExtracted.certitude_fap = "basse";
+    // Certitude FAP depuis routing (utilise le symptôme MERGED, pas juste quickData)
+    if (lastExtracted.certitude_fap === "inconnue" || lastExtracted.certitude_fap === "basse" || lastExtracted.certitude_fap === "moyenne") {
+      const merged = lastExtracted.symptome;
+      const hauteCertitude = ["voyant_fap", "voyant_fap_puissance", "code_p2002", "fap_bouche_declare", "mode_degrade", "ct_refuse", "regeneration_impossible"];
+      const moyenneCertitude = ["perte_puissance", "code_p0420", "voyant_moteur_seul", "fumee", "fumee_noire", "fumee_blanche"];
+      if (hauteCertitude.includes(merged)) lastExtracted.certitude_fap = "haute";
+      else if (moyenneCertitude.includes(merged) && lastExtracted.certitude_fap !== "haute") lastExtracted.certitude_fap = "moyenne";
     }
 
     const userTurns = countUserTurns(history) + 1;
