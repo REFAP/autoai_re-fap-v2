@@ -1252,17 +1252,38 @@ function buildSolutionExplanation(extracted, metier) {
 }
 
 // ============================================
+// HELPER PRICING — Prix selon le véhicule
+// Règle : on n'affiche un prix spécifique que si on a le MODÈLE.
+// Sans modèle (juste la marque), on affiche la fourchette.
+// Ex: "Peugeot" → "99-149€" (on ne sait pas si DV6 ou BlueHDI)
+//     "Peugeot 308 1.6 HDI" → "99€" (DV6 sans cata confirmé)
+//     "Peugeot 3008 BlueHDI" → "149€" (FAP+cata confirmé)
+// ============================================
+function getPricing(extracted, metier) {
+  const defaults = { prixCC: "99-149€", prixEnvoi: "199€", prixText: "entre 99€ et 149€" };
+
+  // Sans modèle → on ne peut pas déterminer le type de FAP → fourchette
+  if (!extracted?.modele) return defaults;
+
+  // Avec modèle + pricing BDD → prix spécifique
+  if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
+    const matchCC = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
+    const matchEnvoi = metier.pricing.find((p) => p.equipped_machine === false);
+    return {
+      prixCC: matchCC ? `${matchCC.price_ttc}€` : defaults.prixCC,
+      prixEnvoi: matchEnvoi ? `${matchEnvoi.price_ttc}€` : defaults.prixEnvoi,
+      prixText: matchCC ? `${matchCC.price_ttc}€` : defaults.prixText,
+    };
+  }
+
+  return defaults;
+}
+
+// ============================================
 // RÉPONSE DÉMONTAGE : SELF → ask ville
 // ============================================
 function buildSelfRemovalResponse(extracted, metier) {
-  let prixCC = "99-149€";
-  let prixEnvoi = "199€";
-  if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
-    const matchCC = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
-    if (matchCC) prixCC = `${matchCC.price_ttc}€`;
-    const matchEnvoi = metier.pricing.find((p) => p.equipped_machine === false);
-    if (matchEnvoi) prixEnvoi = `${matchEnvoi.price_ttc}€`;
-  }
+  const { prixCC, prixEnvoi } = getPricing(extracted, metier);
 
   const replyClean = `C'est la solution la plus économique. Une fois le FAP démonté, tu as deux options :\n\n→ Le déposer dans un Carter-Cash équipé d'une machine : nettoyage sur place en ~4h, ${prixCC}.\n→ Le déposer dans n'importe quel Carter-Cash (point dépôt) : envoi au centre Re-FAP, retour en 48-72h, ${prixEnvoi} port inclus.\n\nTu es dans quel coin ? Je regarde le Carter-Cash le plus proche de chez toi.`;
 
@@ -1281,11 +1302,7 @@ function buildSelfRemovalResponse(extracted, metier) {
 // RÉPONSE DÉMONTAGE : GARAGE → ask ville
 // ============================================
 function buildGarageNeededResponse(extracted, metier) {
-  let prixNettoyage = "99-149€";
-  if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
-    const matchCC = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
-    if (matchCC) prixNettoyage = `${matchCC.price_ttc}€`;
-  }
+  const { prixCC: prixNettoyage } = getPricing(extracted, metier);
 
   const replyClean = `Pas de souci, c'est le cas le plus courant. Voilà comment ça se passe :\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP pour le nettoyage, remontage et réinitialisation du système.\n\nCôté tarif, le nettoyage Re-FAP c'est ${prixNettoyage}, et le garage facture en plus sa main d'œuvre pour le démontage/remontage. Le total dépend du véhicule (l'accès au FAP est plus ou moins facile selon les modèles), mais dans tous les cas ça reste bien en dessous d'un remplacement de FAP (1 500€ à 3 000€+).\n\nOn travaille avec plus de 800 garages partenaires en France. Tu es dans quel coin ? Et si tu as déjà un garage de confiance, on peut aussi travailler directement avec lui.`;
 
@@ -1350,14 +1367,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
   // Capitaliser la ville pour l'affichage
   const villeDisplay = capitalizeVille(ville);
 
-  let prixCC = "99-149€";
-  let prixEnvoi = "199€";
-  if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
-    const matchCC = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
-    if (matchCC) prixCC = `${matchCC.price_ttc}€`;
-    const matchEnvoi = metier.pricing.find((p) => p.equipped_machine === false);
-    if (matchEnvoi) prixEnvoi = `${matchEnvoi.price_ttc}€`;
-  }
+  const { prixCC, prixEnvoi } = getPricing(extracted, metier);
 
   let replyClean = "";
 
@@ -1421,11 +1431,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
 
 // --- CLOSING FORCÉ (fallback quand on a pas pu faire le parcours expert complet) ---
 function buildClosingQuestion(extracted, metier) {
-  let prixText = "à partir de 99€";
-  if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
-    const match = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
-    if (match) prixText = `${match.price_ttc}€`;
-  }
+  const { prixText } = getPricing(extracted, metier);
 
   let vehicleInfo = "";
   if (extracted?.marque) {
