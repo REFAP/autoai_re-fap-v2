@@ -255,7 +255,7 @@ function quickExtract(text) {
   if (/remplac.*(fap|filtre)|fap\s*(neuf|neuve)/i.test(t)) {
     result.previous_attempts.push("remplacement_envisage");
   }
-  if (/r[eé]g[eé]n[eé]r|roul[eé]?\s*(fort|autoroute|vite)|forc[eé]?\s*(la\s*)?r[eé]g[eé]n/i.test(t)) {
+  if (/r[eé]g[eé]n[eé]?r|regen[eé]?r|roul[eé]?\s*(fort|autoroute|vite)|forc[eé]?\s*(la\s*)?r[eé]g[eé]n|tent[eé].*r[eé]gen/i.test(t)) {
     result.previous_attempts.push("regeneration_forcee");
   }
   if (/nettoy[eé]?\s*(fap|filtre)|d[eé]j[aà]\s*(fait\s*)?nettoy/i.test(t)) {
@@ -389,7 +389,21 @@ function lastAssistantAskedDemontage(history) {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("démonté du véhicule") && content.includes("garage s'en occupe")) {
+      if (content.includes("fap doit être démonté") && content.includes("garage s'occupe")) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+function lastAssistantAskedSolutionExplanation(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("que je te détaille") || content.includes("que je t'explique comment")) {
         return true;
       }
       return false;
@@ -403,7 +417,7 @@ function everAskedDemontage(history) {
   for (let i = 0; i < history.length; i++) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("démonté du véhicule") && content.includes("garage s'en occupe")) {
+      if (content.includes("fap doit être démonté") && content.includes("garage s'occupe")) {
         return true;
       }
     }
@@ -439,7 +453,7 @@ function everGaveExpertOrientation(history) {
   for (let i = 0; i < history.length; i++) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("cendres métalliques") || content.includes("en machine") || content.includes("démonté du véhicule") || content.includes("carter-cash équipé")) {
+      if (content.includes("cendres métalliques") || content.includes("que je te détaille") || content.includes("fap doit être démonté") || content.includes("carter-cash équipé")) {
         return true;
       }
     }
@@ -1143,22 +1157,35 @@ function buildExpertOrientation(extracted, metier) {
   const certitude = extracted?.certitude_fap;
   const attempts = extracted?.previous_attempts || "";
 
-  // --- PARTIE 1 : Réponse technique à la tentative précédente ---
-  let techExplanation = "";
+  // --- PARTIE 1 : Réponse à CHAQUE tentative (multi-attempt) ---
+  const attemptResponses = [];
+
+  if (attempts.includes("regeneration_forcee")) {
+    attemptResponses.push("Pour la régénération : elle brûle les suies à ~600°C, mais elle ne peut rien contre les cendres métalliques qui se sont accumulées dans le filtre. Si le FAP est trop chargé en cendres, même une régénération réussie ne suffit plus — le filtre reste partiellement bouché.");
+  }
   if (attempts.includes("additif") || attempts.includes("additif_cerine")) {
-    techExplanation = "Les additifs agissent uniquement sur les suies (particules de combustion). Mais dans un FAP, il y a aussi des cendres métalliques — résidus d'huile et d'additif — qui s'accumulent et que les additifs ne dissolvent pas. C'est pour ça que ça n'a rien changé.";
-  } else if (attempts.includes("regeneration_forcee")) {
-    techExplanation = "La régénération brûle les suies à ~600°C, mais elle ne peut rien contre les cendres métalliques accumulées. Si le FAP est trop chargé en cendres, même une régénération réussie ne suffit plus — le filtre reste partiellement bouché.";
-  } else if (attempts.includes("garage")) {
-    techExplanation = "Un garage qui propose le remplacement, c'est souvent la solution la plus simple pour eux. Mais un FAP encrassé ne veut pas dire FAP mort — dans la majorité des cas, un nettoyage professionnel suffit à le remettre en état.";
-  } else if (attempts.includes("karcher")) {
-    techExplanation = "Le jet haute pression risque d'endommager la structure céramique interne du FAP (le substrat). Et l'eau seule ne dissout pas les cendres métalliques. C'est pour ça que ça n'a pas réglé le problème.";
-  } else if (attempts.includes("nettoyage_anterieur")) {
-    techExplanation = "Si le voyant revient après un nettoyage, il faut chercher la cause en amont : capteur de pression, système d'additif, ou conditions d'utilisation (trop de petits trajets). Le nettoyage seul ne suffit pas si la cause persiste.";
-  } else if (attempts.includes("nettoyage_chimique")) {
-    techExplanation = "L'acide ou le vinaigre peuvent attaquer la céramique du FAP et créer des micro-fissures. Le nettoyage professionnel utilise un procédé spécifique qui préserve la structure interne du filtre.";
-  } else if (attempts.includes("defapage")) {
-    techExplanation = "La suppression du FAP rend le véhicule non conforme au contrôle technique et c'est interdit par la loi. Le nettoyage professionnel est la solution légale qui remet le FAP en état.";
+    attemptResponses.push("Pour les produits nettoyants/additifs : ils agissent uniquement sur les suies (particules de combustion). Mais dans un FAP, il y a aussi des cendres métalliques — résidus d'huile moteur — qui s'accumulent et que ces produits ne dissolvent pas.");
+  }
+  if (attempts.includes("garage")) {
+    attemptResponses.push("Le garage t'a probablement proposé un remplacement. C'est souvent la solution la plus simple pour eux, mais un FAP encrassé ne veut pas dire FAP mort — dans la majorité des cas, il peut être remis en état.");
+  }
+  if (attempts.includes("karcher")) {
+    attemptResponses.push("Le jet haute pression risque d'endommager la structure céramique interne du FAP (le substrat en nid d'abeille). Et l'eau seule ne dissout pas les cendres métalliques.");
+  }
+  if (attempts.includes("nettoyage_anterieur")) {
+    attemptResponses.push("Si le voyant revient après un nettoyage, il faut chercher la cause en amont : capteur de pression différentielle, système d'additif (Eolys/cérine), injecteurs, ou conditions d'utilisation (trop de petits trajets urbains). Le nettoyage seul ne suffit pas si la cause racine persiste.");
+  }
+  if (attempts.includes("nettoyage_chimique")) {
+    attemptResponses.push("L'acide ou le vinaigre peuvent attaquer la céramique du FAP et créer des micro-fissures irréversibles. C'est un risque réel d'endommager définitivement le filtre.");
+  }
+  if (attempts.includes("defapage")) {
+    attemptResponses.push("La suppression du FAP rend le véhicule non conforme au contrôle technique et c'est interdit par la loi (Art. L318-3). En cas d'accident, l'expertise peut aussi poser problème.");
+  }
+
+  // Assembler les réponses aux tentatives
+  let techExplanation = "";
+  if (attemptResponses.length > 0) {
+    techExplanation = attemptResponses.join("\n\n");
   } else {
     if (certitude === "haute") {
       techExplanation = "Ce que tu décris, c'est typiquement un FAP qui est arrivé à saturation. Les suies et les cendres se sont accumulées au point où le filtre ne laisse plus passer assez de gaz d'échappement — d'où le voyant et la perte de puissance.";
@@ -1167,17 +1194,51 @@ function buildExpertOrientation(extracted, metier) {
     }
   }
 
-  // --- PARTIE 2 : Ce que fait le nettoyage + QUESTION DÉMONTAGE ---
-  let processExplanation = "";
-  if (metier?.vehicle?.systeme_additif && metier.vehicle.systeme_additif !== "aucun") {
-    processExplanation = `Le nettoyage professionnel retire les suies ET les cendres en machine, avec un contrôle avant/après. Sur une ${marque || "voiture"} avec le système ${metier.vehicle.systeme_additif}, on vérifie aussi le circuit d'additif. Résultat garanti 1 an.`;
-  } else {
-    processExplanation = "Le nettoyage professionnel retire les suies ET les cendres en machine, avec un contrôle de l'état du FAP avant et après. Résultat garanti 1 an.";
+  // --- PARTIE 2 : DIAGNOSTIC — expliquer le problème de fond ---
+  let diagnosisBlock = "";
+  if (attemptResponses.length > 0) {
+    diagnosisBlock = "Le problème de fond, c'est l'accumulation de cendres métalliques dans le filtre. C'est un phénomène normal avec le temps et le kilométrage — aucune solution \"maison\" (régénération, additifs, roulage autoroute) ne peut les retirer.";
   }
 
-  const demontageQuestion = "Point important : pour le nettoyage, le FAP doit être démonté du véhicule. Tu as la possibilité de le démonter toi-même (ou de le faire démonter), ou tu préfères qu'un garage s'en occupe ?";
+  // Note système additif (information pure, pas claim de service)
+  let additifNote = "";
+  if (metier?.vehicle?.systeme_additif && metier.vehicle.systeme_additif !== "aucun") {
+    additifNote = `À savoir aussi : ta ${marque || "voiture"} utilise un système d'additif (${metier.vehicle.systeme_additif}) pour faciliter les régénérations. Si le niveau du réservoir d'additif est bas, ça peut aggraver le problème. C'est un point à vérifier de ton côté ou avec ton garagiste.`;
+  }
 
-  const replyClean = `${techExplanation}\n\n${processExplanation}\n\n${demontageQuestion}`;
+  // --- PARTIE 3 : QUESTION OUVERTE (pas de solution encore) ---
+  const openQuestion = "Il existe une solution pour retirer ces cendres, mais je préfère d'abord t'expliquer comment ça fonctionne plutôt que de te balancer un devis. Tu veux que je te détaille ça ?";
+
+  // --- ASSEMBLAGE ---
+  const parts = [techExplanation];
+  if (diagnosisBlock) parts.push(diagnosisBlock);
+  if (additifNote) parts.push(additifNote);
+  parts.push(openQuestion);
+
+  const replyClean = parts.join("\n\n");
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "diagnostic",
+    next_best_action: "demander_explication_solution",
+  };
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================
+// PHASE 2 : EXPLICATION SOLUTION + DÉMONTAGE
+// (déclenchée quand user dit "oui" après le diagnostic)
+// ============================================
+function buildSolutionExplanation(extracted, metier) {
+  const marque = extracted?.marque;
+
+  const solutionBlock = "Le nettoyage en machine professionnelle est la seule façon de retirer les cendres métalliques. Concrètement, le FAP est nettoyé sous pression contrôlée avec un procédé qui retire les suies ET les cendres sans abîmer la céramique. L'état du filtre est vérifié avant et après pour s'assurer que le résultat est bon.";
+
+  const demontageQuestion = "Pour faire ce nettoyage, le FAP doit être démonté du véhicule. Est-ce que tu as la possibilité de le démonter toi-même (ou de le faire démonter par quelqu'un), ou est-ce que tu préfères qu'un garage s'occupe de tout ?";
+
+  const replyClean = `${solutionBlock}\n\n${demontageQuestion}`;
 
   const data = {
     ...(extracted || DEFAULT_DATA),
@@ -1575,6 +1636,13 @@ export default async function handler(req, res) {
     }
 
     // ========================================
+    // OVERRIDE 1a : Bot a posé la question diagnostic ("tu veux que je te détaille ?") + OUI → solution + démontage
+    // ========================================
+    if (lastAssistantAskedSolutionExplanation(history) && userSaysYes(message)) {
+      return sendResponse(buildSolutionExplanation(lastExtracted, metier));
+    }
+
+    // ========================================
     // OVERRIDE 1b : Bot a demandé le démontage → détecter self/garage
     // ========================================
     if (lastAssistantAskedDemontage(history)) {
@@ -1612,9 +1680,9 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // OVERRIDE 2 : Closing/orientation question + NON → Poli
+    // OVERRIDE 2 : Closing/orientation/solution question + NON → Poli
     // ========================================
-    if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history)) && userSaysNo(message)) {
+    if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history) || lastAssistantAskedSolutionExplanation(history)) && userSaysNo(message)) {
       return sendResponse(buildDeclinedResponse(lastExtracted));
     }
 
