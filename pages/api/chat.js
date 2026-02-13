@@ -359,6 +359,8 @@ function everAskedClosing(history) {
 // ============================================================
 function extractVehicleFromMessage(text) {
   const t = String(text || "").toLowerCase();
+  // Version sans accents pour le matching des modèles
+  const tNorm = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   // 1. Marques directes
   const marques = {
@@ -431,7 +433,8 @@ function extractVehicleFromMessage(text) {
     navara: "Nissan", leaf: "Nissan", note: "Nissan",
     // Hyundai
     tucson: "Hyundai", "i10": "Hyundai", "i20": "Hyundai", "i30": "Hyundai",
-    kona: "Hyundai", "santa fe": "Hyundai", "ix35": "Hyundai",
+    kona: "Hyundai", "santa fe": "Hyundai", santafe: "Hyundai", "santafé": "Hyundai",
+    "ix35": "Hyundai", "ix20": "Hyundai", "i40": "Hyundai",
     // Kia
     sportage: "Kia", ceed: "Kia", niro: "Kia", sorento: "Kia", stonic: "Kia",
     picanto: "Kia", venga: "Kia",
@@ -460,10 +463,25 @@ function extractVehicleFromMessage(text) {
     compass: "Jeep", renegade: "Jeep", wrangler: "Jeep", cherokee: "Jeep",
   };
 
+  // Modèles numériques ambigus (aussi des années courantes)
+  // "2008", "2008" peut être Peugeot 2008 OU l'année 2008
+  // On ne matche que si PAS précédé de "de ", "en ", "année ", "from " etc.
+  const ambiguousNumeric = ["2008", "500"];
+
   for (const [key, value] of Object.entries(modeles)) {
-    // Boundary check pour éviter les faux positifs ("c3" dans "10c30")
-    const regex = new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-    if (regex.test(t)) return value;
+    const keyNorm = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const escaped = keyNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    if (ambiguousNumeric.includes(key)) {
+      const yearCtx = new RegExp(`(de|en|annee|from|since|fin|debut)\\s+${escaped}\\b`, "i");
+      if (yearCtx.test(tNorm)) continue;
+      const modelCtx = new RegExp(`(peugeot|fiat)\\s+${escaped}\\b`, "i");
+      if (modelCtx.test(tNorm)) return value;
+      continue;
+    }
+
+    const regex = new RegExp(`\\b${escaped}\\b`, "i");
+    if (regex.test(tNorm)) return value;
   }
 
   return null;
