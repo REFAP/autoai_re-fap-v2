@@ -644,6 +644,33 @@ function userNeedsGarage(msg) {
   return /garage|j ai besoin|je (ne )?peux pas|pas (les )?outils|pas de pont|je (ne )?sais pas demonte|faut un pro|un professionnel|prise en charge|tout faire|s en occupe|pas equipe|j ai pas de garage|pas capable|pas les competence/.test(t);
 }
 
+// Détection : le bot a demandé partenaire vs garage habituel
+function lastAssistantAskedGarageType(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("garage partenaire") && content.includes("garage de confiance")) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+// Détection : user veut un garage partenaire Re-FAP
+function userWantsPartnerGarage(msg) {
+  const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
+  return /cherche|trouve|partenaire|pas de garage|j en ai pas|j ai pas de|connais pas|aucun garage|non j ai pas|non pas de/.test(t);
+}
+
+// Détection : user a déjà un garage de confiance
+function userHasOwnGarage(msg) {
+  const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
+  return /mon garage|j ai (un |mon |deja )(un )?garage|garage (de confiance|habituel|attit)|garagiste|mon meca|j en ai un|oui j ai|deja un garage/.test(t);
+}
+
 function everAskedCity(history) {
   if (!Array.isArray(history)) return false;
   for (let i = 0; i < history.length; i++) {
@@ -1772,17 +1799,62 @@ function buildSelfRemovalResponse(extracted, metier) {
 }
 
 // ============================================
-// RÉPONSE DÉMONTAGE : GARAGE → ask ville
+// RÉPONSE DÉMONTAGE : GARAGE → demander type garage
+// Étape intermédiaire : partenaire Re-FAP ou garage habituel ?
 // ============================================
-function buildGarageNeededResponse(extracted, metier) {
+function buildGarageTypeQuestion(extracted, metier) {
   const { prixCC: prixNettoyage } = getPricing(extracted, metier);
 
-  const replyClean = `Pas de souci, c'est le cas le plus courant. Voilà comment ça se passe :\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP pour le nettoyage, remontage et réinitialisation du système.\n\nCôté tarif, le nettoyage Re-FAP c'est ${prixNettoyage}, et le garage facture en plus sa main d'œuvre pour le démontage/remontage. Le total dépend du véhicule (l'accès au FAP est plus ou moins facile selon les modèles), mais c'est une solution durable contrairement à un additif qui ne traite que les suies.\n\nOn travaille avec plus de 800 garages partenaires en France. Tu es dans quel coin ? Et si tu as déjà un garage de confiance, on peut aussi travailler directement avec lui.`;
+  const replyClean = `Pas de souci, c'est le cas le plus courant. Le FAP doit être démonté pour le nettoyage, et un garage peut s'en charger.\n\nDeux possibilités :\n→ On te met en relation avec un garage partenaire Re-FAP qui connaît déjà le process\n→ Si tu as déjà un garage de confiance, on peut travailler directement avec lui\n\nTu as déjà un garagiste, ou tu préfères qu'on te trouve un partenaire ?`;
 
   const data = {
     ...(extracted || DEFAULT_DATA),
     intention: "diagnostic",
     demontage: "garage",
+    next_best_action: "demander_type_garage",
+  };
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return {
+    replyClean, replyFull, extracted: data,
+    suggested_replies: [
+      { label: "🔍 Trouvez-moi un garage", value: "je cherche un garage partenaire" },
+      { label: "🔧 J'ai mon garagiste", value: "j'ai déjà un garage de confiance" },
+    ],
+  };
+}
+
+// ============================================
+// PATH A : GARAGE PARTENAIRE Re-FAP → ask ville
+// ============================================
+function buildPartnerGarageResponse(extracted, metier) {
+  const { prixCC: prixNettoyage } = getPricing(extracted, metier);
+
+  const replyClean = `Parfait. On travaille avec plus de 800 garages partenaires en France qui connaissent le process Re-FAP.\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation. Côté tarif, le nettoyage c'est ${prixNettoyage}, plus la main d'œuvre du garage pour le démontage/remontage.\n\nTu es dans quel coin ? Je regarde quel garage partenaire est le plus proche de chez toi.`;
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "diagnostic",
+    demontage: "garage_partner",
+    next_best_action: "demander_ville",
+  };
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================
+// PATH B : GARAGE HABITUEL → ambassadeur Re-FAP + ask ville
+// ============================================
+function buildOwnGarageResponse(extracted, metier) {
+  const { prixCC: prixNettoyage } = getPricing(extracted, metier);
+
+  const replyClean = `Super, c'est encore plus simple. Voilà comment ça se passe avec ton garage :\n\n1. Ton garagiste démonte le FAP comme il le ferait pour un remplacement\n2. Il envoie le FAP au centre Re-FAP (on fournit l'étiquette de transport)\n3. On le nettoie et on le retourne sous 48-72h\n4. Ton garagiste le remonte et réinitialise le système\n\nLe nettoyage c'est ${prixNettoyage}. Si ton garagiste ne connaît pas encore Re-FAP, pas de souci — un expert peut l'appeler pour tout lui expliquer et le rassurer sur le process. On fait ça régulièrement.\n\nTu es dans quel coin ? Ça me permet de préparer le dossier.`;
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "diagnostic",
+    demontage: "garage_own",
     next_best_action: "demander_ville",
   };
 
@@ -1801,12 +1873,16 @@ function detectDemontageFromHistory(history) {
     if (history[i]?.role === "user") {
       const msg = String(history[i].content || "");
       if (userSaysSelfRemoval(msg)) return "self";
+      if (userHasOwnGarage(msg)) return "garage_own";
+      if (userWantsPartnerGarage(msg)) return "garage_partner";
       if (userNeedsGarage(msg)) return "garage";
     }
     // On cherche aussi dans les réponses bot un indice
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
       if (content.includes("la solution la plus économique") && content.includes("fap démonté")) return "self";
+      if (content.includes("ton garagiste démonte")) return "garage_own";
+      if (content.includes("800 garages partenaires") && content.includes("process re-fap")) return "garage_partner";
       if (content.includes("le garage s'occupe de tout") && content.includes("main d'œuvre")) return "garage";
     }
   }
@@ -1867,17 +1943,20 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
       // Aucun CC trouvé → envoi direct
       replyClean = `Pour ton secteur, la solution la plus simple c'est l'envoi direct : tu nous envoies ton FAP démonté par transporteur, on le nettoie et on te le retourne en 48-72h, ${prixEnvoi} port inclus. Tu veux qu'un expert Re-FAP t'envoie les détails ?`;
     }
-  } else if (demontage === "garage") {
-    // ── GARAGE : orienter vers partenaire + mentionner CC si pertinent ──
+  } else if (demontage === "garage" || demontage === "garage_partner") {
+    // ── GARAGE PARTENAIRE : orienter vers un garage qui connaît Re-FAP ──
     if (cc.equipped.length > 0) {
       const best = cc.equipped[0];
       replyClean = `OK, ${villeDisplay}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine près de chez toi (${best.name}). Certains garages travaillent directement avec ce centre. On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo} et te donne un chiffre précis. Tu veux qu'on te rappelle ?`;
     } else if (cc.nearbyEquipped.length > 0) {
       const nearest = cc.nearbyEquipped[0];
-      replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearest.name} (${nearest.city}). Certains garages de ton secteur travaillent avec ce centre. On a aussi plus de 800 garages partenaires qui gèrent tout de A à Z : démontage, envoi Re-FAP, remontage.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo} et te donne un chiffre précis. Tu veux qu'on te rappelle ?`;
+      replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearest.name} (${nearest.city}). On a des garages partenaires dans ton secteur qui gèrent tout de A à Z : démontage, envoi Re-FAP, remontage.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
     } else {
       replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est ${prixCC}, et le garage te chiffrera la main d'œuvre selon ${vehicleInfo}.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
     }
+  } else if (demontage === "garage_own") {
+    // ── GARAGE HABITUEL : aider le user à faire le lien avec son garagiste ──
+    replyClean = `OK, ${villeDisplay}. On va préparer tout ça pour ton garagiste.\n\nUn expert Re-FAP va te rappeler pour :\n→ Répondre aux questions techniques que ton garagiste pourrait avoir\n→ Lui envoyer les infos sur le process et les tarifs\n→ Organiser l'envoi et le retour du FAP\n\nL'objectif c'est que ton garagiste soit à l'aise pour faire le job, même si c'est la première fois. Tu veux qu'on te rappelle ?`;
   } else {
     // ── DEMONTAGE INCONNU (fallback) ──
     if (dept && (cc.equipped.length > 0 || cc.depot.length > 0)) {
@@ -2392,7 +2471,7 @@ export default async function handler(req, res) {
       } else if (userSaysSelfRemoval(message)) {
         return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
       } else if (userNeedsGarage(message)) {
-        return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
+        return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
       } else {
         const deptTestSolExpl = extractDeptFromInput(message);
         if (deptTestSolExpl) {
@@ -2416,7 +2495,7 @@ export default async function handler(req, res) {
       if (userSaysSelfRemoval(message)) {
         return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
       } else if (userNeedsGarage(message) || userSaysNo(message)) {
-        return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
+        return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
       }
       // Si l'user donne directement une ville (skip la question), on traite
       const deptTest = extractDeptFromInput(message);
@@ -2437,7 +2516,32 @@ export default async function handler(req, res) {
         return sendResponse({ replyClean: clarifyReply, replyFull, extracted: data });
       }
       // Sinon fallback: on considère que c'est "garage" (cas le plus courant)
-      return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
+      return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
+    }
+
+    // ========================================
+    // OVERRIDE 1b2 : Bot a demandé type garage (partenaire vs habituel)
+    // ========================================
+    if (lastAssistantAskedGarageType(history)) {
+      if (userHasOwnGarage(message)) {
+        return sendResponse(buildOwnGarageResponse(lastExtracted, metier));
+      }
+      if (userWantsPartnerGarage(message)) {
+        return sendResponse(buildPartnerGarageResponse(lastExtracted, metier));
+      }
+      // User donne directement une ville → on skip, on lui trouvera le bon interlocuteur
+      const deptTestGarage = extractDeptFromInput(message);
+      if (deptTestGarage) {
+        let ville = message.trim()
+          .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
+          .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
+          .replace(/[.!?]+$/, "")
+          .trim();
+        if (!ville) ville = message.trim();
+        return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
+      }
+      // "oui" ou réponse ambiguë → par défaut, partenaire (cas le plus courant)
+      return sendResponse(buildPartnerGarageResponse(lastExtracted, metier));
     }
 
     // ========================================
@@ -2538,7 +2642,7 @@ export default async function handler(req, res) {
 
     // ========================================
     // OVERRIDE 8 : Tour 5+ → closing forcé même sans "déjà essayé"
-    // Ne pas forcer si on est déjà dans le flow expert (démontage/ville en cours)
+    // Ne pas forcer si on est déjà dans le flow expert (démontage/ville/garage type en cours)
     // ========================================
     if (
       userTurns >= MAX_USER_TURNS &&
@@ -2546,7 +2650,8 @@ export default async function handler(req, res) {
       !everAskedClosing(history) &&
       !lastAssistantAskedDemontage(history) &&
       !lastAssistantAskedCity(history) &&
-      !lastAssistantAskedSolutionExplanation(history)
+      !lastAssistantAskedSolutionExplanation(history) &&
+      !lastAssistantAskedGarageType(history)
     ) {
       return sendResponse(buildClosingQuestion(lastExtracted, metier));
     }
@@ -2673,6 +2778,7 @@ export default async function handler(req, res) {
       !lastAssistantAskedDemontage(history) &&
       !lastAssistantAskedCity(history) &&
       !lastAssistantAskedSolutionExplanation(history) &&
+      !lastAssistantAskedGarageType(history) &&
       (everAskedPreviousAttempts(history) || extracted.previous_attempts || userTurns >= 4)
     ) {
       if (!everGaveExpertOrientation(history)) {
