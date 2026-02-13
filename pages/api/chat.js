@@ -133,6 +133,7 @@ function extractDataFromReply(fullReply) {
         intention: parsed.intention || "inconnu",
         previous_attempts: parsed.previous_attempts || null,
         roulable: parsed.roulable ?? null,
+        demontage: parsed.demontage || null,
         next_best_action: parsed.next_best_action || "poser_question",
       };
     } catch {
@@ -1302,11 +1303,52 @@ function buildGarageNeededResponse(extracted, metier) {
 // ============================================
 // ORIENTATION CONCRÈTE APRÈS VILLE (avec matching CC)
 // ============================================
-function buildLocationOrientationResponse(extracted, metier, ville) {
+
+// Fallback: détecter demontage depuis les messages user dans l'historique
+function detectDemontageFromHistory(history) {
+  if (!Array.isArray(history)) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "user") {
+      const msg = String(history[i].content || "");
+      if (userSaysSelfRemoval(msg)) return "self";
+      if (userNeedsGarage(msg)) return "garage";
+    }
+    // On cherche aussi dans les réponses bot un indice
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("la solution la plus économique") && content.includes("fap démonté")) return "self";
+      if (content.includes("le garage s'occupe de tout") && content.includes("main d'œuvre")) return "garage";
+    }
+  }
+  return null;
+}
+
+// Capitaliser la ville proprement
+function capitalizeVille(ville) {
+  if (!ville) return ville;
+  return ville.replace(/\b[a-zàâäéèêëïîôùûüÿç]+/gi, (word) => {
+    // Ne pas capitaliser les petits mots (le, la, les, de, du, sur, en, sous)
+    if (/^(le|la|les|de|du|des|sur|en|sous|d|l)$/i.test(word) && word !== ville.split(/\s/)[0]) {
+      return word.toLowerCase();
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  });
+}
+
+function buildLocationOrientationResponse(extracted, metier, ville, history) {
   const dept = extractDeptFromInput(ville);
   const cc = dept ? findCCForDept(dept) : { equipped: [], depot: [], nearbyEquipped: [] };
   const vehicleInfo = extracted?.marque ? `ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}` : "ton véhicule";
-  const demontage = extracted?.demontage || "unknown";
+  
+  // Demontage: d'abord dans extracted, sinon fallback depuis l'historique
+  let demontage = extracted?.demontage || null;
+  if (!demontage && history) {
+    demontage = detectDemontageFromHistory(history);
+  }
+  if (!demontage) demontage = "unknown";
+
+  // Capitaliser la ville pour l'affichage
+  const villeDisplay = capitalizeVille(ville);
 
   let prixCC = "99-149€";
   let prixEnvoi = "199€";
@@ -1346,18 +1388,24 @@ function buildLocationOrientationResponse(extracted, metier, ville) {
     // ── GARAGE : orienter vers partenaire + mentionner CC si pertinent ──
     if (cc.equipped.length > 0) {
       const best = cc.equipped[0];
-      replyClean = `OK, ${ville}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine près de chez toi (${best.name}). Certains garages travaillent directement avec ce centre. On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo} et te donne un chiffre précis. Tu veux qu'on te rappelle ?`;
+      replyClean = `OK, ${villeDisplay}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine près de chez toi (${best.name}). Certains garages travaillent directement avec ce centre. On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo} et te donne un chiffre précis. Tu veux qu'on te rappelle ?`;
+    } else if (cc.nearbyEquipped.length > 0) {
+      const nearest = cc.nearbyEquipped[0];
+      replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearest.name} (${nearest.city}). Certains garages de ton secteur travaillent avec ce centre. On a aussi plus de 800 garages partenaires qui gèrent tout de A à Z : démontage, envoi Re-FAP, remontage.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo} et te donne un chiffre précis. Tu veux qu'on te rappelle ?`;
     } else {
-      replyClean = `OK, ${ville}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est ${prixCC}, et le garage te chiffrera la main d'œuvre selon ${vehicleInfo}.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
+      replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est ${prixCC}, et le garage te chiffrera la main d'œuvre selon ${vehicleInfo}.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
     }
   } else {
     // ── DEMONTAGE INCONNU (fallback) ──
     if (dept && (cc.equipped.length > 0 || cc.depot.length > 0)) {
       const anyCC = cc.equipped[0] || cc.depot[0];
       const typeCC = anyCC.equipped ? `équipé d'une machine (nettoyage sur place en 4h, ${prixCC})` : `point dépôt (envoi 48-72h, ${prixEnvoi})`;
-      replyClean = `OK, ${ville}. Il y a le ${anyCC.name} (${anyCC.postal}) qui est un ${typeCC}. On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+      replyClean = `OK, ${villeDisplay}. Il y a le ${anyCC.name} (${anyCC.postal}) qui est un ${typeCC}. On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+    } else if (dept && cc.nearbyEquipped.length > 0) {
+      const nearest = cc.nearbyEquipped[0];
+      replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearest.name} (${nearest.city}) — nettoyage sur place en 4h à ${prixCC} si tu déposes ton FAP démonté. On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
     } else {
-      replyClean = `OK, ${ville}. On a des centres Carter-Cash et plus de 800 garages partenaires en France. Pour ${vehicleInfo}, le mieux c'est qu'un expert Re-FAP vérifie le centre le plus adapté près de chez toi et te confirme le prix exact. Tu veux qu'on te rappelle ?`;
+      replyClean = `OK, ${villeDisplay}. On a des centres Carter-Cash et plus de 800 garages partenaires en France. Pour ${vehicleInfo}, le mieux c'est qu'un expert Re-FAP vérifie le centre le plus adapté près de chez toi et te confirme le prix exact. Tu veux qu'on te rappelle ?`;
     }
   }
 
@@ -1660,7 +1708,7 @@ export default async function handler(req, res) {
           .replace(/[.!?]+$/, "")
           .trim();
         if (!ville) ville = message.trim();
-        return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville));
+        return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
       }
       // Sinon fallback: on considère que c'est "garage" (cas le plus courant)
       return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
@@ -1676,7 +1724,7 @@ export default async function handler(req, res) {
         .replace(/[.!?]+$/, "")
         .trim();
       if (!ville) ville = message.trim();
-      return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville));
+      return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
     }
 
     // ========================================
