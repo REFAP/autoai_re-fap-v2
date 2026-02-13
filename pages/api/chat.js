@@ -746,8 +746,100 @@ function upsertEnrichment(supabase, conversationId, extracted, quickData, metier
 }
 
 // ============================================================
-// MESSAGE BUILDERS
+// BUILD METIER RESPONSE — Réponse 100% BDD, zéro LLM
+// Couvre les cas connus (~95% du volume). Mistral = fallback.
 // ============================================================
+function buildMetierResponse(quickData, extracted, metier, userTurns, history) {
+  // Pas de routing rule → on ne peut pas répondre depuis la BDD
+  if (!metier.routing && !extracted.marque) return null;
+
+  let replyClean = null;
+  const data = { ...(extracted || DEFAULT_DATA) };
+
+  // ── CAS 1 : On a un symptôme reconnu MAIS pas encore le véhicule ──
+  if (metier.routing && !extracted.marque) {
+    const r = metier.routing;
+
+    // Adapter le ton selon reponse_type
+    if (r.reponse_type === "rassurer") {
+      const rassurances = [
+        "Pas de panique, c'est un cas qu'on voit souvent et c'est généralement réparable.",
+        "OK, pas d'inquiétude, c'est un problème classique et ça se traite bien.",
+        "D'accord, c'est un souci fréquent et dans la plupart des cas ça se répare.",
+      ];
+      replyClean = rassurances[Math.floor(Math.random() * rassurances.length)] + " C'est quelle voiture ?";
+    } else if (r.reponse_type === "alerter") {
+      replyClean = "OK, c'est un signal sérieux. Ne force pas la voiture en attendant. C'est quoi comme véhicule ?";
+    } else if (r.reponse_type === "qualifier") {
+      // On a besoin de plus d'infos avant d'orienter
+      replyClean = r.question_suivante || "D'accord. Tu peux m'en dire un peu plus ? C'est quelle voiture ?";
+    } else if (r.reponse_type === "closer") {
+      // Symptôme très clair (fap_bouche_declare, ct_refuse, prix_direct)
+      // Mais on a besoin du véhicule pour closer proprement
+      replyClean = r.question_suivante || "OK, on peut t'aider là-dessus. C'est quoi comme véhicule ?";
+    }
+
+    data.symptome = quickData.symptome_key || extracted.symptome;
+    data.certitude_fap = r.certitude_fap || extracted.certitude_fap;
+    data.next_best_action = "demander_vehicule";
+  }
+
+  // ── CAS 2 : On a le symptôme + véhicule, le bot vient de recevoir le véhicule ──
+  // → Personnaliser avec vehicle_patterns + demander "déjà essayé"
+  // (ce cas est déjà géré par les overrides, mais on le couvre si un override a été skippé)
+  if (metier.routing && extracted.marque && !extracted.previous_attempts && !everAskedPreviousAttempts(history) && !everAskedClosing(history)) {
+    // Personnalisation véhicule
+    let vehicleNote = "";
+    if (metier.vehicle) {
+      const v = metier.vehicle;
+      if (v.systeme_additif && v.systeme_additif !== "aucun") {
+        vehicleNote = `Sur une ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} avec le système ${v.systeme_additif}, c'est un souci qu'on connaît bien.`;
+      } else {
+        vehicleNote = `Ok, sur une ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} c'est un souci qu'on voit régulièrement.`;
+      }
+    } else {
+      vehicleNote = `Ok, sur une ${extracted.marque} c'est un souci qu'on voit souvent.`;
+    }
+
+    replyClean = `${vehicleNote} Avant de t'orienter, tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
+    data.next_best_action = "demander_deja_essaye";
+  }
+
+  // ── CAS 3 : On a le symptôme + véhicule + previous_attempts → prêt à closer ──
+  // Même si userTurns < 3 (user efficace qui donne tout en 2 messages)
+  if (extracted.marque && extracted.symptome !== "inconnu" && (extracted.previous_attempts || everAskedPreviousAttempts(history)) && !everAskedClosing(history)) {
+    return buildClosingQuestion(extracted, metier);
+  }
+
+  if (!replyClean) return null;
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// ============================================================
+// BUILD SNIPPET RESPONSE — Quand un code OBD ou un sujet technique est détecté
+// Répond avec le knowledge_snippet, pas avec Mistral
+// ============================================================
+function buildSnippetResponse(quickData, extracted, metier) {
+  if (!metier.snippets || metier.snippets.length === 0) return null;
+  if (extracted.marque) return null; // On a déjà le véhicule, les overrides gèrent
+
+  const snippet = metier.snippets[0];
+  const data = { ...(extracted || DEFAULT_DATA) };
+
+  // Résumer le snippet en 2 phrases max + demander véhicule
+  let intro = snippet.body;
+  // Prendre les 2 premières phrases
+  const sentences = intro.match(/[^.!?]+[.!?]+/g) || [intro];
+  intro = sentences.slice(0, 2).join(" ").trim();
+
+  const replyClean = `${intro} C'est quelle voiture ?`;
+  data.next_best_action = "demander_vehicule";
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
 
 // --- CLOSING (avec prix de la BDD) ---
 function buildClosingQuestion(extracted, metier) {
@@ -766,10 +858,29 @@ function buildClosingQuestion(extracted, metier) {
   }
 
   // Prix depuis la BDD
-  let prixText = "99-149€";
+  let prixText = "à partir de 99€";
   if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
     const match = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
     if (match) prixText = `${match.price_ttc}€`;
+  }
+
+  // Réponse adaptée aux tentatives précédentes (data marché → réponse métier)
+  let attemptResponse = "";
+  const attempts = extracted?.previous_attempts || "";
+  if (attempts.includes("additif") || attempts.includes("additif_cerine")) {
+    attemptResponse = "Normal, les additifs n'agissent que sur les suies, pas sur les cendres accumulées. Le nettoyage pro fait les deux. ";
+  } else if (attempts.includes("regeneration_forcee")) {
+    attemptResponse = "Si la régénération ne passe plus, c'est souvent que le FAP est trop chargé en cendres pour se nettoyer tout seul. ";
+  } else if (attempts.includes("garage")) {
+    attemptResponse = "Le nettoyage pro est une alternative au remplacement, souvent bien moins cher. ";
+  } else if (attempts.includes("karcher")) {
+    attemptResponse = "Le karcher risque d'abîmer la céramique et ne retire pas les cendres. Le nettoyage pro est plus adapté. ";
+  } else if (attempts.includes("nettoyage_anterieur")) {
+    attemptResponse = "Si ça revient après un nettoyage, il faut vérifier la cause racine. Nos experts peuvent analyser ça. ";
+  } else if (attempts.includes("nettoyage_chimique")) {
+    attemptResponse = "L'acide ou le vinaigre peuvent attaquer la céramique du FAP. Le nettoyage pro utilise un procédé adapté. ";
+  } else if (attempts.includes("defapage")) {
+    attemptResponse = "La suppression du FAP est interdite et rend le véhicule non conforme. Le nettoyage pro est la solution légale. ";
   }
 
   const data = {
@@ -780,11 +891,11 @@ function buildClosingQuestion(extracted, metier) {
 
   let replyClean;
   if (certitude === "haute" && vehicleInfo) {
-    replyClean = `Sur ${vehicleInfo}, c'est un cas qu'on connaît bien. Le nettoyage pro c'est ${prixText} au lieu de 1500€+ pour un remplacement, garanti 1 an. Tu veux qu'un expert Re-FAP regarde ta situation ? C'est gratuit et sans engagement.`;
+    replyClean = `${attemptResponse}Sur ${vehicleInfo}, c'est un cas qu'on connaît bien. Le nettoyage pro c'est ${prixText} au lieu de 1500€+ pour un remplacement, garanti 1 an. Tu veux qu'un expert Re-FAP regarde ta situation ? C'est gratuit et sans engagement.`;
   } else if (vehicleInfo) {
-    replyClean = `D'après ce que tu décris sur ${vehicleInfo}, on peut t'aider. Le nettoyage pro c'est à partir de ${prixText}. Tu veux qu'un expert Re-FAP analyse ça ? C'est gratuit et sans engagement.`;
+    replyClean = `${attemptResponse}D'après ce que tu décris sur ${vehicleInfo}, on peut t'aider. Le nettoyage pro c'est ${prixText}. Tu veux qu'un expert Re-FAP analyse ça ? C'est gratuit et sans engagement.`;
   } else {
-    replyClean = `On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement.`;
+    replyClean = `${attemptResponse}On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement.`;
   }
 
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
@@ -1087,7 +1198,30 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // LLM PATH : Appel Mistral avec FACTS
+    // OVERRIDE 9 : RÉPONSE BDD MÉTIER (couvre ~95% des cas)
+    // Si la BDD peut répondre → on répond sans appeler Mistral
+    // ========================================
+    const metierResponse = buildMetierResponse(quickData, lastExtracted, metier, userTurns, history);
+    if (metierResponse) {
+      return sendResponse(metierResponse);
+    }
+
+    // ========================================
+    // OVERRIDE 10 : SNIPPET TECHNIQUE (codes OBD, sujets techniques)
+    // Si un knowledge_snippet matche → on l'utilise
+    // ========================================
+    const snippetResponse = buildSnippetResponse(quickData, lastExtracted, metier);
+    if (snippetResponse) {
+      return sendResponse(snippetResponse);
+    }
+
+    // ========================================
+    // LLM PATH : Appel Mistral — FALLBACK UNIQUEMENT
+    // Arrive ici seulement si :
+    // - Aucun symptôme reconnu par quickExtract
+    // - Aucune routing_rule matchée
+    // - Aucun override déclenché
+    // Cas typiques : messages ambigus, questions inattendues, conversations complexes
     // ========================================
 
     // Déterminer la question suivante suggérée
