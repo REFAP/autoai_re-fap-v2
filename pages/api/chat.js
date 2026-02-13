@@ -1527,6 +1527,14 @@ const NEARBY_EQUIPPED = {
 function extractDeptFromInput(input) {
   const t = input.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
   
+  // GARDE : un nombre pur de plus de 5 chiffres = km, pas une localisation
+  // Ex: "234506", "180000", "650000" → clairement des km
+  if (/^\d{6,}$/.test(t)) return null;
+  
+  // GARDE : un nombre pur de 5 chiffres > 99000 = probablement des km
+  // Les codes postaux français vont de 01000 à 98890 (DOM)
+  if (/^\d{5}$/.test(t) && parseInt(t) >= 99000) return null;
+  
   // 1. Code postal complet (5 chiffres)
   const postalMatch = t.match(/\b(\d{5})\b/);
   if (postalMatch) {
@@ -1547,9 +1555,16 @@ function extractDeptFromInput(input) {
   if (domMatch) return domMatch[1];
   
   // 4. Numéro de département (le 93, dans le 59, département 94)
-  const deptMatch = t.match(/(?:le |dans le |departement |dept |dpt )?(\d{2})\b/);
+  // (?<!\d) empêche de matcher "06" dans "234506"
+  const deptMatch = t.match(/(?:le |dans le |departement |dept |dpt )(?<!\d)(\d{2})(?!\d)/);
   if (deptMatch) {
     const num = deptMatch[1];
+    if (parseInt(num) >= 1 && parseInt(num) <= 95) return num.padStart(2, "0");
+  }
+  // Aussi: numéro de département seul (exactement 2 chiffres, rien d'autre)
+  const bareDeptMatch = t.match(/^(\d{2})$/);
+  if (bareDeptMatch) {
+    const num = bareDeptMatch[1];
     if (parseInt(num) >= 1 && parseInt(num) <= 95) return num.padStart(2, "0");
   }
   
