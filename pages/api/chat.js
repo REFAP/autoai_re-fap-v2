@@ -1,6 +1,6 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 5.1 avec SCÉNARIOS
-// Approche honnête : ne pas diagnostiquer FAP sans éléments concrets
+// FAPexpert Re-FAP — VERSION 6.0 avec BASE METIER
+// Bot d'orientation : qualifier → personnaliser → closer → capturer data marché
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -9,129 +9,45 @@ import crypto from "crypto";
 // CONFIG
 // ============================================================
 const FORM_URL = "https://auto.re-fap.fr/#devis";
-const MAX_USER_TURNS = 5; // Augmenté pour collecter plus d'infos
+const MAX_USER_TURNS = 5;
 
 // ============================================================
-// SYSTEM PROMPT - VERSION 5.1 avec SCÉNARIOS
+// SYSTEM PROMPT - VERSION 6.0
+// Plus court : la connaissance est dans la BDD METIER, pas dans le prompt
 // ============================================================
-const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP. Tu rassures le client, tu collectes les infos clés, et tu es HONNÊTE quand tu ne peux pas savoir.
+const SYSTEM_PROMPT = `Tu es FAPexpert, assistant Re-FAP spécialisé dans les problèmes de Filtre à Particules diesel.
+
+MISSION
+Rassurer le client, collecter les infos clés, orienter vers Re-FAP.
 
 DÉFINITION ABSOLUE
 "FAP" = Filtre à Particules automobile diesel. JAMAIS d'autre interprétation.
 
-RÈGLE D'OR
-Ne JAMAIS diagnostiquer "problème de FAP" si tu n'as pas assez d'éléments. 
-Si l'utilisateur ne sait pas quel voyant c'est, DIS-LE : on ne peut pas deviner.
-
 STYLE
 - Ton naturel, bref, rassurant, humain.
 - Tutoiement.
-- Pas de listes, pas de bullet points.
-- 2-3 phrases max par message.
-- UNE question max par message.
+- 2-3 phrases max par message. UNE question max par message.
+- Pas de listes, pas de bullet points, pas de markdown, pas de gras.
 
-INFOS À COLLECTER (dans cet ordre de priorité)
-1. Le symptôme / voyant (obligatoire)
-2. La marque du véhicule (obligatoire avant closing)
-3. Le modèle (si possible)
-4. L'année ou génération (si possible)
-5. Le kilométrage approximatif (si possible)
+RÈGLES ABSOLUES
+1. Ne JAMAIS diagnostiquer "FAP" sans éléments concrets.
+2. Ne JAMAIS inventer un prix — utilise UNIQUEMENT les prix dans les FACTS ci-dessous.
+3. Ne JAMAIS closer sans avoir au moins la marque du véhicule.
+4. Ne JAMAIS conseiller suppression FAP, défapage ou reprogrammation.
+5. Ne JAMAIS promettre un délai précis.
+6. Ne JAMAIS demander le code postal.
+7. Si l'utilisateur ne sait pas quel voyant c'est, dis-le honnêtement.
 
----
+FACTS
+Tu reçois des FACTS vérifiés avant chaque réponse. UTILISE-LES OBLIGATOIREMENT :
+- Prix dans les FACTS → cite-le tel quel.
+- Info technique dans les FACTS → utilise-la pour personnaliser ta réponse.
+- Info véhicule dans les FACTS → montre que tu connais son modèle.
+- Question suggérée dans les FACTS → pose-la (reformulée naturellement dans ton style).
+- Aucun FACT pertinent → réponds avec ton expertise générale en restant prudent.
 
-SCÉNARIOS ET RÉPONSES TYPES
-
-=== SCÉNARIO A : VOYANT CLAIREMENT IDENTIFIÉ COMME FAP ===
-Indices : "voyant FAP", "filtre à particules", "le symbole du pot d'échappement avec des points"
-
-Réponse type Tour 1 :
-"Pas de panique, un voyant FAP c'est souvent réparable. C'est quelle voiture ?"
-
-Réponse type après avoir la marque :
-"Ok, une [MARQUE]. Tu peux me dire le moteur, l'année et le kilométrage environ ?"
-
-Réponse type après avoir les infos :
-"D'accord. Sur une [MARQUE] [MODELE] à [KM] km, un voyant FAP c'est généralement un encrassement. Un nettoyage pro suffit souvent (99-149€ vs 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement."
-
-
-=== SCÉNARIO B : VOYANT NON IDENTIFIÉ ("je sais pas", "voyant orange", "moteur") ===
-Indices : "je sais pas", "un voyant", "voyant orange", "voyant moteur", "défaut moteur", "antipollution"
-
-IMPORTANT : Ne PAS diagnostiquer FAP si on ne sait pas quel voyant c'est !
-
-Réponse type :
-"Honnêtement, sans savoir quel voyant exactement, c'est difficile de dire si c'est lié au FAP. Le mieux serait de faire lire les codes défaut avec un outil diagnostic (valise OBD). Sinon, c'est quelle voiture ? Nos experts peuvent t'orienter."
-
-Si l'utilisateur n'a pas de valise OBD :
-"Pas de souci, beaucoup de centres auto font la lecture gratuite. Si tu penses que c'est peut-être le FAP, on peut t'aider à y voir plus clair. C'est quoi comme véhicule ?"
-
-
-=== SCÉNARIO C : SYMPTÔMES PHYSIQUES (perte puissance, fumée, à-coups) ===
-Indices : "perte de puissance", "moins de pêche", "fumée", "fume", "à-coups", "mode dégradé", "manque de puissance"
-
-Ces symptômes PEUVENT être liés au FAP, mais pas sûr à 100%.
-
-Réponse type Tour 1 :
-"Pas de panique, une perte de puissance ça peut venir de plusieurs choses, dont le FAP. C'est quelle voiture ?"
-
-Réponse type après marque :
-"Ok, une [MARQUE]. Elle a combien de km environ ? Et tu roules plutôt en ville ou autoroute ?"
-
-Réponse type avant closing :
-"Sur une [MARQUE] avec [KM] km et beaucoup de ville, c'est souvent un FAP encrassé. Mais sans diagnostic, on ne peut pas être sûr à 100%. Tu veux qu'un expert Re-FAP regarde ça avec toi ? C'est gratuit, et si c'est pas le FAP, on te le dira."
-
-
-=== SCÉNARIO D : UTILISATEUR TECHNIQUE (codes défaut, termes techniques) ===
-Indices : P2002, P2463, P242F, P2459, "régénération", "capteur différentiel", "cérine", "Eolys", "colmatage"
-
-Réponse type :
-"Ok, [CODE/TERME] c'est effectivement lié au FAP. C'est quoi comme véhicule et kilométrage ?"
-
-Closing adapté :
-"Avec un [CODE] sur ta [MARQUE] à [KM] km, c'est un cas classique. Un nettoyage pro peut souvent résoudre ça (99-149€). Tu veux qu'on regarde ton cas ?"
-
-
-=== SCÉNARIO E : QUESTIONS HORS DIAGNOSTIC ===
-
-"Vous faites l'EGR ?" →
-"Oui, on traite aussi l'EGR, c'est souvent lié au FAP. Tu as un souci en ce moment ?"
-
-"C'est combien ?" →
-"Le nettoyage pro c'est entre 99 et 149€ selon le niveau d'encrassement. Un remplacement c'est plutôt 1500€+. Tu as un souci sur ta voiture ?"
-
-"Vous êtes où ?" →
-"On a des partenaires partout en France. Dis-moi ta voiture et ton souci, on te trouve le plus proche."
-
-"La cérine / additif ?" →
-"Si ta voiture utilise de l'additif (Peugeot, Citroën, DS), on vérifie ça aussi. C'est quoi comme véhicule ?"
-
-"Quelles formules ?" →
-"On a deux formules : nettoyage standard (99€) et premium (149€) pour les cas plus avancés. Tu veux qu'on regarde ton cas ?"
-
----
-
-CLOSING TYPE (à utiliser quand on a assez d'infos)
-
-Version courte (si peu d'infos ou incertitude) :
-"On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement."
-
-Version complète (si on a les infos ET certitude) :
-"Sur ta [MARQUE] [MODELE] à [KM] km, ça ressemble à un FAP encrassé. Un nettoyage pro peut suffire (99-149€ vs remplacement à 1500€+). Tu veux qu'un expert Re-FAP t'aide ? C'est gratuit et sans engagement."
-
----
-
-INTERDITS ABSOLUS
-- Diagnostiquer "FAP" sans éléments concrets
-- Dire "ça ressemble à un problème de FAP" si l'utilisateur ne sait même pas quel voyant c'est
-- Closer sans avoir au moins la marque
-- Conseiller suppression FAP ou reprogrammation
-- Promettre un délai précis
-- Demander le code postal
-
----
-
-DATA (à la fin de chaque réponse, sur une seule ligne)
-DATA: {"symptome":"<voyant_fap|voyant_inconnu|perte_puissance|fumee|mode_degrade|code_obd|autre|inconnu>","codes":[],"marque":"<string|null>","modele":"<string|null>","annee":"<string|null>","kilometrage":"<string|null>","type_trajets":"<ville|autoroute|mixte|inconnu>","certitude_fap":"<haute|moyenne|basse|inconnue>","intention":"<diagnostic|devis|rdv|question|inconnu>","next_best_action":"<poser_question|demander_vehicule|demander_details|proposer_devis|clore>"}`;
+DATA (obligatoire, à la fin de chaque réponse, sur une seule ligne)
+DATA: {"symptome":"<voyant_fap|voyant_inconnu|perte_puissance|fumee|mode_degrade|code_obd|odeur|ct_refuse|fap_bouche|autre|inconnu>","codes":[],"marque":null,"modele":null,"annee":null,"kilometrage":null,"type_trajets":"inconnu","certitude_fap":"<haute|moyenne|basse|inconnue>","intention":"<diagnostic|devis|rdv|question|inconnu>","previous_attempts":null,"roulable":null,"next_best_action":"<poser_question|demander_vehicule|demander_deja_essaye|demander_details|proposer_devis|clore>"}`;
 
 // ============================================================
 // SUPABASE
@@ -159,7 +75,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 // ============================================================
-// DEFAULT DATA - VERSION 5.1
+// DEFAULT DATA - VERSION 6.0 (champs enrichis)
 // ============================================================
 const DEFAULT_DATA = {
   symptome: "inconnu",
@@ -171,6 +87,8 @@ const DEFAULT_DATA = {
   type_trajets: "inconnu",
   certitude_fap: "inconnue",
   intention: "inconnu",
+  previous_attempts: null,
+  roulable: null,
   next_best_action: "poser_question",
 };
 
@@ -185,10 +103,13 @@ function normalizeDataPosition(reply) {
 function cleanReplyForUI(fullReply) {
   if (!fullReply) return "";
   let text = String(fullReply);
+  // Retirer tout ce qui est après DATA: (inclus)
   const dataIndex = text.indexOf("DATA:");
   if (dataIndex !== -1) {
     text = text.substring(0, dataIndex);
   }
+  // Nettoyer aussi les éventuels résidus JSON
+  text = text.replace(/\{[^{}]*"symptome"[^{}]*\}/g, "");
   return text.trim();
 }
 
@@ -209,6 +130,8 @@ function extractDataFromReply(fullReply) {
         type_trajets: parsed.type_trajets || "inconnu",
         certitude_fap: parsed.certitude_fap || "inconnue",
         intention: parsed.intention || "inconnu",
+        previous_attempts: parsed.previous_attempts || null,
+        roulable: parsed.roulable ?? null,
         next_best_action: parsed.next_best_action || "poser_question",
       };
     } catch {
@@ -219,11 +142,132 @@ function extractDataFromReply(fullReply) {
 }
 
 function safeJsonStringify(obj) {
-  try { return JSON.stringify(obj); } catch { return JSON.stringify(DEFAULT_DATA); }
+  try {
+    return JSON.stringify(obj);
+  } catch {
+    return JSON.stringify(DEFAULT_DATA);
+  }
 }
 
 // ============================================================
-// HELPERS : Intent Detection
+// QUICK EXTRACT — Extraction déterministe AVANT les requêtes DB
+// Pas besoin de Mistral pour détecter "voyant", "P2002" ou "Peugeot"
+// ============================================================
+function quickExtract(text) {
+  const t = String(text || "").toLowerCase();
+
+  const result = {
+    symptome_key: null,
+    codes: [],
+    marque: null,
+    intention: null,
+    previous_attempts: [],
+    urgency_signals: [],
+    is_off_topic: false,
+  };
+
+  // --- SYMPTÔMES (ordre = priorité) ---
+  if (/voyant\s*(fap|filtre|dpf)|symbole.*(pot|echappement)|t[eé]moin\s*fap/.test(t)) {
+    result.symptome_key = "voyant_fap";
+  } else if (/mode\s*d[eé]grad[eé]|mode\s*limp|brid[eé]e?|limit[eé]e?\s*(à|a)\s*\d/.test(t)) {
+    result.symptome_key = "mode_degrade";
+  } else if (/fap\s*(bouch|colmat|encras|satur|block)/i.test(t) || /filtre.*(bouch|colmat)/i.test(t)) {
+    result.symptome_key = "fap_bouche_declare";
+  } else if (/ct\s*(refus|recal|pas\s*pass)|contre.?visite|controle\s*technique.*(refus|pollution)|opacit[eé]/i.test(t)) {
+    result.symptome_key = "ct_refuse";
+  } else if (/r[eé]g[eé]n[eé]ration.*(impossible|echou|rat|marche\s*pas)|valise.*(impossible|echou)/i.test(t)) {
+    result.symptome_key = "regeneration_impossible";
+  } else if (/(perte|plus|manque|baisse|perd).*(puissance|p[eê]che|patate)|(tire|avance)\s*(plus|pas)|n.?avance\s*plus/i.test(t)) {
+    result.symptome_key = "perte_puissance";
+  } else if (/fum[eé]e\s*noire|black\s*smoke/i.test(t)) {
+    result.symptome_key = "fumee_noire";
+  } else if (/fum[eé]e\s*blanche|white\s*smoke/i.test(t)) {
+    result.symptome_key = "fumee_blanche";
+  } else if (/fum[eé]e|fume\b|smoke/i.test(t)) {
+    result.symptome_key = "fumee";
+  } else if (/odeur|sent\s*mauvais|[aâ]cre|pu(e|anteur)/i.test(t)) {
+    result.symptome_key = "odeur_anormale";
+  } else if (/voyant\s*(moteur|orange|allum)|check\s*engine|engine\s*light|t[eé]moin\s*moteur/i.test(t)) {
+    result.symptome_key = "voyant_moteur_seul";
+  }
+
+  // Combo voyant + puissance → certitude haute
+  if (result.symptome_key === "voyant_fap" && /(puissance|patate|tire\s*plus|avance\s*plus)/i.test(t)) {
+    result.symptome_key = "voyant_fap_puissance";
+  }
+
+  // --- CODES OBD ---
+  const codesFound = t.match(/[pP]\s*\d{4}[a-zA-Z]?\s*\d{0,2}/g);
+  if (codesFound) {
+    result.codes = codesFound.map((c) => c.toUpperCase().replace(/\s/g, ""));
+    // Codes spécifiques → routing
+    if (result.codes.some((c) => c.startsWith("P2002")) && !result.symptome_key) {
+      result.symptome_key = "code_p2002";
+    } else if (result.codes.some((c) => c.startsWith("P0420")) && !result.symptome_key) {
+      result.symptome_key = "code_p0420";
+    } else if (result.codes.some((c) => c.startsWith("P1490")) && !result.symptome_key) {
+      result.symptome_key = "code_p1490";
+    }
+  }
+
+  // --- MARQUE ---
+  result.marque = extractVehicleFromMessage(text);
+
+  // --- INTENTION ---
+  if (/combien|quel\s*prix|tarif|co[uû]t|how\s*much|cost|price/i.test(t)) {
+    result.intention = "prix";
+    if (!result.symptome_key) result.symptome_key = "prix_direct";
+  } else if (/rdv|rendez|devis|rappel|contact|formulaire/i.test(t)) {
+    result.intention = "rdv";
+  }
+
+  // --- PREVIOUS ATTEMPTS (data marché) ---
+  if (/additif|bardahl|w[uü]rth|liqui.?moly|nettoyant|produit\s*(fap|nettoy)/i.test(t)) {
+    result.previous_attempts.push("additif");
+  }
+  if (/garage|m[eé]cano|m[eé]canicien|concessionnaire/i.test(t)) {
+    result.previous_attempts.push("garage");
+  }
+  if (/karcher|nettoy.*(eau|pression)|jet\s*(d.eau|haute)/i.test(t)) {
+    result.previous_attempts.push("karcher");
+  }
+  if (/d[eé]fap|supprim.*(fap|filtre)|fap\s*off|downpipe|reprog/i.test(t)) {
+    result.previous_attempts.push("defapage");
+  }
+  if (/youtube|vid[eé]o|internet|forum|tuto/i.test(t)) {
+    result.previous_attempts.push("youtube");
+  }
+  if (/c[eé]rine|eolys/i.test(t)) {
+    result.previous_attempts.push("additif_cerine");
+  }
+  if (/remplac.*(fap|filtre)|fap\s*(neuf|neuve)/i.test(t)) {
+    result.previous_attempts.push("remplacement_envisage");
+  }
+
+  // --- URGENCY ---
+  if (/ne\s*(roule|d[eé]marre)\s*(plus|pas)|immobilis|panne|en\s*rade/i.test(t)) {
+    result.urgency_signals.push("immobilise");
+  }
+  if (/mode\s*d[eé]grad/i.test(t)) {
+    result.urgency_signals.push("mode_degrade");
+  }
+  if (/clignot/i.test(t)) {
+    result.urgency_signals.push("voyant_clignotant");
+  }
+  if (/ct\s*(dans|bient[oô]t|prochain)|contre.?visite/i.test(t)) {
+    result.urgency_signals.push("ct_bientot");
+  }
+
+  // --- OFF-TOPIC ---
+  if (/recette|couscous|toilettes|m[eé]t[eé]o|foot|politique/i.test(t) && !result.symptome_key) {
+    result.is_off_topic = true;
+  }
+
+  return result;
+}
+
+// ============================================================
+// HELPERS : Intent Detection (kept from V5.1)
 // ============================================================
 function userWantsFormNow(text) {
   const t = String(text || "").toLowerCase().trim();
@@ -243,6 +287,10 @@ function userSaysNo(text) {
   return noWords.some((w) => t.includes(w));
 }
 
+// ============================================================
+// HELPERS : Flow State Detection
+// Vérifie ce que le bot a déjà demandé dans l'historique
+// ============================================================
 function lastAssistantAskedClosingQuestion(history) {
   if (!Array.isArray(history)) return false;
   for (let i = history.length - 1; i >= 0; i--) {
@@ -262,7 +310,7 @@ function lastAssistantAskedVehicle(history) {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("quelle voiture") || content.includes("roules en quoi") || content.includes("comme véhicule") || content.includes("quoi comme voiture")) {
+      if (content.includes("quelle voiture") || content.includes("roules en quoi") || content.includes("comme véhicule") || content.includes("quoi comme voiture") || content.includes("c'est quelle voiture")) {
         return true;
       }
       return false;
@@ -271,26 +319,78 @@ function lastAssistantAskedVehicle(history) {
   return false;
 }
 
-function lastAssistantAskedDetails(history) {
+function everAskedPreviousAttempts(history) {
   if (!Array.isArray(history)) return false;
-  for (let i = history.length - 1; i >= 0; i--) {
+  for (let i = 0; i < history.length; i++) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("année") || content.includes("kilométrage") || content.includes("combien de km")) {
+      if (content.includes("déjà essayé") || content.includes("déjà tenté") || content.includes("déjà fait quelque chose") || content.includes("avant de nous contacter") || content.includes("essayé quelque chose")) {
         return true;
       }
-      return false;
     }
   }
   return false;
 }
 
-function hasVehicleButNoDetails(extracted) {
+function everAskedClosing(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      if (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement"))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// ============================================================
+// HELPERS : Vehicle Detection (kept from V5.1)
+// ============================================================
+function extractVehicleFromMessage(text) {
+  const t = String(text || "").toLowerCase();
+  const marques = {
+    peugeot: "Peugeot", renault: "Renault", citroen: "Citroën", "citroën": "Citroën",
+    volkswagen: "Volkswagen", vw: "Volkswagen", audi: "Audi", bmw: "BMW",
+    mercedes: "Mercedes", ford: "Ford", opel: "Opel", fiat: "Fiat",
+    seat: "Seat", skoda: "Skoda", "škoda": "Skoda", toyota: "Toyota",
+    nissan: "Nissan", hyundai: "Hyundai", kia: "Kia", dacia: "Dacia",
+    ds: "DS", volvo: "Volvo", mini: "Mini", jeep: "Jeep",
+    "land rover": "Land Rover", "range rover": "Range Rover",
+    "alfa romeo": "Alfa Romeo", alfa: "Alfa Romeo", mazda: "Mazda",
+    suzuki: "Suzuki", honda: "Honda", mitsubishi: "Mitsubishi",
+  };
+  for (const [key, value] of Object.entries(marques)) {
+    if (t.includes(key)) return value;
+  }
+  return null;
+}
+
+function extractYearFromMessage(text) {
+  const match = String(text || "").match(/\b(19[89]\d|20[0-2]\d)\b/);
+  return match ? match[1] : null;
+}
+
+function extractKmFromMessage(text) {
+  const t = String(text || "").toLowerCase().replace(/\s/g, "");
+  let match = t.match(/(\d{2,3})000k?m?/);
+  if (match) return match[1] + "000 km";
+  match = t.match(/(\d{2,3})k/);
+  if (match) return match[1] + "000 km";
+  match = t.match(/\b(\d{5,6})\b/);
+  if (match) return match[1] + " km";
+  return null;
+}
+
+// ============================================================
+// HELPERS : Closing Detection (updated V6)
+// ============================================================
+function hasEnoughToClose(extracted, history) {
   if (!extracted) return false;
+  const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
   const hasMarque = extracted.marque && extracted.marque !== null;
-  const hasAnnee = extracted.annee && extracted.annee !== null;
-  const hasKm = extracted.kilometrage && extracted.kilometrage !== null;
-  return hasMarque && !hasAnnee && !hasKm;
+  return hasSymptome && hasMarque;
 }
 
 function countUserTurns(history) {
@@ -299,120 +399,244 @@ function countUserTurns(history) {
 }
 
 // ============================================================
-// HELPERS : Véhicule Detection
+// HELPERS : Récupérer & Merger les données extraites
 // ============================================================
-function extractVehicleFromMessage(text) {
-  const t = String(text || "").toLowerCase();
-  
-  const marques = {
-    "peugeot": "Peugeot",
-    "renault": "Renault",
-    "citroen": "Citroën",
-    "citroën": "Citroën",
-    "volkswagen": "Volkswagen",
-    "vw": "Volkswagen",
-    "audi": "Audi",
-    "bmw": "BMW",
-    "mercedes": "Mercedes",
-    "ford": "Ford",
-    "opel": "Opel",
-    "fiat": "Fiat",
-    "seat": "Seat",
-    "skoda": "Skoda",
-    "škoda": "Skoda",
-    "toyota": "Toyota",
-    "nissan": "Nissan",
-    "hyundai": "Hyundai",
-    "kia": "Kia",
-    "dacia": "Dacia",
-    "ds": "DS",
-    "volvo": "Volvo",
-    "mini": "Mini",
-    "jeep": "Jeep",
-    "land rover": "Land Rover",
-    "range rover": "Range Rover",
-    "alfa romeo": "Alfa Romeo",
-    "alfa": "Alfa Romeo",
-    "mazda": "Mazda",
-    "suzuki": "Suzuki",
-    "honda": "Honda",
-    "mitsubishi": "Mitsubishi",
-  };
-  
-  for (const [key, value] of Object.entries(marques)) {
-    if (t.includes(key)) {
-      return value;
+function extractLastExtractedData(history) {
+  if (!Array.isArray(history)) return { ...DEFAULT_DATA };
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = history[i].raw || history[i].content || "";
+      const extracted = extractDataFromReply(content);
+      if (extracted) return extracted;
     }
   }
-  
-  return null;
+  return { ...DEFAULT_DATA };
 }
 
-// Extraire l'année depuis le message (ex: "2019", "de 2018")
-function extractYearFromMessage(text) {
-  const t = String(text || "");
-  // Chercher un nombre à 4 chiffres commençant par 19 ou 20
-  const match = t.match(/\b(19[89]\d|20[0-2]\d)\b/);
-  if (match) {
-    return match[1];
-  }
-  return null;
-}
+function mergeExtractedData(previous, current, userMessage, quickData) {
+  const merged = { ...DEFAULT_DATA };
 
-// Extraire le kilométrage depuis le message (ex: "130000km", "120 000 km", "150k")
-function extractKmFromMessage(text) {
-  const t = String(text || "").toLowerCase().replace(/\s/g, "");
-  
-  // Format: 130000km, 130000, 130 000 km
-  let match = t.match(/(\d{2,3})[\s]?000[\s]?k?m?/);
-  if (match) {
-    return match[1] + "000 km";
+  merged.symptome = (current?.symptome && current.symptome !== "inconnu") ? current.symptome : (quickData?.symptome_key || previous?.symptome || "inconnu");
+  merged.codes = (current?.codes?.length > 0) ? current.codes : (quickData?.codes?.length > 0 ? quickData.codes : previous?.codes || []);
+  merged.marque = current?.marque || quickData?.marque || previous?.marque || null;
+  merged.modele = current?.modele || previous?.modele || null;
+  merged.annee = current?.annee || previous?.annee || extractYearFromMessage(userMessage) || null;
+  merged.kilometrage = current?.kilometrage || previous?.kilometrage || extractKmFromMessage(userMessage) || null;
+  merged.type_trajets = (current?.type_trajets && current.type_trajets !== "inconnu") ? current.type_trajets : previous?.type_trajets || "inconnu";
+  merged.certitude_fap = (current?.certitude_fap && current.certitude_fap !== "inconnue") ? current.certitude_fap : previous?.certitude_fap || "inconnue";
+  merged.intention = (current?.intention && current.intention !== "inconnu") ? current.intention : (quickData?.intention || previous?.intention || "inconnu");
+  merged.previous_attempts = current?.previous_attempts || (quickData?.previous_attempts?.length > 0 ? quickData.previous_attempts.join(", ") : null) || previous?.previous_attempts || null;
+  merged.roulable = current?.roulable ?? previous?.roulable ?? null;
+  merged.next_best_action = current?.next_best_action || "poser_question";
+
+  // Si quickExtract a trouvé une marque que Mistral n'a pas vue
+  if (!merged.marque) {
+    const detected = extractVehicleFromMessage(userMessage);
+    if (detected) merged.marque = detected;
   }
-  
-  // Format: 130k, 150k km
-  match = t.match(/(\d{2,3})k/);
-  if (match) {
-    return match[1] + "000 km";
-  }
-  
-  // Format: nombre seul > 10000 (probablement des km)
-  match = t.match(/\b(\d{5,6})\b/);
-  if (match) {
-    return match[1] + " km";
-  }
-  
-  return null;
+
+  return merged;
 }
 
 // ============================================================
-// HELPERS : Closing Detection
+// BASE METIER : Requêtes Supabase
+// Récupère routing, pricing, snippets et vehicle patterns
 // ============================================================
-function hasEnoughToClose(extracted, history) {
-  if (!extracted) return false;
-  const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
-  const hasMarque = extracted.marque && extracted.marque !== null;
-  const hasDetails = (extracted.annee && extracted.annee !== null) || (extracted.kilometrage && extracted.kilometrage !== null);
-  
-  // Idéal : symptôme + marque + détails
-  if (hasSymptome && hasMarque && hasDetails) return true;
-  
-  // Acceptable : symptôme + marque, et on a déjà demandé les détails (même si pas de réponse)
-  if (hasSymptome && hasMarque && lastAssistantAskedDetails(history)) return true;
-  
-  return false;
+async function fetchMetierData(supabase, quickData, extracted) {
+  const metier = { routing: null, pricing: [], snippets: [], vehicle: null };
+
+  try {
+    const promises = [];
+
+    // 1. Routing rule
+    if (quickData.symptome_key) {
+      promises.push(
+        supabase
+          .from("routing_rules")
+          .select("*")
+          .eq("symptome_key", quickData.symptome_key)
+          .eq("active", true)
+          .order("priority")
+          .limit(1)
+          .then(({ data }) => { metier.routing = data?.[0] || null; })
+          .catch(() => {})
+      );
+    } else {
+      promises.push(Promise.resolve());
+    }
+
+    // 2. Knowledge snippets
+    const tags = [quickData.symptome_key, ...(quickData.codes || [])].filter(Boolean);
+    if (tags.length > 0) {
+      promises.push(
+        supabase
+          .from("knowledge_snippets")
+          .select("*")
+          .overlaps("tags", tags)
+          .eq("active", true)
+          .order("priority")
+          .limit(2)
+          .then(({ data }) => { metier.snippets = data || []; })
+          .catch(() => {})
+      );
+    } else {
+      promises.push(Promise.resolve());
+    }
+
+    // 3. Vehicle pattern
+    const marque = quickData.marque || extracted?.marque;
+    if (marque) {
+      promises.push(
+        supabase
+          .from("vehicle_patterns")
+          .select("*")
+          .ilike("marque", `%${marque}%`)
+          .eq("active", true)
+          .limit(1)
+          .then(({ data }) => { metier.vehicle = data?.[0] || null; })
+          .catch(() => {})
+      );
+    } else {
+      promises.push(Promise.resolve());
+    }
+
+    // 4. Pricing (toujours charger — seulement 7 lignes)
+    promises.push(
+      supabase
+        .from("pricing_rules")
+        .select("*")
+        .eq("active", true)
+        .then(({ data }) => { metier.pricing = data || []; })
+        .catch(() => {})
+    );
+
+    await Promise.all(promises);
+  } catch (err) {
+    // Tables METIER pas encore créées → on continue sans
+    console.warn("⚠️ Requêtes METIER échouées (tables absentes ?):", err.message);
+  }
+
+  return metier;
 }
 
 // ============================================================
-// MESSAGE CLOSING
+// BUILD FACTS — Construit le bloc FACTS injecté dans le prompt
 // ============================================================
-function buildClosingQuestion(extracted) {
+function buildFacts(metier, quickData, extracted, flowHint) {
+  const lines = [];
+
+  // Routing
+  if (metier.routing) {
+    const r = metier.routing;
+    lines.push(`DIAGNOSTIC: ${r.symptome_label}. Certitude FAP: ${r.certitude_fap}. Action recommandée: ${r.action}.`);
+    if (r.reponse_type === "alerter") {
+      lines.push(`ALERTE: Situation sérieuse. Conseiller de ne pas forcer la voiture.`);
+    }
+  }
+
+  // Vehicle
+  if (metier.vehicle) {
+    const v = metier.vehicle;
+    lines.push(`VÉHICULE: ${v.marque} ${v.modele || ""} ${v.moteur || ""} — ${v.problemes_frequents || ""}`);
+    if (v.systeme_additif && v.systeme_additif !== "aucun") {
+      lines.push(`SPÉCIFICITÉ: Système additif ${v.systeme_additif}. À vérifier.`);
+    }
+  }
+
+  // Pricing
+  if (metier.pricing.length > 0) {
+    const vehicleHint = metier.vehicle?.pricing_hint || "vl_standard";
+    const ccEquipped = metier.pricing.find((p) => p.network === "Carter-Cash" && p.equipped_machine === true && p.fap_type === vehicleHint);
+    const ccSend = metier.pricing.find((p) => p.network === "Carter-Cash" && p.equipped_machine === false);
+    const generic = metier.pricing.find((p) => p.fap_type === vehicleHint && p.equipped_machine === true) || metier.pricing[0];
+
+    if (ccEquipped) {
+      lines.push(`PRIX CARTER-CASH MACHINE: ${ccEquipped.price_ttc}€ TTC. ${ccEquipped.conditions}.`);
+    }
+    if (ccSend) {
+      lines.push(`PRIX CARTER-CASH ENVOI: ${ccSend.price_ttc}€ TTC port inclus (48-72h). ${ccSend.conditions}.`);
+    }
+    if (!ccEquipped && generic) {
+      lines.push(`PRIX NETTOYAGE: entre 99€ et 149€ chez Carter-Cash (machine sur place), 199€ en envoi ou garage partenaire.`);
+    }
+    lines.push(`COMPARAISON: Remplacement FAP neuf = 1500-2500€. Nettoyage Re-FAP = à partir de 99€.`);
+  }
+
+  // Snippets
+  for (const s of metier.snippets) {
+    lines.push(`INFO (${s.title}): ${s.body}`);
+  }
+
+  // Question suivante suggérée par le flow
+  if (flowHint) {
+    lines.push(`QUESTION_SUIVANTE: ${flowHint}`);
+  } else if (metier.routing?.question_suivante) {
+    lines.push(`QUESTION_SUIVANTE: ${metier.routing.question_suivante}`);
+  }
+
+  if (lines.length === 0) {
+    return "";
+  }
+
+  return "\n\n---FACTS (données vérifiées)---\n" + lines.join("\n") + "\n---FIN FACTS---";
+}
+
+// ============================================================
+// ENRICHMENT : Sauvegarde data marché dans conversation_enrichments
+// Fire-and-forget — ne bloque pas la réponse
+// ============================================================
+function upsertEnrichment(supabase, conversationId, extracted, quickData, metier) {
+  if (!supabase || !conversationId) return;
+
+  const urgencyLevel = quickData.urgency_signals?.includes("immobilise") ? "critique"
+    : quickData.urgency_signals?.includes("mode_degrade") ? "haute"
+    : quickData.urgency_signals?.includes("voyant_clignotant") ? "haute"
+    : quickData.urgency_signals?.includes("ct_bientot") ? "haute"
+    : extracted?.certitude_fap === "haute" ? "moyenne"
+    : "inconnue";
+
+  const enrichment = {
+    conversation_id: conversationId,
+    symptome_principal: extracted?.symptome || quickData?.symptome_key || null,
+    codes_obd: (extracted?.codes?.length > 0) ? extracted.codes : (quickData?.codes?.length > 0 ? quickData.codes : null),
+    marque: extracted?.marque || quickData?.marque || null,
+    modele: extracted?.modele || null,
+    annee: extracted?.annee ? parseInt(extracted.annee) : null,
+    km: extracted?.kilometrage ? parseInt(String(extracted.kilometrage).replace(/\D/g, "")) : null,
+    previous_attempts: quickData?.previous_attempts?.length > 0 ? quickData.previous_attempts : null,
+    previous_attempt_details: typeof extracted?.previous_attempts === "string" ? extracted.previous_attempts : null,
+    trigger_event: quickData?.symptome_key || null,
+    urgency_level: urgencyLevel,
+    roulable: extracted?.roulable ?? (quickData.urgency_signals?.includes("immobilise") ? false : null),
+    a_demande_prix: quickData?.intention === "prix" || false,
+    outcome: extracted?.next_best_action === "clore" ? "cta_clicked" : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Upsert (fire-and-forget)
+  supabase
+    .from("conversation_enrichments")
+    .upsert(enrichment, { onConflict: "conversation_id" })
+    .then(({ error }) => {
+      if (error) console.warn("⚠️ Enrichment upsert failed:", error.message);
+    })
+    .catch((err) => {
+      console.warn("⚠️ Enrichment upsert error:", err.message);
+    });
+}
+
+// ============================================================
+// MESSAGE BUILDERS
+// ============================================================
+
+// --- CLOSING (avec prix de la BDD) ---
+function buildClosingQuestion(extracted, metier) {
   const marque = extracted?.marque;
   const modele = extracted?.modele;
   const annee = extracted?.annee;
   const kilometrage = extracted?.kilometrage;
   const certitude = extracted?.certitude_fap;
-  
-  // Construire la description du véhicule
+
   let vehicleInfo = "";
   if (marque) {
     vehicleInfo = `ta ${marque}`;
@@ -420,7 +644,14 @@ function buildClosingQuestion(extracted) {
     if (annee) vehicleInfo += ` de ${annee}`;
     if (kilometrage) vehicleInfo += ` à ${kilometrage}`;
   }
-  
+
+  // Prix depuis la BDD
+  let prixText = "99-149€";
+  if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
+    const match = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
+    if (match) prixText = `${match.price_ttc}€`;
+  }
+
   const data = {
     ...(extracted || DEFAULT_DATA),
     intention: "diagnostic",
@@ -428,95 +659,99 @@ function buildClosingQuestion(extracted) {
   };
 
   let replyClean;
-  
   if (certitude === "haute" && vehicleInfo) {
-    // Closing confiant avec infos complètes
-    replyClean = `Sur ${vehicleInfo}, ça ressemble à un FAP encrassé. Un nettoyage pro peut suffire (99-149€ vs 1500€+ pour un remplacement). Tu veux qu'un expert Re-FAP t'aide ? C'est gratuit et sans engagement.`;
-  } else if (vehicleInfo && (annee || kilometrage)) {
-    // Closing avec véhicule + détails mais incertitude
-    replyClean = `On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation pour ${vehicleInfo} ? C'est gratuit et sans engagement.`;
+    replyClean = `Sur ${vehicleInfo}, c'est un cas qu'on connaît bien. Le nettoyage pro c'est ${prixText} au lieu de 1500€+ pour un remplacement, garanti 1 an. Tu veux qu'un expert Re-FAP regarde ta situation ? C'est gratuit et sans engagement.`;
   } else if (vehicleInfo) {
-    // Closing avec véhicule seul
-    replyClean = `On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation pour ${vehicleInfo} ? C'est gratuit et sans engagement.`;
+    replyClean = `D'après ce que tu décris sur ${vehicleInfo}, on peut t'aider. Le nettoyage pro c'est à partir de ${prixText}. Tu veux qu'un expert Re-FAP analyse ça ? C'est gratuit et sans engagement.`;
   } else {
-    // Closing minimal
     replyClean = `On est là pour t'aider sur toutes les problématiques FAP. Tu veux qu'un expert Re-FAP analyse ta situation ? C'est gratuit et sans engagement.`;
   }
-  
-  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
 
-// ============================================================
-// MESSAGE DEMANDE VÉHICULE
-// ============================================================
+// --- DEMANDE VÉHICULE ---
 function buildVehicleQuestion(extracted) {
-  const data = {
-    ...(extracted || DEFAULT_DATA),
-    next_best_action: "demander_vehicule",
-  };
-
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_vehicule" };
   const variants = [
-    "D'accord. C'est quelle voiture ?",
-    "Ok, je comprends. Tu roules en quoi ?",
+    "Pas de panique, c'est souvent réparable. C'est quelle voiture ?",
+    "D'accord, on va regarder ça. Tu roules en quoi ?",
     "Compris. C'est quoi comme véhicule ?",
   ];
   const replyClean = variants[Math.floor(Math.random() * variants.length)];
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-
   return { replyClean, replyFull, extracted: data };
 }
 
-// ============================================================
-// MESSAGE DEMANDE DÉTAILS (année/km)
-// ============================================================
-function buildDetailsQuestion(extracted) {
-  const marque = extracted?.marque || "ta voiture";
-  const data = {
-    ...(extracted || DEFAULT_DATA),
-    next_best_action: "demander_details",
-  };
+// --- DEMANDE "DÉJÀ ESSAYÉ" (NOUVEAU V6) ---
+function buildPreviousAttemptsQuestion(extracted, metier) {
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_deja_essaye" };
 
-  const replyClean = `Ok, une ${marque}. Tu peux me dire le moteur, l'année et le kilométrage environ ?`;
+  let replyClean;
+  if (metier?.vehicle) {
+    // Personnalisé avec le véhicule
+    replyClean = `Ok, sur une ${extracted?.marque || "ta voiture"} c'est un souci qu'on voit souvent. Avant de t'orienter, tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
+  } else {
+    replyClean = `D'accord. Tu as déjà essayé quelque chose pour régler ça ? Additif, passage garage, ou rien du tout ?`;
+  }
+
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-
   return { replyClean, replyFull, extracted: data };
 }
 
-// ============================================================
-// MESSAGE FORMULAIRE
-// ============================================================
+// --- FORMULAIRE CTA ---
 function buildFormCTA(extracted) {
-  const data = {
-    ...(extracted || DEFAULT_DATA),
-    intention: "rdv",
-    next_best_action: "clore",
-  };
-
+  const data = { ...(extracted || DEFAULT_DATA), intention: "rdv", next_best_action: "clore" };
   const replyClean = `Parfait ! Laisse tes coordonnées et un expert Re-FAP te rappelle rapidement pour t'orienter vers la meilleure solution près de chez toi.`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-
   return { replyClean, replyFull, extracted: data };
 }
 
-// ============================================================
-// MESSAGE SI USER DIT NON
-// ============================================================
+// --- REFUS POLI ---
 function buildDeclinedResponse(extracted) {
-  const data = {
-    ...(extracted || DEFAULT_DATA),
-    next_best_action: "clore",
-  };
-
-  const replyClean = `Pas de souci ! Si tu changes d'avis ou si tu as d'autres questions, je suis là. Bonne route 👋`;
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "clore" };
+  const replyClean = `Pas de souci ! Si tu changes d'avis ou si tu as d'autres questions, je suis là.`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
 
+// --- OFF-TOPIC ---
+function buildOffTopicResponse() {
+  const data = { ...DEFAULT_DATA };
+  const replyClean = `Je suis FAPexpert, spécialisé dans les problèmes de filtre à particules diesel. Si tu as un souci de voyant, perte de puissance, fumée ou contrôle technique sur ton véhicule, je peux t'aider !`;
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
+// --- RÉPONSE PRIX DIRECTE (quand l'user demande le prix d'entrée) ---
+function buildPriceDirectResponse(extracted, metier) {
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_vehicule" };
+
+  let prixText = "entre 99€ et 149€ chez Carter-Cash selon le modèle, 199€ en envoi";
+  // Si on a des prix en BDD, utiliser les vrais
+  if (metier?.pricing?.length > 0) {
+    const ccLow = metier.pricing.find((p) => p.equipped_machine === true && p.fap_type === "dv6_sans_cata");
+    const ccHigh = metier.pricing.find((p) => p.equipped_machine === true && p.fap_type === "avec_cata");
+    const ccSend = metier.pricing.find((p) => p.equipped_machine === false);
+    if (ccLow && ccHigh) {
+      prixText = `${ccLow.price_ttc}€ à ${ccHigh.price_ttc}€ chez Carter-Cash, ${ccSend?.price_ttc || 199}€ en envoi`;
+    }
+  }
+
+  let replyClean;
+  if (extracted?.marque) {
+    replyClean = `Le nettoyage FAP c'est ${prixText}. Sur ta ${extracted.marque}, tu as quel souci exactement ?`;
+  } else {
+    replyClean = `Le nettoyage FAP c'est ${prixText}. Pour te donner le prix exact, c'est quoi ta voiture ?`;
+  }
+
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
 
 // ============================================================
-// AUTH
+// AUTH (kept from V5.1)
 // ============================================================
 function getCookie(req, name) {
   const cookieHeader = req.headers.cookie || "";
@@ -534,66 +769,7 @@ function verifySignedCookie(value, secret) {
 }
 
 // ============================================================
-// HELPER : Récupérer la dernière DATA extraite
-// ============================================================
-function extractLastExtractedData(history) {
-  if (!Array.isArray(history)) return { ...DEFAULT_DATA };
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i]?.role === "assistant") {
-      const content = history[i].raw || history[i].content || "";
-      const extracted = extractDataFromReply(content);
-      if (extracted) return extracted;
-    }
-  }
-  return { ...DEFAULT_DATA };
-}
-
-// ============================================================
-// HELPER : Merge les données extraites
-// ============================================================
-function mergeExtractedData(previous, current, userMessage) {
-  const merged = { ...DEFAULT_DATA };
-  
-  merged.symptome = (current?.symptome && current.symptome !== "inconnu") ? current.symptome : previous?.symptome || "inconnu";
-  merged.codes = (current?.codes?.length > 0) ? current.codes : previous?.codes || [];
-  merged.marque = current?.marque || previous?.marque || null;
-  merged.modele = current?.modele || previous?.modele || null;
-  merged.annee = current?.annee || previous?.annee || null;
-  merged.kilometrage = current?.kilometrage || previous?.kilometrage || null;
-  merged.type_trajets = (current?.type_trajets && current.type_trajets !== "inconnu") ? current.type_trajets : previous?.type_trajets || "inconnu";
-  merged.certitude_fap = (current?.certitude_fap && current.certitude_fap !== "inconnue") ? current.certitude_fap : previous?.certitude_fap || "inconnue";
-  merged.intention = (current?.intention && current.intention !== "inconnu") ? current.intention : previous?.intention || "inconnu";
-  merged.next_best_action = current?.next_best_action || "poser_question";
-  
-  // Extraire marque du message user
-  if (!merged.marque) {
-    const detectedMarque = extractVehicleFromMessage(userMessage);
-    if (detectedMarque) {
-      merged.marque = detectedMarque;
-    }
-  }
-  
-  // Extraire année du message user
-  if (!merged.annee) {
-    const detectedYear = extractYearFromMessage(userMessage);
-    if (detectedYear) {
-      merged.annee = detectedYear;
-    }
-  }
-  
-  // Extraire km du message user
-  if (!merged.kilometrage) {
-    const detectedKm = extractKmFromMessage(userMessage);
-    if (detectedKm) {
-      merged.kilometrage = detectedKm;
-    }
-  }
-  
-  return merged;
-}
-
-// ============================================================
-// HANDLER
+// HANDLER — VERSION 6.0
 // ============================================================
 export default async function handler(req, res) {
   const origin = req.headers.origin;
@@ -636,7 +812,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Configuration Supabase manquante" });
     }
 
-    // DB : upsert conversation
+    // ========================================
+    // DB : conversation + message user
+    // ========================================
     const { data: convData, error: convError } = await supabase
       .from("conversations")
       .upsert({ session_id, last_seen_at: new Date().toISOString() }, { onConflict: "session_id" })
@@ -648,172 +826,174 @@ export default async function handler(req, res) {
     }
     const conversationId = convData.id;
 
-    // DB : insert message user
     await supabase.from("messages").insert({
       conversation_id: conversationId,
       role: "user",
       content: message,
     });
 
-    // Récupérer les données précédentes
+    // ========================================
+    // EXTRACTION : quickExtract + données précédentes
+    // ========================================
+    const quickData = quickExtract(message);
     let lastExtracted = extractLastExtractedData(history);
-    
-    // Détecter la marque, année, km dans le message actuel
-    const detectedMarque = extractVehicleFromMessage(message);
-    if (detectedMarque && !lastExtracted.marque) {
-      lastExtracted = { ...lastExtracted, marque: detectedMarque };
+
+    // Merger quickExtract dans lastExtracted
+    if (quickData.marque && !lastExtracted.marque) lastExtracted.marque = quickData.marque;
+    if (quickData.symptome_key && lastExtracted.symptome === "inconnu") lastExtracted.symptome = quickData.symptome_key;
+    if (quickData.codes.length > 0 && lastExtracted.codes.length === 0) lastExtracted.codes = quickData.codes;
+    if (quickData.previous_attempts.length > 0 && !lastExtracted.previous_attempts) {
+      lastExtracted.previous_attempts = quickData.previous_attempts.join(", ");
     }
-    
     const detectedYear = extractYearFromMessage(message);
-    if (detectedYear && !lastExtracted.annee) {
-      lastExtracted = { ...lastExtracted, annee: detectedYear };
-    }
-    
+    if (detectedYear && !lastExtracted.annee) lastExtracted.annee = detectedYear;
     const detectedKm = extractKmFromMessage(message);
-    if (detectedKm && !lastExtracted.kilometrage) {
-      lastExtracted = { ...lastExtracted, kilometrage: detectedKm };
-    }
+    if (detectedKm && !lastExtracted.kilometrage) lastExtracted.kilometrage = detectedKm;
 
-    // --------------------------------------------------------
-    // OVERRIDE 1 : User a reçu la question closing et répond OUI
-    // --------------------------------------------------------
-    if (lastAssistantAskedClosingQuestion(history) && userSaysYes(message)) {
-      const formResponse = buildFormCTA(lastExtracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: formResponse.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: formResponse.replyClean,
-        reply_full: formResponse.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: formResponse.extracted,
-        action: { type: "OPEN_FORM", url: FORM_URL },
-      });
-    }
-
-    // --------------------------------------------------------
-    // OVERRIDE 2 : User a reçu la question closing et répond NON
-    // --------------------------------------------------------
-    if (lastAssistantAskedClosingQuestion(history) && userSaysNo(message)) {
-      const declinedResponse = buildDeclinedResponse(lastExtracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: declinedResponse.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: declinedResponse.replyClean,
-        reply_full: declinedResponse.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: declinedResponse.extracted,
-      });
-    }
-
-    // --------------------------------------------------------
-    // OVERRIDE 3 : User demande explicitement formulaire/rdv
-    // --------------------------------------------------------
-    if (userWantsFormNow(message)) {
-      const formResponse = buildFormCTA(lastExtracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: formResponse.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: formResponse.replyClean,
-        reply_full: formResponse.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: formResponse.extracted,
-        action: { type: "OPEN_FORM", url: FORM_URL },
-      });
+    // Certitude FAP depuis routing
+    if (quickData.symptome_key && lastExtracted.certitude_fap === "inconnue") {
+      const hauteCertitude = ["voyant_fap", "voyant_fap_puissance", "code_p2002", "fap_bouche_declare", "mode_degrade", "ct_refuse"];
+      const moyenneCertitude = ["perte_puissance", "code_p0420", "voyant_moteur_seul", "fumee", "fumee_noire"];
+      if (hauteCertitude.includes(quickData.symptome_key)) lastExtracted.certitude_fap = "haute";
+      else if (moyenneCertitude.includes(quickData.symptome_key)) lastExtracted.certitude_fap = "moyenne";
+      else lastExtracted.certitude_fap = "basse";
     }
 
     const userTurns = countUserTurns(history) + 1;
 
-    // --------------------------------------------------------
-    // OVERRIDE 4 : Tour 4+ sans véhicule → FORCER la question véhicule
-    // --------------------------------------------------------
-    if (userTurns >= 4 && !lastExtracted.marque && !lastAssistantAskedVehicle(history) && !lastAssistantAskedClosingQuestion(history)) {
-      const vehicleQ = buildVehicleQuestion(lastExtracted);
+    // ========================================
+    // REQUÊTES METIER (parallèles, non bloquantes si tables absentes)
+    // ========================================
+    const metier = await fetchMetierData(supabase, quickData, lastExtracted);
 
+    // ========================================
+    // HELPER : envoyer une réponse + save + enrichment
+    // ========================================
+    async function sendResponse(response, action = null) {
       await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "assistant",
-        content: vehicleQ.replyFull,
+        content: response.replyFull,
       });
 
-      return res.status(200).json({
-        reply: vehicleQ.replyClean,
-        reply_full: vehicleQ.replyFull,
+      // Enrichment fire-and-forget
+      upsertEnrichment(supabase, conversationId, response.extracted, quickData, metier);
+
+      const result = {
+        reply: response.replyClean,
+        reply_full: response.replyFull,
         session_id,
         conversation_id: conversationId,
-        extracted_data: vehicleQ.extracted,
-      });
+        extracted_data: response.extracted,
+      };
+      if (action) result.action = action;
+      return res.status(200).json(result);
     }
 
-    // --------------------------------------------------------
-    // OVERRIDE 4b : On a la marque mais pas les détails → demander année/km
-    // --------------------------------------------------------
-    if (lastExtracted.marque && hasVehicleButNoDetails(lastExtracted) && !lastAssistantAskedDetails(history) && !lastAssistantAskedClosingQuestion(history)) {
-      const detailsQ = buildDetailsQuestion(lastExtracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: detailsQ.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: detailsQ.replyClean,
-        reply_full: detailsQ.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: detailsQ.extracted,
-      });
-    }
-    
-    // --------------------------------------------------------
-    // OVERRIDE 5 : Tour 5+ avec véhicule → closing forcé
-    // --------------------------------------------------------
-    if (userTurns >= MAX_USER_TURNS && lastExtracted.marque && !lastAssistantAskedClosingQuestion(history)) {
-      const closing = buildClosingQuestion(lastExtracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: closing.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: closing.replyClean,
-        reply_full: closing.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: closing.extracted,
-      });
+    // ========================================
+    // OVERRIDE 0 : OFF-TOPIC
+    // ========================================
+    if (quickData.is_off_topic && userTurns <= 2) {
+      return sendResponse(buildOffTopicResponse());
     }
 
-    // --------------------------------------------------------
-    // LLM PATH
-    // --------------------------------------------------------
-    const messagesForMistral = [{ role: "system", content: SYSTEM_PROMPT }];
+    // ========================================
+    // OVERRIDE 1 : Closing question + OUI → Formulaire
+    // ========================================
+    if (lastAssistantAskedClosingQuestion(history) && userSaysYes(message)) {
+      return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: FORM_URL });
+    }
+
+    // ========================================
+    // OVERRIDE 2 : Closing question + NON → Poli
+    // ========================================
+    if (lastAssistantAskedClosingQuestion(history) && userSaysNo(message)) {
+      return sendResponse(buildDeclinedResponse(lastExtracted));
+    }
+
+    // ========================================
+    // OVERRIDE 3 : Demande explicite de RDV/devis
+    // ========================================
+    if (userWantsFormNow(message)) {
+      return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: FORM_URL });
+    }
+
+    // ========================================
+    // OVERRIDE 4 : Prix direct → répondre au prix IMMÉDIATEMENT
+    // ========================================
+    if (quickData.intention === "prix" && !everAskedClosing(history)) {
+      return sendResponse(buildPriceDirectResponse(lastExtracted, metier));
+    }
+
+    // ========================================
+    // OVERRIDE 5 : A le symptôme + véhicule, pas encore demandé "déjà essayé"
+    // Sauf si l'user a déjà mentionné des tentatives ou si on a déjà demandé
+    // ========================================
+    if (
+      lastExtracted.marque &&
+      lastExtracted.symptome !== "inconnu" &&
+      !lastExtracted.previous_attempts &&
+      !everAskedPreviousAttempts(history) &&
+      !everAskedClosing(history) &&
+      userTurns >= 2
+    ) {
+      return sendResponse(buildPreviousAttemptsQuestion(lastExtracted, metier));
+    }
+
+    // ========================================
+    // OVERRIDE 6 : Tour 3+ sans véhicule → forcer la question
+    // ========================================
+    if (userTurns >= 3 && !lastExtracted.marque && !lastAssistantAskedVehicle(history) && !everAskedClosing(history)) {
+      return sendResponse(buildVehicleQuestion(lastExtracted));
+    }
+
+    // ========================================
+    // OVERRIDE 7 : Assez d'infos pour closer (symptôme + véhicule + déjà essayé demandé)
+    // ========================================
+    if (
+      hasEnoughToClose(lastExtracted, history) &&
+      (everAskedPreviousAttempts(history) || lastExtracted.previous_attempts) &&
+      !everAskedClosing(history) &&
+      userTurns >= 3
+    ) {
+      return sendResponse(buildClosingQuestion(lastExtracted, metier));
+    }
+
+    // ========================================
+    // OVERRIDE 8 : Tour 5+ → closing forcé même sans "déjà essayé"
+    // ========================================
+    if (userTurns >= MAX_USER_TURNS && lastExtracted.marque && !everAskedClosing(history)) {
+      return sendResponse(buildClosingQuestion(lastExtracted, metier));
+    }
+
+    // ========================================
+    // LLM PATH : Appel Mistral avec FACTS
+    // ========================================
+
+    // Déterminer la question suivante suggérée
+    let flowHint = null;
+    if (!lastExtracted.marque) {
+      flowHint = "Demande la marque et le modèle du véhicule.";
+    } else if (!lastExtracted.previous_attempts && !everAskedPreviousAttempts(history)) {
+      flowHint = "Demande si l'utilisateur a déjà essayé quelque chose (additif, garage, etc.)";
+    }
+
+    // Construire les FACTS
+    const facts = buildFacts(metier, quickData, lastExtracted, flowHint);
+
+    // Assembler les messages pour Mistral
+    const messagesForMistral = [
+      { role: "system", content: SYSTEM_PROMPT + facts },
+    ];
+
     if (Array.isArray(history)) {
       for (const msg of history) {
         if (msg.role === "user") {
           messagesForMistral.push({ role: "user", content: msg.content });
         } else if (msg.role === "assistant") {
-          messagesForMistral.push({ role: "assistant", content: msg.raw || msg.content });
+          // Envoyer la version clean à Mistral (pas le DATA:)
+          const clean = cleanReplyForUI(msg.raw || msg.content);
+          if (clean) messagesForMistral.push({ role: "assistant", content: clean });
         }
       }
     }
@@ -840,15 +1020,20 @@ export default async function handler(req, res) {
 
     const mistralData = await mistralResponse.json();
     let replyFull = mistralData.choices?.[0]?.message?.content || "";
-    
-    // Extraire DATA et merger
+
+    // Extraire DATA du LLM et merger
     const rawExtracted = extractDataFromReply(replyFull) || DEFAULT_DATA;
-    const extracted = mergeExtractedData(lastExtracted, rawExtracted, message);
-    
+    const extracted = mergeExtractedData(lastExtracted, rawExtracted, message, quickData);
+
+    // Appliquer certitude depuis routing si Mistral ne l'a pas fait
+    if (metier.routing && extracted.certitude_fap === "inconnue") {
+      extracted.certitude_fap = metier.routing.certitude_fap;
+    }
+
     // Nettoyer pour l'UI
     let replyClean = cleanReplyForUI(replyFull);
-    
-    // FALLBACK
+
+    // FALLBACK si réponse vide
     if (!replyClean || replyClean.length < 5) {
       if (!extracted.marque) {
         replyClean = "D'accord. C'est quelle voiture ?";
@@ -859,74 +1044,37 @@ export default async function handler(req, res) {
         replyClean = "Je comprends. Autre chose à signaler ?";
       }
     }
-    
-    // Reconstruire replyFull
+
     replyFull = `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`;
 
-    // --------------------------------------------------------
-    // SÉCURITÉ : Si le LLM génère un closing mais sans véhicule → bloquer
-    // --------------------------------------------------------
+    // ========================================
+    // SÉCURITÉ : Si le LLM génère un closing sans véhicule → bloquer
+    // ========================================
     const looksLikeClosing = replyClean.toLowerCase().includes("expert re-fap") && (replyClean.toLowerCase().includes("gratuit") || replyClean.toLowerCase().includes("sans engagement"));
     if (looksLikeClosing && !extracted.marque) {
-      const vehicleQ = buildVehicleQuestion(extracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: vehicleQ.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: vehicleQ.replyClean,
-        reply_full: vehicleQ.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: vehicleQ.extracted,
-      });
+      return sendResponse(buildVehicleQuestion(extracted));
     }
 
-    // --------------------------------------------------------
-    // AUTO-CLOSE si symptôme + véhicule + assez de tours
-    // --------------------------------------------------------
-    if (hasEnoughToClose(extracted, history) && userTurns >= 3 && !lastAssistantAskedClosingQuestion(history)) {
-      const closing = buildClosingQuestion(extracted);
-
-      await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        content: closing.replyFull,
-      });
-
-      return res.status(200).json({
-        reply: closing.replyClean,
-        reply_full: closing.replyFull,
-        session_id,
-        conversation_id: conversationId,
-        extracted_data: closing.extracted,
-      });
+    // ========================================
+    // AUTO-CLOSE : assez d'infos → closer
+    // ========================================
+    if (
+      hasEnoughToClose(extracted, history) &&
+      userTurns >= 3 &&
+      !everAskedClosing(history) &&
+      (everAskedPreviousAttempts(history) || extracted.previous_attempts || userTurns >= 4)
+    ) {
+      return sendResponse(buildClosingQuestion(extracted, metier));
     }
 
-    // --------------------------------------------------------
+    // ========================================
     // RÉPONSE NORMALE
-    // --------------------------------------------------------
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      role: "assistant",
-      content: replyFull,
-    });
-
-    return res.status(200).json({
-      reply: replyClean,
-      reply_full: replyFull,
-      session_id,
-      conversation_id: conversationId,
-      extracted_data: extracted,
-    });
+    // ========================================
+    const response = { replyClean, replyFull, extracted };
+    return sendResponse(response);
 
   } catch (error) {
     console.error("❌ Erreur handler chat:", error);
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
-
-
