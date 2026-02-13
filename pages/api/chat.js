@@ -2308,10 +2308,34 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // OVERRIDE 1a : Bot a posé la question diagnostic ("tu veux que je te détaille ?") + OUI → solution + démontage
+    // OVERRIDE 1a : Bot a posé la question diagnostic ("tu veux que je te détaille ?")
+    // → OUI = explication solution + question démontage
+    // → Réponse démontage directe = skip solution, orienter directement
+    // → Ville directe = skip solution + démontage, orienter directement
     // ========================================
-    if (lastAssistantAskedSolutionExplanation(history) && userSaysYes(message)) {
-      return sendResponse(buildSolutionExplanation(lastExtracted, metier));
+    if (lastAssistantAskedSolutionExplanation(history)) {
+      if (userSaysYes(message)) {
+        return sendResponse(buildSolutionExplanation(lastExtracted, metier));
+      }
+      // User skips et répond directement sur le démontage
+      if (userSaysSelfRemoval(message)) {
+        return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
+      }
+      if (userNeedsGarage(message)) {
+        return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
+      }
+      // User donne directement une ville → skip solution + démontage
+      const deptTestSolExpl = extractDeptFromInput(message);
+      if (deptTestSolExpl) {
+        let ville = message.trim()
+          .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
+          .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
+          .replace(/[.!?]+$/, "")
+          .trim();
+        if (!ville) ville = message.trim();
+        return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
+      }
+      // "non" est géré par Override 2 plus bas
     }
 
     // ========================================
@@ -2429,22 +2453,30 @@ export default async function handler(req, res) {
 
     // ========================================
     // OVERRIDE 7 : Assez d'infos → EXPLICATION EXPERT + demande ville
-    // (au lieu de l'ancien closing commercial)
+    // Les overrides 5a/5b/5c garantissent la collecte séquentielle.
+    // Si on arrive ici, c'est qu'on a tout → pas besoin de garde userTurns.
     // ========================================
     if (
       hasEnoughToClose(lastExtracted, history) &&
       (everAskedPreviousAttempts(history) || lastExtracted.previous_attempts) &&
       !everGaveExpertOrientation(history) &&
-      !everAskedClosing(history) &&
-      userTurns >= 3
+      !everAskedClosing(history)
     ) {
       return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
     }
 
     // ========================================
     // OVERRIDE 8 : Tour 5+ → closing forcé même sans "déjà essayé"
+    // Ne pas forcer si on est déjà dans le flow expert (démontage/ville en cours)
     // ========================================
-    if (userTurns >= MAX_USER_TURNS && lastExtracted.marque && !everAskedClosing(history)) {
+    if (
+      userTurns >= MAX_USER_TURNS &&
+      lastExtracted.marque &&
+      !everAskedClosing(history) &&
+      !lastAssistantAskedDemontage(history) &&
+      !lastAssistantAskedCity(history) &&
+      !lastAssistantAskedSolutionExplanation(history)
+    ) {
       return sendResponse(buildClosingQuestion(lastExtracted, metier));
     }
 
@@ -2562,11 +2594,14 @@ export default async function handler(req, res) {
 
     // ========================================
     // AUTO-CLOSE : assez d'infos → expert orientation ou closing
+    // Ne pas interférer si on est dans le flow expert (démontage/ville)
     // ========================================
     if (
       hasEnoughToClose(extracted, history) &&
-      userTurns >= 3 &&
       !everAskedClosing(history) &&
+      !lastAssistantAskedDemontage(history) &&
+      !lastAssistantAskedCity(history) &&
+      !lastAssistantAskedSolutionExplanation(history) &&
       (everAskedPreviousAttempts(history) || extracted.previous_attempts || userTurns >= 4)
     ) {
       if (!everGaveExpertOrientation(history)) {
