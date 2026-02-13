@@ -312,6 +312,15 @@ function quickExtract(text) {
   if (/acide|vinaigre|soude/i.test(t)) {
     result.previous_attempts.push("nettoyage_chimique");
   }
+  // Catch vague "tried everything" / "tried nothing"
+  if (result.previous_attempts.length === 0) {
+    if (/tout\s*(tent|essay|fait|test)|plein\s*de\s*(truc|chose)|plusieurs\s*(truc|chose|solution)/i.test(t)) {
+      result.previous_attempts.push("divers");
+    }
+    if (/rien\s*(essay|tent|fait|du\s*tout)|pas\s*encore|non\s*rien|jamais\s*rien/i.test(t)) {
+      result.previous_attempts.push("aucun");
+    }
+  }
 
   // --- URGENCY ---
   if (/ne\s*(roule|d[eé]marre)\s*(plus|pas)|immobilis|panne|en\s*rade/i.test(t)) {
@@ -1615,6 +1624,9 @@ function buildExpertOrientation(extracted, metier) {
   if (attempts.includes("remplacement_envisage")) {
     attemptResponses.push("Avant de remplacer, sache que dans la grande majorité des cas un FAP encrassé peut être remis en état. Le remplacement est la solution la plus radicale — mais rarement nécessaire si le nid d'abeille n'est pas fissuré.");
   }
+  if (attempts.includes("divers")) {
+    attemptResponses.push("Si les solutions que tu as essayées n'ont pas fonctionné, c'est probablement parce qu'elles agissent uniquement sur les suies. Les cendres métalliques, elles, s'accumulent et ne se dissolvent ni ne se brûlent — c'est souvent le vrai problème.");
+  }
 
   // Assembler les réponses aux tentatives
   let techExplanation = "";
@@ -2248,6 +2260,15 @@ export default async function handler(req, res) {
     if (quickData.budget_evoque && !lastExtracted.budget_evoque) lastExtracted.budget_evoque = quickData.budget_evoque;
     if (quickData.garage_confiance !== null && quickData.garage_confiance !== undefined && lastExtracted.garage_confiance === null) lastExtracted.garage_confiance = quickData.garage_confiance;
 
+    // SANITISATION : Mistral peut écrire "inconnu", "null", "non renseigné" dans des champs nullable
+    // Ces valeurs truthy casseraient les conditions !field dans la chaîne d'overrides
+    const GARBAGE_VALUES = ["inconnu", "inconnue", "null", "undefined", "non", "non renseigné", "nc", "?", ""];
+    for (const field of ["kilometrage", "modele", "motorisation", "annee", "previous_attempts", "demontage", "ville", "departement"]) {
+      if (typeof lastExtracted[field] === "string" && GARBAGE_VALUES.includes(lastExtracted[field].toLowerCase().trim())) {
+        lastExtracted[field] = null;
+      }
+    }
+
     // Certitude FAP depuis routing (utilise le symptôme MERGED, pas juste quickData)
     if (lastExtracted.certitude_fap === "inconnue" || lastExtracted.certitude_fap === "basse" || lastExtracted.certitude_fap === "moyenne") {
       const merged = lastExtracted.symptome;
@@ -2312,30 +2333,30 @@ export default async function handler(req, res) {
     // → OUI = explication solution + question démontage
     // → Réponse démontage directe = skip solution, orienter directement
     // → Ville directe = skip solution + démontage, orienter directement
+    // → NON = géré par Override 2
+    // → Toute autre réponse (km, data, etc.) = engagement implicite → solution
     // ========================================
     if (lastAssistantAskedSolutionExplanation(history)) {
-      if (userSaysYes(message)) {
+      if (userSaysNo(message)) {
+        // Géré par Override 2 plus bas
+      } else if (userSaysSelfRemoval(message)) {
+        return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
+      } else if (userNeedsGarage(message)) {
+        return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
+      } else {
+        const deptTestSolExpl = extractDeptFromInput(message);
+        if (deptTestSolExpl) {
+          let ville = message.trim()
+            .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
+            .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
+            .replace(/[.!?]+$/, "")
+            .trim();
+          if (!ville) ville = message.trim();
+          return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
+        }
+        // Toute autre réponse (km, "oui", data, etc.) → engagement implicite → solution + démontage
         return sendResponse(buildSolutionExplanation(lastExtracted, metier));
       }
-      // User skips et répond directement sur le démontage
-      if (userSaysSelfRemoval(message)) {
-        return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
-      }
-      if (userNeedsGarage(message)) {
-        return sendResponse(buildGarageNeededResponse(lastExtracted, metier));
-      }
-      // User donne directement une ville → skip solution + démontage
-      const deptTestSolExpl = extractDeptFromInput(message);
-      if (deptTestSolExpl) {
-        let ville = message.trim()
-          .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
-          .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
-          .replace(/[.!?]+$/, "")
-          .trim();
-        if (!ville) ville = message.trim();
-        return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
-      }
-      // "non" est géré par Override 2 plus bas
     }
 
     // ========================================
