@@ -455,8 +455,6 @@ function lastAssistantAskedVehicle(history) {
   return false;
 }
 
-function everAskedPreviousAttempts(history) {
-
 // ── DÉTECTION : bot a demandé le modèle ──
 function lastAssistantAskedModel(history) {
   if (!Array.isArray(history)) return false;
