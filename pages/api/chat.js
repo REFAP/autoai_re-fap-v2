@@ -38,6 +38,8 @@ RÈGLES ABSOLUES
 6. Ne JAMAIS demander le code postal.
 7. Si l'utilisateur ne sait pas quel voyant c'est, dis-le honnêtement.
 8. Ne JAMAIS comparer avec le "remplacement FAP à 1500€" — les clients n'y pensent pas. Leurs vraies alternatives : défapage (illégal), additif (temporaire, suies seules), karcher (risque céramique), FAP adaptable chinois (qualité incertaine). Positionne Re-FAP face à CES solutions, pas face au remplacement constructeur.
+9. Ne JAMAIS re-demander une information que l'utilisateur a DÉJÀ donnée dans la conversation. Lis l'historique. Si tu connais la marque, le modèle, le km, NE LES REDEMANDE PAS. Fais avancer la conversation vers la prochaine info manquante.
+10. VÉRIFIE les FACTS ci-dessous pour les données déjà collectées (DONNÉES_COLLECTÉES). Ne demande pas ce qui est déjà renseigné.
 
 FACTS
 Tu reçois des FACTS vérifiés avant chaque réponse. UTILISE-LES OBLIGATOIREMENT :
@@ -716,6 +718,11 @@ function extractVehicleFromMessage(text) {
     "land rover": "Land Rover", "range rover": "Range Rover",
     "alfa romeo": "Alfa Romeo", alfa: "Alfa Romeo", mazda: "Mazda",
     suzuki: "Suzuki", honda: "Honda", mitsubishi: "Mitsubishi",
+    subaru: "Subaru", jaguar: "Jaguar", ssangyong: "SsangYong",
+    isuzu: "Isuzu", porsche: "Porsche", lexus: "Lexus",
+    infiniti: "Infiniti", chrysler: "Chrysler", dodge: "Dodge",
+    lancia: "Lancia", rover: "Rover", "mg": "MG", cupra: "Cupra",
+    tesla: "Tesla", polestar: "Polestar",
   };
   for (const [key, value] of Object.entries(marques)) {
     // For short keys (2-3 chars like "ds", "vw", "kia"), require word boundary to avoid false positives ("dsl" ≠ "ds")
@@ -809,6 +816,18 @@ function extractVehicleFromMessage(text) {
     "cr-v": "Honda", civic: "Honda", "hr-v": "Honda", jazz: "Honda",
     // Jeep
     compass: "Jeep", renegade: "Jeep", wrangler: "Jeep", cherokee: "Jeep",
+    // Subaru
+    forester: "Subaru", impreza: "Subaru", outback: "Subaru", legacy: "Subaru",
+    "xv": "Subaru", levorg: "Subaru",
+    // Jaguar
+    "xe": "Jaguar", "xf": "Jaguar", "xj": "Jaguar", "f-pace": "Jaguar",
+    "e-pace": "Jaguar",
+    // SsangYong
+    tivoli: "SsangYong", korando: "SsangYong", rexton: "SsangYong",
+    // Isuzu
+    "d-max": "Isuzu",
+    // Cupra
+    formentor: "Cupra", born: "Cupra",
   };
 
   // Modèles numériques ambigus (aussi des années courantes)
@@ -1225,6 +1244,19 @@ function buildFacts(metier, quickData, extracted, flowHint) {
     lines.push(`QUESTION_SUIVANTE: ${flowHint}`);
   } else if (metier.routing?.question_suivante) {
     lines.push(`QUESTION_SUIVANTE: ${metier.routing.question_suivante}`);
+  }
+
+  // Inject already-collected data so Mistral never re-asks
+  const collectedParts = [];
+  if (extracted?.marque) collectedParts.push(`Marque: ${extracted.marque}`);
+  if (extracted?.modele) collectedParts.push(`Modèle: ${extracted.modele}`);
+  if (extracted?.motorisation) collectedParts.push(`Moteur: ${extracted.motorisation}`);
+  if (extracted?.annee) collectedParts.push(`Année: ${extracted.annee}`);
+  if (extracted?.kilometrage) collectedParts.push(`Km: ${extracted.kilometrage}`);
+  if (extracted?.previous_attempts) collectedParts.push(`Déjà essayé: ${Array.isArray(extracted.previous_attempts) ? extracted.previous_attempts.join(", ") : extracted.previous_attempts}`);
+  if (extracted?.symptome && extracted.symptome !== "inconnu") collectedParts.push(`Symptôme: ${extracted.symptome}`);
+  if (collectedParts.length > 0) {
+    lines.unshift(`DONNÉES_COLLECTÉES (NE PAS RE-DEMANDER): ${collectedParts.join(" | ")}`);
   }
 
   if (lines.length === 0) {
@@ -2573,6 +2605,16 @@ export default async function handler(req, res) {
     }
 
     // ========================================
+    // OVERRIDE 4b : "Autre marque" → demander la marque exacte
+    // ========================================
+    if (!lastExtracted.marque && /autre\s*marque|autre\s*vehicule|pas\s*dans\s*la\s*liste/i.test(message)) {
+      const replyClean = "D'accord, mais quelle marque exactement ? Juste le nom de la marque me suffit pour avancer.";
+      const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_vehicule" };
+      const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+      return sendResponse({ replyClean, replyFull, extracted: data });
+    }
+
+    // ========================================
     // OVERRIDE 5 : FORMULAIRE SÉQUENTIEL — 1 question par tour
     // Marque → Modèle → Km → Tentatives (chaque tour = 1 case remplie)
     // ========================================
@@ -2679,8 +2721,10 @@ export default async function handler(req, res) {
 
     // Déterminer la question suivante suggérée
     let flowHint = null;
-    if (!lastExtracted.marque) {
-      flowHint = "Demande la marque et le modèle du véhicule.";
+    if (!lastExtracted.marque && !lastAssistantAskedVehicle(history) && !everAskedModel(history)) {
+      flowHint = "Demande la marque et le modèle du véhicule. NE RE-DEMANDE PAS si l'utilisateur l'a déjà dit dans la conversation.";
+    } else if (!lastExtracted.marque && (lastAssistantAskedVehicle(history) || everAskedModel(history))) {
+      flowHint = "L'utilisateur a peut-être déjà mentionné sa marque dans la conversation. Relis l'historique. Si tu la trouves, utilise-la et passe à la question suivante (modèle, km, etc.). Sinon, demande-la UNE DERNIÈRE FOIS.";
     } else if (!lastExtracted.previous_attempts && !everAskedPreviousAttempts(history)) {
       flowHint = "Demande si l'utilisateur a déjà essayé quelque chose (additif, garage, etc.)";
     }
