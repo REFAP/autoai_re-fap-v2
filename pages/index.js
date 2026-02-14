@@ -52,6 +52,8 @@ const QUICK_REPLIES_CONFIG = {
     { label: "BMW", value: "C'est une BMW" },
     { label: "Audi", value: "C'est une Audi" },
     { label: "Mercedes", value: "C'est une Mercedes" },
+    { label: "Dacia", value: "C'est une Dacia" },
+    { label: "Ford", value: "C'est une Ford" },
     { label: "Autre", value: "Autre marque" },
   ],
   closing: [
