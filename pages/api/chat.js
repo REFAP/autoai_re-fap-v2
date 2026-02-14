@@ -1803,8 +1803,6 @@ function buildSelfRemovalResponse(extracted, metier) {
 // Étape intermédiaire : partenaire Re-FAP ou garage habituel ?
 // ============================================
 function buildGarageTypeQuestion(extracted, metier) {
-  const { prixCC: prixNettoyage } = getPricing(extracted, metier);
-
   const replyClean = `Pas de souci, c'est le cas le plus courant. Le FAP doit être démonté pour le nettoyage, et un garage peut s'en charger.\n\nDeux possibilités :\n→ On te met en relation avec un garage partenaire Re-FAP qui connaît déjà le process\n→ Si tu as déjà un garage de confiance, on peut travailler directement avec lui\n\nTu as déjà un garagiste, ou tu préfères qu'on te trouve un partenaire ?`;
 
   const data = {
@@ -1828,9 +1826,7 @@ function buildGarageTypeQuestion(extracted, metier) {
 // PATH A : GARAGE PARTENAIRE Re-FAP → ask ville
 // ============================================
 function buildPartnerGarageResponse(extracted, metier) {
-  const { prixCC: prixNettoyage } = getPricing(extracted, metier);
-
-  const replyClean = `Parfait. On travaille avec plus de 800 garages partenaires en France qui connaissent le process Re-FAP.\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation. Côté budget : le nettoyage c'est ${prixNettoyage}, auquel s'ajoutent les frais de port et la main d'œuvre du garage pour le démontage/remontage. C'est nettement plus économique qu'un remplacement — et c'est la seule solution qui retire les suies ET les cendres métalliques, ce qui permet au filtre de retrouver ses performances d'origine.\n\nTu es dans quel coin ? Je regarde quel garage partenaire est le plus proche de chez toi.`;
+  const replyClean = `Parfait. On travaille avec plus de 800 garages partenaires en France qui connaissent le process Re-FAP.\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation. Côté budget : le nettoyage c'est 99€ pour un FAP seul, ou 149€ si le catalyseur est intégré au filtre (FAP combiné) — auquel s'ajoutent les frais de port et la main d'œuvre du garage pour le démontage/remontage. C'est nettement plus économique qu'un remplacement — et c'est la seule solution qui retire les suies ET les cendres métalliques, ce qui permet au filtre de retrouver ses performances d'origine.\n\nTu es dans quel coin ? Je regarde quel garage partenaire est le plus proche de chez toi.`;
 
   const data = {
     ...(extracted || DEFAULT_DATA),
@@ -1847,9 +1843,7 @@ function buildPartnerGarageResponse(extracted, metier) {
 // PATH B : GARAGE HABITUEL → ambassadeur Re-FAP + ask ville
 // ============================================
 function buildOwnGarageResponse(extracted, metier) {
-  const { prixCC: prixNettoyage } = getPricing(extracted, metier);
-
-  const replyClean = `Super, c'est encore plus simple. Voilà comment ça se passe avec ton garage :\n\n1. Ton garagiste démonte le FAP comme il le ferait pour un remplacement\n2. Il envoie le FAP au centre Re-FAP (on fournit l'étiquette de transport)\n3. On le nettoie et on le retourne sous 48-72h\n4. Ton garagiste le remonte et réinitialise le système\n\nCôté budget : le nettoyage c'est ${prixNettoyage}, auquel s'ajoutent les frais de port et la main d'œuvre de ton garagiste pour le démontage/remontage. Ça reste nettement plus économique qu'un remplacement de FAP — et surtout, c'est la seule solution qui retire les suies ET les cendres métalliques, ce qui permet au filtre de retrouver ses performances d'origine.\n\nSi ton garagiste ne connaît pas encore Re-FAP, pas de souci — un expert peut l'appeler pour tout lui expliquer et le rassurer sur le process. On fait ça régulièrement.\n\nTu es dans quel coin ? Ça me permet de préparer le dossier.`;
+  const replyClean = `Super, c'est encore plus simple. Voilà comment ça se passe avec ton garage :\n\n1. Ton garagiste démonte le FAP comme il le ferait pour un remplacement\n2. Il envoie le FAP au centre Re-FAP (on fournit l'étiquette de transport)\n3. On le nettoie et on le retourne sous 48-72h\n4. Ton garagiste le remonte et réinitialise le système\n\nCôté budget : le nettoyage c'est 99€ pour un FAP seul, ou 149€ si le catalyseur est intégré au filtre (FAP combiné) — auquel s'ajoutent les frais de port et la main d'œuvre de ton garagiste pour le démontage/remontage. Ça reste nettement plus économique qu'un remplacement de FAP — et surtout, c'est la seule solution qui retire les suies ET les cendres métalliques, ce qui permet au filtre de retrouver ses performances d'origine.\n\nSi ton garagiste ne connaît pas encore Re-FAP, pas de souci — un expert peut l'appeler pour tout lui expliquer et le rassurer sur le process. On fait ça régulièrement.\n\nTu es dans quel coin ? Ça me permet de préparer le dossier.`;
 
   const data = {
     ...(extracted || DEFAULT_DATA),
@@ -1952,7 +1946,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
       const nearest = cc.nearbyEquipped[0];
       replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearest.name} (${nearest.city}). On a des garages partenaires dans ton secteur qui gèrent tout de A à Z : démontage, envoi Re-FAP, remontage.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
     } else {
-      replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est ${prixCC}, et le garage te chiffrera la main d'œuvre selon ${vehicleInfo}.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
+      replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est 99€ (FAP seul) ou 149€ (FAP avec catalyseur intégré), plus frais de port et main d'œuvre du garage selon ${vehicleInfo}.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
     }
   } else if (demontage === "garage_own") {
     // ── GARAGE HABITUEL : aider le user à faire le lien avec son garagiste ──
