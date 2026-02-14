@@ -1830,7 +1830,7 @@ function buildGarageTypeQuestion(extracted, metier) {
 function buildPartnerGarageResponse(extracted, metier) {
   const { prixCC: prixNettoyage } = getPricing(extracted, metier);
 
-  const replyClean = `Parfait. On travaille avec plus de 800 garages partenaires en France qui connaissent le process Re-FAP.\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation. Côté tarif, le nettoyage c'est ${prixNettoyage}, plus la main d'œuvre du garage pour le démontage/remontage.\n\nTu es dans quel coin ? Je regarde quel garage partenaire est le plus proche de chez toi.`;
+  const replyClean = `Parfait. On travaille avec plus de 800 garages partenaires en France qui connaissent le process Re-FAP.\n\nLe garage s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation. Côté budget : le nettoyage c'est ${prixNettoyage}, auquel s'ajoutent les frais de port et la main d'œuvre du garage pour le démontage/remontage. C'est nettement plus économique qu'un remplacement — et c'est la seule solution qui retire les suies ET les cendres métalliques, ce qui permet au filtre de retrouver ses performances d'origine.\n\nTu es dans quel coin ? Je regarde quel garage partenaire est le plus proche de chez toi.`;
 
   const data = {
     ...(extracted || DEFAULT_DATA),
@@ -1849,7 +1849,7 @@ function buildPartnerGarageResponse(extracted, metier) {
 function buildOwnGarageResponse(extracted, metier) {
   const { prixCC: prixNettoyage } = getPricing(extracted, metier);
 
-  const replyClean = `Super, c'est encore plus simple. Voilà comment ça se passe avec ton garage :\n\n1. Ton garagiste démonte le FAP comme il le ferait pour un remplacement\n2. Il envoie le FAP au centre Re-FAP (on fournit l'étiquette de transport)\n3. On le nettoie et on le retourne sous 48-72h\n4. Ton garagiste le remonte et réinitialise le système\n\nLe nettoyage c'est ${prixNettoyage}. Si ton garagiste ne connaît pas encore Re-FAP, pas de souci — un expert peut l'appeler pour tout lui expliquer et le rassurer sur le process. On fait ça régulièrement.\n\nTu es dans quel coin ? Ça me permet de préparer le dossier.`;
+  const replyClean = `Super, c'est encore plus simple. Voilà comment ça se passe avec ton garage :\n\n1. Ton garagiste démonte le FAP comme il le ferait pour un remplacement\n2. Il envoie le FAP au centre Re-FAP (on fournit l'étiquette de transport)\n3. On le nettoie et on le retourne sous 48-72h\n4. Ton garagiste le remonte et réinitialise le système\n\nCôté budget : le nettoyage c'est ${prixNettoyage}, auquel s'ajoutent les frais de port et la main d'œuvre de ton garagiste pour le démontage/remontage. Ça reste nettement plus économique qu'un remplacement de FAP — et surtout, c'est la seule solution qui retire les suies ET les cendres métalliques, ce qui permet au filtre de retrouver ses performances d'origine.\n\nSi ton garagiste ne connaît pas encore Re-FAP, pas de souci — un expert peut l'appeler pour tout lui expliquer et le rassurer sur le process. On fait ça régulièrement.\n\nTu es dans quel coin ? Ça me permet de préparer le dossier.`;
 
   const data = {
     ...(extracted || DEFAULT_DATA),
