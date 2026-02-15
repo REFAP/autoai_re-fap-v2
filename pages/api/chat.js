@@ -442,8 +442,12 @@ function userSaysYes(text) {
 
 function userSaysNo(text) {
   const t = String(text || "").toLowerCase().replace(/['']/g, " ").trim();
-  const noWords = ["non", "nan", "nope", "pas maintenant", "plus tard", "non merci", "pas pour l instant", "c est bon", "pas la peine", "pas besoin", "je gère", "ça ira", "ca ira", "laisse tomber", "pas intéressé", "pas interesse", "sans façon", "je passe"];
-  return noWords.some((w) => t.includes(w));
+  // Long phrases: substring match is safe
+  const noPhrases = ["pas maintenant", "plus tard", "non merci", "pas pour l instant", "c est bon", "pas la peine", "pas besoin", "je gère", "ça ira", "ca ira", "laisse tomber", "pas intéressé", "pas interesse", "sans façon", "je passe"];
+  if (noPhrases.some((w) => t.includes(w))) return true;
+  // Short words: word boundary to avoid "nan"→"nancy", "non"→"nontron"
+  const noWords = ["non", "nan", "nope"];
+  return noWords.some((w) => new RegExp(`\\b${w}\\b`).test(t));
 }
 
 // ============================================================
