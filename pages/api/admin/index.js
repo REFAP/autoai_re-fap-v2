@@ -1,4 +1,4 @@
-// /pages/api/admin/index.js
+// /pages/api/admin/stats.js
 // FAPexpert Admin Dashboard API — v1.0
 // Accède aux env vars Supabase côté serveur
 
@@ -61,9 +61,16 @@ export default async function handler(req, res) {
     let convCountToday = 0, convCount7d = 0;
     const todayTs = new Date(today).getTime();
     const sevenDaysAgoTs = new Date(sevenDaysAgo).getTime();
+    // Helper: parse Supabase timestamps (may have space instead of T, or +00 suffix)
+    const parseTs = (s) => {
+      if (!s) return 0;
+      const normalized = String(s).replace(' ', 'T').replace(/\+00$/, '+00:00');
+      const t = new Date(normalized).getTime();
+      return isNaN(t) ? 0 : t;
+    };
     for (const cid of convIds) {
       const firstMsg = convMap[cid][0]?.created_at;
-      const firstMsgTs = new Date(firstMsg).getTime();
+      const firstMsgTs = parseTs(firstMsg);
       if (firstMsgTs >= todayTs) convCountToday++;
       if (firstMsgTs >= sevenDaysAgoTs) convCount7d++;
     }
@@ -199,8 +206,9 @@ export default async function handler(req, res) {
     }
     for (const cid of convIds) {
       const firstMsg = convMap[cid][0]?.created_at;
-      if (!firstMsg || firstMsg < sevenDaysAgo) continue;
-      const day = firstMsg.split("T")[0];
+      const firstMsgTs = parseTs(firstMsg);
+      if (!firstMsg || firstMsgTs < sevenDaysAgoTs) continue;
+      const day = String(firstMsg).replace(' ', 'T').split("T")[0];
       if (dailyTrend[day]) {
         dailyTrend[day].conversations++;
         const allBot = convMap[cid].filter(m => m.role === "assistant").map(m => (m.content || "").toLowerCase()).join(" ");
