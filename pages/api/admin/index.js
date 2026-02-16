@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       .select("id, conversation_id, created_at, role, content")
       .gte("created_at", thirtyDaysAgo)
       .order("created_at", { ascending: true })
-      .limit(5000);
+      .range(0, 4999);
 
     if (msgErr) throw msgErr;
 
@@ -263,7 +263,7 @@ export default async function handler(req, res) {
       unrecognizedMarques: sortObj(unrecognizedMarques, 20),
       dailyTrend: Object.entries(dailyTrend).map(([date, data]) => ({ date, ...data })),
       recentConversations: recentTop20,
-      _debug: { today, sevenDaysAgo, todayTs, sevenDaysAgoTs, samples: debugSamples },
+      _debug: { today, sevenDaysAgo, todayTs, sevenDaysAgoTs, totalMessages: (allMessages||[]).length, totalConvs: convIds.length, samples: debugSamples },
     });
   } catch (err) {
     console.error("Admin stats error:", err);
