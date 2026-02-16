@@ -1,4 +1,4 @@
-// /pages/api/admin/stats.js
+// /pages/api/admin/index.js
 // FAPexpert Admin Dashboard API — v1.0
 // Accède aux env vars Supabase côté serveur
 
