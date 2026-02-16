@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ADMIN_TOKEN = process.env.ADMIN_DASHBOARD_TOKEN || "refap-admin-2026";
+const ADMIN_TOKEN = process.env.ADMIN_DASHBOARD_TOKEN || "re-fap-2026-dash";
 
 function getSupabase() {
   if (!supabaseUrl || !supabaseServiceKey) return null;
