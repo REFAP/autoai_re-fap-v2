@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAPexpert — Dashboard Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface2: #1a2234;
+  --border: #1e293b;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --accent: #22c55e;
+  --accent-dim: rgba(34, 197, 94, 0.12);
+  --warn: #f59e0b;
+  --warn-dim: rgba(245, 158, 11, 0.12);
+  --danger: #ef4444;
+  --danger-dim: rgba(239, 68, 68, 0.12);
+  --blue: #3b82f6;
+  --blue-dim: rgba(59, 130, 246, 0.12);
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ===== HEADER ===== */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(20px);
+}
+
+header .logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+header .logo-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #000;
+}
+
+header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+header .version {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface2);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+}
+
+#refresh-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+#refresh-btn:hover { background: var(--border); }
+
+#last-update {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ===== LOGIN ===== */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+  width: 380px;
+  text-align: center;
+}
+
+.login-box h2 { margin-bottom: 8px; font-size: 20px; }
+.login-box p { color: var(--text-dim); font-size: 14px; margin-bottom: 24px; }
+
+.login-box input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border 0.2s;
+}
+
+.login-box input:focus { border-color: var(--accent); }
+
+.login-box button {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.login-box button:hover { opacity: 0.9; }
+.login-error { color: var(--danger); font-size: 13px; margin-top: 8px; }
+
+/* ===== MAIN GRID ===== */
+main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 32px;
+}
+
+.grid-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.grid-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.card-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.card-value {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+.card-value.accent { color: var(--accent); }
+.card-value.warn { color: var(--warn); }
+.card-value.danger { color: var(--danger); }
+.card-value.blue { color: var(--blue); }
+
+.card-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* ===== SECTION TITLES ===== */
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ===== FUNNEL ===== */
+.funnel-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+}
+
+.funnel-step:last-child { border-bottom: none; }
+
+.funnel-label {
+  width: 180px;
+  font-size: 13px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.funnel-bar-bg {
+  flex: 1;
+  height: 28px;
+  background: var(--bg);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.funnel-bar {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.8s ease;
+  min-width: 2px;
+}
+
+.funnel-bar.green { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.funnel-bar.blue { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.funnel-bar.warn { background: linear-gradient(90deg, #f59e0b, #d97706); }
+
+.funnel-pct {
+  width: 70px;
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* ===== QUALITY BADGES ===== */
+.quality-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.quality-label { font-size: 14px; }
+
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.badge.ok { background: var(--accent-dim); color: var(--accent); }
+.badge.warn { background: var(--warn-dim); color: var(--warn); }
+.badge.danger { background: var(--danger-dim); color: var(--danger); }
+
+/* ===== RANKING LISTS ===== */
+.rank-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.3);
+  font-size: 14px;
+}
+
+.rank-item:last-child { border-bottom: none; }
+
+.rank-name { color: var(--text); }
+.rank-count {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.rank-pos {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--surface2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.rank-left {
+  display: flex;
+  align-items: center;
+}
+
+/* ===== ALERT BOX ===== */
+.alert-box {
+  background: var(--danger-dim);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-box.warn {
+  background: var(--warn-dim);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* ===== RECENT TABLE ===== */
+.recent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.recent-table th {
+  text-align: left;
+  padding: 8px 12px;
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.recent-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.3);
+  vertical-align: middle;
+}
+
+.recent-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+.flow-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.flow-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.flow-dot.on { background: var(--accent-dim); color: var(--accent); }
+.flow-dot.off { background: var(--bg); color: var(--text-dim); }
+.flow-dot.bad { background: var(--danger-dim); color: var(--danger); }
+
+/* ===== CHART ===== */
+.chart-container {
+  height: 200px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+.chart-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-bars {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 160px;
+}
+
+.chart-bar {
+  width: 18px;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.6s ease;
+  min-height: 2px;
+}
+
+.chart-bar.conv { background: var(--blue); }
+.chart-bar.flow { background: var(--accent); }
+.chart-bar.form { background: var(--warn); }
+
+.chart-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.chart-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ===== LOADER ===== */
+.loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 80px;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  .grid-overview { grid-template-columns: repeat(2, 1fr); }
+  .grid-3col { grid-template-columns: 1fr; }
+  .grid-2col { grid-template-columns: 1fr; }
+  header { padding: 12px 16px; }
+  main { padding: 16px; }
+}
+
+@media (max-width: 640px) {
+  .grid-overview { grid-template-columns: 1fr; }
+  .funnel-label { width: 100px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <div style="font-size:32px;margin-bottom:12px;">🔧</div>
+    <h2>FAPexpert Admin</h2>
+    <p>Dashboard de monitoring chatbot</p>
+    <input type="password" id="token-input" placeholder="Token d'accès" autocomplete="off">
+    <input type="text" id="api-url-input" placeholder="URL API (ex: https://monsite.vercel.app)" value="">
+    <button onclick="doLogin()">Accéder au dashboard</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header style="display:none;" id="main-header">
+  <div class="logo">
+    <div class="logo-icon">RE</div>
+    <div>
+      <h1>FAPexpert Dashboard</h1>
+    </div>
+    <span class="version">v6.1.1</span>
+  </div>
+  <div class="header-right">
+    <div class="live-dot"></div>
+    <span id="last-update" class="mono">—</span>
+    <button id="refresh-btn" onclick="loadData()">↻ Rafraîchir</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main style="display:none;" id="main-content">
+  <div id="dashboard-loader" class="loader">
+    <div class="spinner"></div>
+    <span style="color:var(--text-dim);font-size:14px;">Chargement des données...</span>
+  </div>
+  <div id="dashboard" style="display:none;">
+
+    <!-- OVERVIEW -->
+    <div class="grid-overview" id="overview-cards"></div>
+
+    <!-- ALERTS -->
+    <div id="alerts-container"></div>
+
+    <!-- FLOW + QUALITY -->
+    <div class="grid-2col">
+      <div class="card">
+        <div class="section-title">📊 Entonnoir de conversion</div>
+        <div id="funnel"></div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title">✅ Qualité (cibles : 0%)</div>
+          <div id="quality"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">📈 Tendance 7 jours</div>
+          <div class="chart-container" id="chart"></div>
+          <div class="chart-legend">
+            <span><span class="chart-legend-dot" style="background:var(--blue);"></span>Conversations</span>
+            <span><span class="chart-legend-dot" style="background:var(--accent);"></span>Flow complet</span>
+            <span><span class="chart-legend-dot" style="background:var(--warn);"></span>Formulaire</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP RANKINGS -->
+    <div class="grid-3col">
+      <div class="card">
+        <div class="section-title">🚗 Top Marques</div>
+        <div id="top-marques"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">🔍 Top Symptômes</div>
+        <div id="top-symptomes"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">📍 Top Villes</div>
+        <div id="top-villes"></div>
+      </div>
+    </div>
+
+    <!-- UNRECOGNIZED + RECENT -->
+    <div class="grid-2col">
+      <div class="card">
+        <div class="section-title">⚠️ Marques non reconnues</div>
+        <div id="unrecognized"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">🔥 Urgences</div>
+        <div id="urgency"></div>
+      </div>
+    </div>
+
+    <!-- RECENT CONVERSATIONS -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="section-title">💬 Conversations récentes (7 jours)</div>
+      <div style="overflow-x:auto;">
+        <table class="recent-table" id="recent-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>1er message</th>
+              <th>Turns</th>
+              <th>Flow</th>
+            </tr>
+          </thead>
+          <tbody id="recent-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+let API_BASE = '';
+let TOKEN = '';
+
+function doLogin() {
+  TOKEN = document.getElementById('token-input').value.trim();
+  API_BASE = document.getElementById('api-url-input').value.trim().replace(/\/+$/, '');
+
+  if (!TOKEN || !API_BASE) {
+    document.getElementById('login-error').textContent = 'Token et URL requis';
+    return;
+  }
+
+  document.getElementById('login-error').textContent = 'Connexion...';
+  loadData().then(ok => {
+    if (ok) {
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('main-header').style.display = 'flex';
+      document.getElementById('main-content').style.display = 'block';
+      localStorage.setItem('fapexpert_token', TOKEN);
+      localStorage.setItem('fapexpert_api', API_BASE);
+    }
+  });
+}
+
+// Auto-fill from localStorage
+window.addEventListener('DOMContentLoaded', () => {
+  const savedToken = localStorage.getItem('fapexpert_token');
+  const savedApi = localStorage.getItem('fapexpert_api');
+  if (savedToken) document.getElementById('token-input').value = savedToken;
+  if (savedApi) document.getElementById('api-url-input').value = savedApi;
+
+  document.getElementById('token-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('api-url-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+});
+
+async function loadData() {
+  try {
+    document.getElementById('dashboard-loader').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+
+    const resp = await fetch(`${API_BASE}/api/admin/stats?token=${encodeURIComponent(TOKEN)}`);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      document.getElementById('login-error').textContent = err.error || `Erreur ${resp.status}`;
+      document.getElementById('dashboard-loader').style.display = 'none';
+      return false;
+    }
+
+    const data = await resp.json();
+    render(data);
+
+    document.getElementById('dashboard-loader').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString('fr-FR');
+    return true;
+  } catch (err) {
+    document.getElementById('login-error').textContent = `Erreur réseau : ${err.message}`;
+    document.getElementById('dashboard-loader').style.display = 'none';
+    return false;
+  }
+}
+
+function render(data) {
+  renderOverview(data);
+  renderAlerts(data);
+  renderFunnel(data);
+  renderQuality(data);
+  renderChart(data);
+  renderRankings(data);
+  renderRecent(data);
+}
+
+function renderOverview(data) {
+  const o = data.overview;
+  const f = data.flow;
+  document.getElementById('overview-cards').innerHTML = `
+    <div class="card">
+      <div class="card-title">Conversations aujourd'hui</div>
+      <div class="card-value blue">${o.conversations.today}</div>
+      <div class="card-sub">${o.conversations.last7d} cette semaine · ${o.conversations.last30d} ce mois</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Flow complet</div>
+      <div class="card-value accent">${f.flowComplete.pct}%</div>
+      <div class="card-sub">${f.flowComplete.count}/${f.total} conversations</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Formulaire CTA</div>
+      <div class="card-value ${f.formCTA.pct >= 30 ? 'accent' : 'warn'}">${f.formCTA.pct}%</div>
+      <div class="card-sub">${f.formCTA.count}/${f.total} conversations</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Turns moyens</div>
+      <div class="card-value">${o.avgTurns}</div>
+      <div class="card-sub">messages utilisateur par conversation</div>
+    </div>
+  `;
+}
+
+function renderAlerts(data) {
+  const q = data.quality;
+  const u = data.unrecognizedMarques || [];
+  let html = '';
+
+  if (q.mistralClosing.count > 0) {
+    html += `<div class="alert-box">🚨 ${q.mistralClosing.count} closing prématuré(s) Mistral détecté(s) — régression possible</div>`;
+  }
+  if (q.mentions1500.count > 0) {
+    html += `<div class="alert-box">🚨 ${q.mentions1500.count} mention(s) de "1500€" — violation règle 8</div>`;
+  }
+  if (u.length > 0) {
+    html += `<div class="alert-box warn">⚠️ ${u.length} marque(s) non reconnue(s) — à ajouter au dictionnaire</div>`;
+  }
+
+  document.getElementById('alerts-container').innerHTML = html;
+}
+
+function renderFunnel(data) {
+  const f = data.flow;
+  const steps = [
+    { label: 'Déterministe tour 1', ...f.deterministicFirst, color: 'blue' },
+    { label: 'Véhicule demandé', ...f.vehicleAsked, color: 'blue' },
+    { label: 'Modèle demandé', ...f.modelAsked, color: 'blue' },
+    { label: 'Km demandé', ...f.kmAsked, color: 'blue' },
+    { label: 'Tentatives collectées', ...f.attemptsCollected, color: 'green' },
+    { label: 'Expert orientation', ...f.expertOrientation, color: 'green' },
+    { label: 'Ville collectée', ...f.cityCollected, color: 'green' },
+    { label: 'Closing atteint', ...f.closingReached, color: 'warn' },
+    { label: 'Formulaire CTA', ...f.formCTA, color: 'warn' },
+    { label: 'Flow complet', ...f.flowComplete, color: 'green' },
+  ];
+
+  document.getElementById('funnel').innerHTML = steps.map(s => `
+    <div class="funnel-step">
+      <div class="funnel-label">${s.label}</div>
+      <div class="funnel-bar-bg">
+        <div class="funnel-bar ${s.color}" style="width:${Math.max(s.pct, 1)}%"></div>
+      </div>
+      <div class="funnel-pct">${s.count} <span style="color:var(--text-dim)">(${s.pct}%)</span></div>
+    </div>
+  `).join('');
+}
+
+function renderQuality(data) {
+  const q = data.quality;
+  const items = [
+    { label: 'Closing prématuré Mistral', count: q.mistralClosing.count, pct: q.mistralClosing.pct },
+    { label: 'Mentions "1500€"', count: q.mentions1500.count, pct: q.mentions1500.pct },
+  ];
+
+  document.getElementById('quality').innerHTML = items.map(i => {
+    const cls = i.count === 0 ? 'ok' : i.count <= 3 ? 'warn' : 'danger';
+    return `
+      <div class="quality-row">
+        <div class="quality-label">${i.label}</div>
+        <span class="badge ${cls}">${i.count === 0 ? '✓ 0' : `${i.count} (${i.pct}%)`}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderChart(data) {
+  const trend = data.dailyTrend || [];
+  const maxConv = Math.max(...trend.map(d => d.conversations), 1);
+  const maxH = 140;
+
+  document.getElementById('chart').innerHTML = trend.map(d => {
+    const hConv = Math.max((d.conversations / maxConv) * maxH, 2);
+    const hFlow = Math.max((d.flowComplete / maxConv) * maxH, d.flowComplete > 0 ? 2 : 0);
+    const hForm = Math.max((d.formCTA / maxConv) * maxH, d.formCTA > 0 ? 2 : 0);
+    const label = d.date.split('-').slice(1).join('/');
+    return `
+      <div class="chart-bar-group">
+        <div class="chart-bars">
+          <div class="chart-bar conv" style="height:${hConv}px" title="${d.conversations} conv"></div>
+          <div class="chart-bar flow" style="height:${hFlow}px" title="${d.flowComplete} flow"></div>
+          <div class="chart-bar form" style="height:${hForm}px" title="${d.formCTA} form"></div>
+        </div>
+        <div class="chart-label">${label}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderRankings(data) {
+  const renderList = (items, containerId) => {
+    const el = document.getElementById(containerId);
+    if (!items || items.length === 0) {
+      el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:8px 0;">Aucune donnée</div>';
+      return;
+    }
+    el.innerHTML = items.map((item, i) => `
+      <div class="rank-item">
+        <div class="rank-left">
+          <div class="rank-pos">${i + 1}</div>
+          <span class="rank-name">${item.name}</span>
+        </div>
+        <span class="rank-count">${item.count}</span>
+      </div>
+    `).join('');
+  };
+
+  renderList(data.topMarques, 'top-marques');
+  renderList(data.topSymptomes, 'top-symptomes');
+  renderList(data.topVilles, 'top-villes');
+
+  // Unrecognized marques
+  const uEl = document.getElementById('unrecognized');
+  if (!data.unrecognizedMarques || data.unrecognizedMarques.length === 0) {
+    uEl.innerHTML = '<div style="color:var(--accent);font-size:14px;padding:8px 0;">✓ Toutes les marques sont reconnues</div>';
+  } else {
+    uEl.innerHTML = data.unrecognizedMarques.map((item, i) => `
+      <div class="rank-item">
+        <div class="rank-left">
+          <div class="rank-pos" style="background:var(--warn-dim);color:var(--warn);">!</div>
+          <span class="rank-name">${item.name}</span>
+        </div>
+        <span class="rank-count">${item.count}x</span>
+      </div>
+    `).join('');
+  }
+
+  // Urgency
+  const urgEl = document.getElementById('urgency');
+  const urg = data.urgencyDistribution || {};
+  const urgItems = Object.entries(urg).sort((a, b) => b[1] - a[1]);
+  if (urgItems.length === 0) {
+    urgEl.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:8px 0;">Aucune donnée</div>';
+  } else {
+    const urgColors = { critique: 'var(--danger)', haute: 'var(--warn)', moyenne: 'var(--blue)', inconnue: 'var(--text-dim)' };
+    urgEl.innerHTML = urgItems.map(([level, count]) => `
+      <div class="quality-row">
+        <span style="color:${urgColors[level] || 'var(--text)'}">${level.charAt(0).toUpperCase() + level.slice(1)}</span>
+        <span class="mono" style="color:var(--text-dim)">${count}</span>
+      </div>
+    `).join('');
+  }
+}
+
+function renderRecent(data) {
+  const tbody = document.getElementById('recent-tbody');
+  const convs = data.recentConversations || [];
+
+  if (convs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-dim);text-align:center;">Aucune conversation récente</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = convs.map(c => {
+    const date = new Date(c.date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+    const dots = [
+      { label: 'V', on: c.hasVehicle, title: 'Véhicule' },
+      { label: 'M', on: c.hasModel, title: 'Modèle' },
+      { label: 'K', on: c.hasKm, title: 'Km' },
+      { label: 'T', on: c.hasAttempts, title: 'Tentatives' },
+      { label: 'E', on: c.hasExpert, title: 'Expert' },
+      { label: 'C', on: c.hasClosing, title: 'Closing' },
+      { label: 'F', on: c.hasForm, title: 'Formulaire' },
+    ];
+
+    const problemDots = [];
+    if (c.hasMistral) problemDots.push({ label: '!M', bad: true, title: 'Closing Mistral' });
+    if (c.has1500) problemDots.push({ label: '€', bad: true, title: '1500€' });
+
+    const allDots = [...dots.map(d => `<div class="flow-dot ${d.on ? 'on' : 'off'}" title="${d.title}">${d.label}</div>`),
+      ...problemDots.map(d => `<div class="flow-dot bad" title="${d.title}">${d.label}</div>`)
+    ].join('');
+
+    return `
+      <tr>
+        <td class="mono" style="white-space:nowrap;font-size:12px;">${date}</td>
+        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.firstMsg}</td>
+        <td class="mono" style="text-align:center;">${c.userTurns}</td>
+        <td><div class="flow-dots">${allDots}</div></td>
+      </tr>
+    `;
+  }).join('');
+}
+</script>
+</body>
+</html>
