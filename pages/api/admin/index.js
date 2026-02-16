@@ -43,7 +43,8 @@ export default async function handler(req, res) {
       .from("messages")
       .select("id, conversation_id, created_at, role, content")
       .gte("created_at", thirtyDaysAgo)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(5000);
 
     if (msgErr) throw msgErr;
 
