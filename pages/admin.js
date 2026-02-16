@@ -23,7 +23,7 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      const resp = await fetch(`/api/admin/stats?token=${encodeURIComponent(t)}`);
+      const resp = await fetch(`/api/admin?token=${encodeURIComponent(t)}`);
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error || `Erreur ${resp.status}`);
@@ -187,6 +187,75 @@ export default function AdminDashboard() {
                     {m.name} ×{m.count}
                   </span>
                 ))}
+              </div>
+            )}
+
+            {/* Recent Conversations */}
+            {data.recentConversations?.length > 0 && (
+              <div style={{ background: "#111827", border: "1px solid #1e293b", borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid #1e293b" }}>
+                  💬 Dernières conversations ({data.recentConversations.length})
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid #1e293b" }}>
+                        <th style={{ padding: "8px", textAlign: "left", color: "#64748b", fontWeight: 500 }}>Date</th>
+                        <th style={{ padding: "8px", textAlign: "left", color: "#64748b", fontWeight: 500 }}>1er message</th>
+                        <th style={{ padding: "8px", textAlign: "center", color: "#64748b", fontWeight: 500 }}>Turns</th>
+                        <th style={{ padding: "8px", textAlign: "center", color: "#64748b", fontWeight: 500 }}>Flow</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.recentConversations.map((c, i) => {
+                        const d = new Date(String(c.date).replace(" ", "T"));
+                        const dateStr = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+                        const timeStr = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+                        const flowSteps = [
+                          c.hasVehicle && "🚗",
+                          c.hasModel && "📋",
+                          c.hasKm && "🔢",
+                          c.hasAttempts && "🔧",
+                          c.hasExpert && "🎯",
+                          c.hasClosing && "📞",
+                          c.hasForm && "📝",
+                        ].filter(Boolean).join(" ");
+                        return (
+                          <tr key={i} style={{ borderBottom: "1px solid rgba(30,41,59,0.3)" }}>
+                            <td style={{ padding: "8px", whiteSpace: "nowrap", color: "#94a3b8" }}>{dateStr} {timeStr}</td>
+                            <td style={{ padding: "8px", maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.firstMsg || "-"}</td>
+                            <td style={{ padding: "8px", textAlign: "center", fontFamily: "monospace", color: "#64748b" }}>{c.userTurns}</td>
+                            <td style={{ padding: "8px", textAlign: "center", letterSpacing: 2 }}>{flowSteps || "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Daily Trend */}
+            {data.dailyTrend?.length > 0 && (
+              <div style={{ background: "#111827", border: "1px solid #1e293b", borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid #1e293b" }}>
+                  📈 Tendance 7 jours
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+                  {data.dailyTrend.map((d, i) => {
+                    const dayLabel = new Date(d.date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" });
+                    return (
+                      <div key={i} style={{ textAlign: "center", padding: 12, background: "#1a2234", borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>{dayLabel}</div>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: d.conversations > 0 ? "#3b82f6" : "#374151" }}>{d.conversations}</div>
+                        <div style={{ fontSize: 10, color: "#64748b", marginTop: 4 }}>
+                          {d.formCTA > 0 && <span style={{ color: "#22c55e" }}>📝{d.formCTA} </span>}
+                          {d.flowComplete > 0 && <span style={{ color: "#8b5cf6" }}>✓{d.flowComplete}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </main>
