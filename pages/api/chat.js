@@ -476,7 +476,7 @@ function lastAssistantAskedVehicle(history) {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("quelle voiture") || content.includes("roules en quoi") || content.includes("comme véhicule") || content.includes("quoi comme voiture") || content.includes("c'est quelle voiture")) {
+      if (content.includes("quelle voiture") || content.includes("roules en quoi") || content.includes("comme véhicule") || content.includes("quoi comme voiture") || content.includes("c'est quelle voiture") || content.includes("quelle marque")) {
         return true;
       }
       return false;
@@ -730,6 +730,10 @@ function extractVehicleFromMessage(text) {
     infiniti: "Infiniti", chrysler: "Chrysler", dodge: "Dodge",
     lancia: "Lancia", rover: "Rover", "mg": "MG", cupra: "Cupra",
     tesla: "Tesla", polestar: "Polestar",
+    // V6.1.1: marques manquantes
+    chevrolet: "Chevrolet", saab: "Saab", smart: "Smart",
+    iveco: "Iveco", "great wall": "Great Wall", dfsk: "DFSK",
+    piaggio: "Piaggio", man: "MAN", citroenDS: "DS",
   };
   for (const [key, value] of Object.entries(marques)) {
     if (key.length <= 3) {
@@ -805,6 +809,17 @@ function extractVehicleFromMessage(text) {
     tivoli: "SsangYong", korando: "SsangYong", rexton: "SsangYong",
     "d-max": "Isuzu",
     formentor: "Cupra", born: "Cupra",
+    // V6.1.1: modèles manquants
+    orlando: "Chevrolet", captiva: "Chevrolet", cruze: "Chevrolet", aveo: "Chevrolet",
+    spark: "Chevrolet", trax: "Chevrolet", lacetti: "Chevrolet", nubira: "Chevrolet",
+    "9-3": "Saab", "9-5": "Saab",
+    fortwo: "Smart", forfour: "Smart",
+    delta: "Lancia", musa: "Lancia", ypsilon: "Lancia", voyager: "Lancia",
+    freelander: "Land Rover", defender: "Land Rover", discovery: "Land Rover", evoque: "Land Rover",
+    countryman: "Mini", clubman: "Mini", cooper: "Mini", paceman: "Mini",
+    giulietta: "Alfa Romeo", giulia: "Alfa Romeo", stelvio: "Alfa Romeo", mito: "Alfa Romeo",
+    "159": "Alfa Romeo",
+    daily: "Iveco",
   };
 
   const ambiguousNumeric = ["2008", "500"];
@@ -1429,6 +1444,21 @@ function capitalizeVille(ville) {
   });
 }
 
+// V6.1.1: Garde-fou pour éviter les faux positifs ville
+// "rouler dans les tours" ≠ "Tours" (ville)
+// Utilisé quand le bot N'A PAS explicitement demandé la ville
+function looksLikeCityAnswer(message) {
+  const t = String(message || "").trim();
+  // Messages courts = probablement une ville
+  if (t.length < 50) return true;
+  // Code postal explicite
+  if (/\b\d{5}\b/.test(t)) return true;
+  // Marqueurs géographiques explicites
+  if (/\bje suis [àa]\b|\bj.habite\b|\bj.suis [àa]\b|\bje vis [àa]\b|\bdans le \d{2}\b|\bdepartement\b|\bprès de\b|\bpres de\b|\brégion\b|\bsecteur\b|\bquel coin\b/i.test(t)) return true;
+  // Message long sans contexte géo = probablement PAS une ville
+  return false;
+}
+
 // ============================================================
 // EXPERT ORIENTATION + RESPONSES
 // ============================================================
@@ -2033,7 +2063,7 @@ export default async function handler(req, res) {
       } else if (userNeedsGarage(message)) {
         return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
       } else {
-        const deptTestSolExpl = extractDeptFromInput(message);
+        const deptTestSolExpl = looksLikeCityAnswer(message) ? extractDeptFromInput(message) : null;
         if (deptTestSolExpl) {
           let ville = message.trim()
             .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
@@ -2055,7 +2085,7 @@ export default async function handler(req, res) {
       } else if (userNeedsGarage(message) || userSaysNo(message)) {
         return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
       }
-      const deptTest = extractDeptFromInput(message);
+      const deptTest = looksLikeCityAnswer(message) ? extractDeptFromInput(message) : null;
       if (deptTest) {
         let ville = message.trim()
           .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
@@ -2079,7 +2109,7 @@ export default async function handler(req, res) {
     if (lastAssistantAskedGarageType(history)) {
       if (userHasOwnGarage(message)) return sendResponse(buildOwnGarageResponse(lastExtracted, metier));
       if (userWantsPartnerGarage(message)) return sendResponse(buildPartnerGarageResponse(lastExtracted, metier));
-      const deptTestGarage = extractDeptFromInput(message);
+      const deptTestGarage = looksLikeCityAnswer(message) ? extractDeptFromInput(message) : null;
       if (deptTestGarage) {
         let ville = message.trim()
           .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
@@ -2200,6 +2230,14 @@ export default async function handler(req, res) {
     // ========================================
     // OVERRIDE 6 : Tour 3+ sans véhicule
     // ========================================
+    // V6.1.1: Anti-boucle — si on a déjà demandé le véhicule et l'user a répondu
+    // quelque chose mais la marque n'est pas dans le dico, on sauvegarde en brut
+    if (userTurns >= 2 && !lastExtracted.marque && lastAssistantAskedVehicle(history) && message.trim().length >= 3) {
+      const rawMarque = capitalizeVille(message.trim().split(/\s+/)[0]);
+      lastExtracted.marque = rawMarque;
+      lastExtracted.marque_brute = true;
+      return sendResponse(buildModelQuestion(lastExtracted));
+    }
     if (userTurns >= 3 && !lastExtracted.marque && !lastAssistantAskedVehicle(history) && !everAskedClosing(history)) {
       return sendResponse(buildVehicleQuestion(lastExtracted));
     }
