@@ -39,12 +39,24 @@ export default async function handler(req, res) {
     // ========================================
     // 1. CONVERSATIONS & MESSAGES
     // ========================================
-    const { data: allMessages, error: msgErr } = await supabase
-      .from("messages")
-      .select("id, conversation_id, created_at, role, content")
-      .gte("created_at", thirtyDaysAgo)
-      .order("created_at", { ascending: true })
-      .range(0, 4999);
+    // Fetch all messages with pagination (Supabase caps at 1000 per request)
+    let allMessages = [];
+    let offset = 0;
+    const PAGE_SIZE = 1000;
+    while (true) {
+      const { data: batch, error: batchErr } = await supabase
+        .from("messages")
+        .select("id, conversation_id, created_at, role, content")
+        .gte("created_at", thirtyDaysAgo)
+        .order("created_at", { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (batchErr) throw batchErr;
+      if (!batch || batch.length === 0) break;
+      allMessages = allMessages.concat(batch);
+      if (batch.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+    const msgErr = null;
 
     if (msgErr) throw msgErr;
 
