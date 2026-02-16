@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ADMIN_TOKEN = process.env.ADMIN_DASHBOARD_TOKEN || "re-fap-2026-dash";
+const ADMIN_TOKEN = process.env.ADMIN_DASHBOARD_TOKEN || "refap-admin-2026";
 
 function getSupabase() {
   if (!supabaseUrl || !supabaseServiceKey) return null;
@@ -68,6 +68,11 @@ export default async function handler(req, res) {
       const t = new Date(normalized).getTime();
       return isNaN(t) ? 0 : t;
     };
+    // DEBUG: sample first 3 conversations timestamps
+    const debugSamples = convIds.slice(0, 3).map(cid => {
+      const raw = convMap[cid][0]?.created_at;
+      return { raw, parsed: parseTs(raw), todayTs, sevenDaysAgoTs, isToday: parseTs(raw) >= todayTs, is7d: parseTs(raw) >= sevenDaysAgoTs };
+    });
     for (const cid of convIds) {
       const firstMsg = convMap[cid][0]?.created_at;
       const firstMsgTs = parseTs(firstMsg);
@@ -256,6 +261,7 @@ export default async function handler(req, res) {
       unrecognizedMarques: sortObj(unrecognizedMarques, 20),
       dailyTrend: Object.entries(dailyTrend).map(([date, data]) => ({ date, ...data })),
       recentConversations: recentTop20,
+      _debug: { today, sevenDaysAgo, todayTs, sevenDaysAgoTs, samples: debugSamples },
     });
   } catch (err) {
     console.error("Admin stats error:", err);
