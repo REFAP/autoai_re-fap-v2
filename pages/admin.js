@@ -23,7 +23,7 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      const resp = await fetch(`/api/admin?token=${encodeURIComponent(t)}`);
+      const resp = await fetch(`/api/admin/stats?token=${encodeURIComponent(t)}`);
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error || `Erreur ${resp.status}`);
