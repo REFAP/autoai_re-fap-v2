@@ -2049,7 +2049,7 @@ export default async function handler(req, res) {
     // OVERRIDE 1 : Closing question + OUI → Formulaire
     // ========================================
     if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history)) && userSaysYes(message)) {
-      return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: FORM_URL });
+      return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: `https://auto.re-fap.fr/?cid=${conversationId}#devis` });
     }
 
     // ========================================
@@ -2144,7 +2144,7 @@ export default async function handler(req, res) {
     // OVERRIDE 3 : Demande explicite RDV
     // ========================================
     if (userWantsFormNow(message)) {
-      return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: FORM_URL });
+      return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: `https://auto.re-fap.fr/?cid=${conversationId}#devis` });
     }
 
     // ========================================
