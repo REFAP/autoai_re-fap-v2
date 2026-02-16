@@ -164,7 +164,7 @@ export default async function handler(req, res) {
 
       // Recent conversations (last 20)
       const firstMsgTime = msgs[0]?.created_at;
-      if (firstMsgTime >= sevenDaysAgo) {
+      if (parseTs(firstMsgTime) >= sevenDaysAgoTs) {
         recentConvs.push({
           id: cid.substring(0, 8),
           date: firstMsgTime,
@@ -177,7 +177,7 @@ export default async function handler(req, res) {
     }
 
     // Sort recent by date descending, keep 20
-    recentConvs.sort((a, b) => new Date(b.date) - new Date(a.date));
+    recentConvs.sort((a, b) => parseTs(b.date) - parseTs(a.date));
     const recentTop20 = recentConvs.slice(0, 20);
 
     // ========================================
