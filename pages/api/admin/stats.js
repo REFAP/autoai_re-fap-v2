@@ -59,10 +59,13 @@ export default async function handler(req, res) {
 
     // Count by period
     let convCountToday = 0, convCount7d = 0;
+    const todayTs = new Date(today).getTime();
+    const sevenDaysAgoTs = new Date(sevenDaysAgo).getTime();
     for (const cid of convIds) {
       const firstMsg = convMap[cid][0]?.created_at;
-      if (firstMsg >= today) convCountToday++;
-      if (firstMsg >= sevenDaysAgo) convCount7d++;
+      const firstMsgTs = new Date(firstMsg).getTime();
+      if (firstMsgTs >= todayTs) convCountToday++;
+      if (firstMsgTs >= sevenDaysAgoTs) convCount7d++;
     }
 
     // Average turns (user messages only)
