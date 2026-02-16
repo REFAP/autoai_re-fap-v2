@@ -68,10 +68,11 @@ export default async function handler(req, res) {
       const t = new Date(normalized).getTime();
       return isNaN(t) ? 0 : t;
     };
-    // DEBUG: sample first 3 conversations timestamps
-    const debugSamples = convIds.slice(0, 3).map(cid => {
+    // DEBUG: sample LAST 3 conversations (most recent)
+    const debugSamples = convIds.slice(-3).map(cid => {
       const raw = convMap[cid][0]?.created_at;
-      return { raw, parsed: parseTs(raw), todayTs, sevenDaysAgoTs, isToday: parseTs(raw) >= todayTs, is7d: parseTs(raw) >= sevenDaysAgoTs };
+      const msgs = convMap[cid].length;
+      return { cid: cid.substring(0,8), raw, parsed: parseTs(raw), todayTs, is7d: parseTs(raw) >= sevenDaysAgoTs, isToday: parseTs(raw) >= todayTs, msgCount: msgs };
     });
     for (const cid of convIds) {
       const firstMsg = convMap[cid][0]?.created_at;
