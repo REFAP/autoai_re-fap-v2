@@ -1615,20 +1615,143 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function findNearestCCs(dept, maxKm = 200) {
-  const centroid = DEPT_CENTROIDS[dept];
-  if (!centroid) {
-    // Fallback : retourner les CC du département
-    return {
-      equipped: CARTER_CASH_LIST.filter(c => c.dept === dept && c.equipped),
-      depot: CARTER_CASH_LIST.filter(c => c.dept === dept && !c.equipped),
-      nearbyEquipped: [],
-    };
+// ============================================================
+// CITY_GPS — Coordonnées GPS des villes principales
+// Utilisé pour calculer les distances réelles (au lieu du centroïde dept)
+// ============================================================
+const CITY_GPS = {
+  // Préfectures
+  "bourg-en-bresse":{lat:46.21,lng:5.23},"laon":{lat:49.56,lng:3.62},"moulins":{lat:46.57,lng:3.33},
+  "digne":{lat:44.09,lng:6.24},"digne-les-bains":{lat:44.09,lng:6.24},"gap":{lat:44.56,lng:6.08},
+  "nice":{lat:43.70,lng:7.27},"privas":{lat:44.74,lng:4.60},"charleville-mezieres":{lat:49.77,lng:4.72},
+  "foix":{lat:42.97,lng:1.61},"troyes":{lat:48.30,lng:4.07},"carcassonne":{lat:43.21,lng:2.35},
+  "rodez":{lat:44.35,lng:2.57},"marseille":{lat:43.30,lng:5.37},"caen":{lat:49.18,lng:-0.37},
+  "aurillac":{lat:44.93,lng:2.44},"angouleme":{lat:45.65,lng:0.16},"la rochelle":{lat:46.16,lng:-1.15},
+  "bourges":{lat:47.08,lng:2.40},"tulle":{lat:45.27,lng:1.77},"ajaccio":{lat:41.93,lng:8.74},
+  "bastia":{lat:42.70,lng:9.45},"dijon":{lat:47.32,lng:5.04},"saint-brieuc":{lat:48.51,lng:-2.76},
+  "gueret":{lat:46.17,lng:1.87},"perigueux":{lat:45.19,lng:0.72},"besancon":{lat:47.24,lng:6.02},
+  "valence":{lat:44.93,lng:4.89},"evreux":{lat:49.02,lng:1.15},"chartres":{lat:48.45,lng:1.48},
+  "quimper":{lat:48.00,lng:-4.10},"nimes":{lat:43.84,lng:4.36},"toulouse":{lat:43.60,lng:1.44},
+  "auch":{lat:43.65,lng:0.59},"bordeaux":{lat:44.84,lng:-0.58},"montpellier":{lat:43.61,lng:3.88},
+  "rennes":{lat:48.11,lng:-1.68},"chateauroux":{lat:46.81,lng:1.69},"tours":{lat:47.39,lng:0.69},
+  "grenoble":{lat:45.19,lng:5.72},"lons-le-saunier":{lat:46.67,lng:5.55},"mont-de-marsan":{lat:43.89,lng:-0.50},
+  "blois":{lat:47.59,lng:1.33},"saint-etienne":{lat:45.44,lng:4.39},"le puy-en-velay":{lat:45.04,lng:3.89},
+  "le puy":{lat:45.04,lng:3.89},"nantes":{lat:47.22,lng:-1.55},"orleans":{lat:47.90,lng:1.90},
+  "cahors":{lat:44.45,lng:1.44},"agen":{lat:44.20,lng:0.62},"mende":{lat:44.52,lng:3.50},
+  "angers":{lat:47.47,lng:-0.56},"saint-lo":{lat:49.12,lng:-1.09},"reims":{lat:49.25,lng:3.88},
+  "chalons-en-champagne":{lat:48.96,lng:4.36},"chaumont":{lat:48.11,lng:5.14},"laval":{lat:48.07,lng:-0.77},
+  "nancy":{lat:48.69,lng:6.18},"bar-le-duc":{lat:48.77,lng:5.16},"vannes":{lat:47.66,lng:-2.76},
+  "metz":{lat:49.12,lng:6.18},"nevers":{lat:46.99,lng:3.16},"lille":{lat:50.63,lng:3.06},
+  "beauvais":{lat:49.43,lng:2.08},"alencon":{lat:48.43,lng:0.09},"arras":{lat:50.29,lng:2.78},
+  "clermont-ferrand":{lat:45.78,lng:3.09},"pau":{lat:43.30,lng:-0.37},"tarbes":{lat:43.23,lng:0.07},
+  "perpignan":{lat:42.70,lng:2.90},"strasbourg":{lat:48.57,lng:7.75},"colmar":{lat:48.08,lng:7.36},
+  "lyon":{lat:45.76,lng:4.84},"vesoul":{lat:47.62,lng:6.16},"macon":{lat:46.31,lng:4.83},
+  "le mans":{lat:48.00,lng:0.20},"chambery":{lat:45.57,lng:5.92},"annecy":{lat:45.90,lng:6.13},
+  "paris":{lat:48.86,lng:2.35},"rouen":{lat:49.44,lng:1.10},"melun":{lat:48.54,lng:2.66},
+  "versailles":{lat:48.80,lng:2.13},"niort":{lat:46.32,lng:-0.46},"amiens":{lat:49.89,lng:2.30},
+  "albi":{lat:43.93,lng:2.15},"montauban":{lat:44.02,lng:1.35},"toulon":{lat:43.12,lng:5.93},
+  "avignon":{lat:43.95,lng:4.81},"la roche-sur-yon":{lat:46.67,lng:-1.43},"poitiers":{lat:46.58,lng:0.34},
+  "limoges":{lat:45.83,lng:1.26},"epinal":{lat:48.17,lng:6.45},"auxerre":{lat:47.80,lng:3.57},
+  "belfort":{lat:47.64,lng:6.86},"evry":{lat:48.63,lng:2.44},"nanterre":{lat:48.89,lng:2.21},
+  "bobigny":{lat:48.91,lng:2.44},"creteil":{lat:48.79,lng:2.46},"pontoise":{lat:49.05,lng:2.10},
+  "cergy":{lat:49.04,lng:2.08},
+  // Sous-préfectures & villes moyennes clés
+  "ambert":{lat:45.55,lng:3.74},"issoire":{lat:45.54,lng:3.25},"riom":{lat:45.89,lng:3.11},
+  "thiers":{lat:45.86,lng:3.55},"vichy":{lat:46.13,lng:3.43},"montlucon":{lat:46.34,lng:2.60},
+  "saint-flour":{lat:45.03,lng:3.09},"saint flour":{lat:45.03,lng:3.09},"mauriac":{lat:45.22,lng:2.33},
+  "millau":{lat:44.10,lng:3.08},"villefranche-de-rouergue":{lat:44.35,lng:2.04},
+  "brive-la-gaillarde":{lat:45.16,lng:1.53},"brive":{lat:45.16,lng:1.53},"ussel":{lat:45.55,lng:2.31},
+  "figeac":{lat:44.61,lng:2.03},"florac":{lat:44.33,lng:3.59},
+  "brioude":{lat:45.30,lng:3.38},"yssingeaux":{lat:45.14,lng:4.12},
+  "le puy en velay":{lat:45.04,lng:3.89},
+  "bayonne":{lat:43.49,lng:-1.47},"biarritz":{lat:43.48,lng:-1.56},"oloron-sainte-marie":{lat:43.19,lng:-0.61},
+  "lourdes":{lat:43.09,lng:-0.05},"bagneres-de-bigorre":{lat:43.06,lng:0.15},
+  "dax":{lat:43.71,lng:-1.05},"mont de marsan":{lat:43.89,lng:-0.50},
+  "cannes":{lat:43.55,lng:7.01},"antibes":{lat:43.58,lng:7.12},"grasse":{lat:43.66,lng:6.92},"menton":{lat:43.78,lng:7.50},
+  "aix-en-provence":{lat:43.53,lng:5.45},"arles":{lat:43.68,lng:4.63},"salon-de-provence":{lat:43.64,lng:5.10},
+  "beziers":{lat:43.34,lng:3.22},"sete":{lat:43.41,lng:3.70},"lunel":{lat:43.67,lng:4.14},
+  "narbonne":{lat:43.18,lng:3.00},"castelnaudary":{lat:43.32,lng:1.95},
+  "ales":{lat:44.12,lng:4.08},"bagnols-sur-ceze":{lat:44.16,lng:4.62},
+  "montelimar":{lat:44.56,lng:4.75},"romans":{lat:45.04,lng:5.05},"romans-sur-isere":{lat:45.04,lng:5.05},
+  "vienne":{lat:45.52,lng:4.88},"bourgoin-jallieu":{lat:45.59,lng:5.27},"voiron":{lat:45.36,lng:5.59},
+  "roanne":{lat:46.04,lng:4.07},"montbrison":{lat:45.61,lng:4.07},
+  "albertville":{lat:45.68,lng:6.39},"saint-jean-de-maurienne":{lat:45.28,lng:6.35},
+  "thonon-les-bains":{lat:46.37,lng:6.48},"bonneville":{lat:46.08,lng:6.40},"cluses":{lat:46.06,lng:6.58},
+  "villeurbanne":{lat:45.77,lng:4.88},"villefranche-sur-saone":{lat:45.99,lng:4.72},
+  "chalon-sur-saone":{lat:46.78,lng:4.85},"le creusot":{lat:46.80,lng:4.44},"autun":{lat:46.95,lng:4.30},
+  "beaune":{lat:47.02,lng:4.84},"montbard":{lat:47.63,lng:4.34},
+  "mulhouse":{lat:47.75,lng:7.34},"haguenau":{lat:48.81,lng:7.79},"saverne":{lat:48.74,lng:7.36},
+  "selestat":{lat:48.26,lng:7.45},
+  "thionville":{lat:49.36,lng:6.17},"sarreguemines":{lat:49.11,lng:7.07},"forbach":{lat:49.19,lng:6.90},
+  "douai":{lat:50.37,lng:3.08},"valenciennes":{lat:50.36,lng:3.52},"cambrai":{lat:50.18,lng:3.24},
+  "maubeuge":{lat:50.28,lng:3.97},"dunkerque":{lat:51.03,lng:2.38},"roubaix":{lat:50.69,lng:3.17},
+  "tourcoing":{lat:50.72,lng:3.16},
+  "lens":{lat:50.43,lng:2.83},"bethune":{lat:50.53,lng:2.64},"boulogne-sur-mer":{lat:50.73,lng:1.61},
+  "calais":{lat:50.95,lng:1.86},"saint-omer":{lat:50.75,lng:2.25},
+  "senlis":{lat:49.21,lng:2.59},"compiegne":{lat:49.42,lng:2.83},"creil":{lat:49.26,lng:2.47},
+  "le havre":{lat:49.49,lng:0.11},"dieppe":{lat:49.92,lng:1.08},
+  "meaux":{lat:48.96,lng:2.88},"fontainebleau":{lat:48.40,lng:2.70},"provins":{lat:48.56,lng:3.30},
+  "saint-germain-en-laye":{lat:48.90,lng:2.09},"mantes-la-jolie":{lat:48.99,lng:1.72},
+  "corbeil-essonnes":{lat:48.61,lng:2.48},"palaiseau":{lat:48.72,lng:2.25},
+  "sarcelles":{lat:49.00,lng:2.38},"argenteuil":{lat:48.95,lng:2.25},
+  "boulogne-billancourt":{lat:48.83,lng:2.24},"saint-denis":{lat:48.94,lng:2.36},
+  "cognac":{lat:45.70,lng:-0.33},"saintes":{lat:45.75,lng:-0.63},"rochefort":{lat:45.94,lng:-0.96},
+  "bergerac":{lat:44.85,lng:0.48},"sarlat":{lat:44.89,lng:1.22},
+  "chatellerault":{lat:46.82,lng:0.55},
+  "montargis":{lat:47.99,lng:2.73},"pithiviers":{lat:48.17,lng:2.25},
+  "cholet":{lat:47.06,lng:-0.88},"saumur":{lat:47.26,lng:-0.07},
+  "cherbourg":{lat:49.64,lng:-1.62},"avranches":{lat:48.68,lng:-1.36},
+  "saint-malo":{lat:48.65,lng:-2.00},"fougeres":{lat:48.35,lng:-1.20},
+  "lorient":{lat:47.75,lng:-3.37},"pontivy":{lat:48.07,lng:-2.96},
+  "lannion":{lat:48.73,lng:-3.46},"guingamp":{lat:48.56,lng:-3.15},
+  "morlaix":{lat:48.58,lng:-3.83},"brest":{lat:48.39,lng:-4.49},
+  "draguignan":{lat:43.54,lng:6.46},"frejus":{lat:43.43,lng:6.74},"hyeres":{lat:43.12,lng:6.13},
+  "orange":{lat:44.14,lng:4.81},"carpentras":{lat:44.06,lng:5.05},"cavaillon":{lat:43.84,lng:5.04},
+  "lisieux":{lat:49.15,lng:0.23},"bayeux":{lat:49.28,lng:-0.70},
+  "epernay":{lat:49.04,lng:3.95},"vitry-le-francois":{lat:48.73,lng:4.58},
+  "saint-dizier":{lat:48.64,lng:4.95},"langres":{lat:47.86,lng:5.33},
+  "luneville":{lat:48.59,lng:6.50},"toul":{lat:48.68,lng:5.89},
+  "verdun":{lat:49.16,lng:5.38},
+  "sens":{lat:48.20,lng:3.28},"joigny":{lat:47.98,lng:3.40},
+  "montbeliard":{lat:47.51,lng:6.80},"pontarlier":{lat:46.91,lng:6.35},
+  "dole":{lat:47.10,lng:5.49},"saint-claude":{lat:46.39,lng:5.86},
+  "dreux":{lat:48.74,lng:1.37},
+  "manosque":{lat:43.83,lng:5.79},"briancon":{lat:44.90,lng:6.64},"embrun":{lat:44.57,lng:6.50},
+  "annonay":{lat:45.24,lng:4.67},"aubenas":{lat:44.62,lng:4.39},
+  "sedan":{lat:49.70,lng:4.94},
+  "pamiers":{lat:43.12,lng:1.61},
+  "libourne":{lat:44.92,lng:-0.24},"arcachon":{lat:44.66,lng:-1.17},
+  "villeneuve-sur-lot":{lat:44.41,lng:0.70},"marmande":{lat:44.50,lng:0.17},
+  "castelsarrasin":{lat:44.04,lng:1.11},"moissac":{lat:44.11,lng:1.09},
+  "chinon":{lat:47.17,lng:0.24},"loches":{lat:47.13,lng:0.99},"amboise":{lat:47.41,lng:0.98},
+  "issoudun":{lat:46.95,lng:1.99},
+  "vendome":{lat:47.79,lng:1.07},
+  "saint-nazaire":{lat:47.27,lng:-2.21},
+  "perpignan":{lat:42.70,lng:2.90},"ceret":{lat:42.49,lng:2.75},
+};
+
+function findNearestCCs(dept, maxKm = 200, cityLat = null, cityLng = null) {
+  // Utiliser les coords de la ville si disponibles, sinon le centroïde
+  let refLat, refLng;
+  if (cityLat !== null && cityLng !== null) {
+    refLat = cityLat;
+    refLng = cityLng;
+  } else {
+    const centroid = DEPT_CENTROIDS[dept];
+    if (!centroid) {
+      return {
+        equipped: CARTER_CASH_LIST.filter(c => c.dept === dept && c.equipped),
+        depot: CARTER_CASH_LIST.filter(c => c.dept === dept && !c.equipped),
+        nearbyEquipped: [],
+      };
+    }
+    refLat = centroid.lat;
+    refLng = centroid.lng;
   }
 
   const allWithDist = CARTER_CASH_LIST.map(cc => ({
     ...cc,
-    distance: Math.round(haversineKm(centroid.lat, centroid.lng, cc.lat, cc.lng)),
+    distance: Math.round(haversineKm(refLat, refLng, cc.lat, cc.lng)),
   })).sort((a, b) => a.distance - b.distance);
 
   const equipped = allWithDist.filter(cc => cc.equipped && cc.distance <= maxKm);
@@ -1896,7 +2019,10 @@ function detectDemontageFromHistory(history) {
 // ============================================================
 function buildLocationOrientationResponse(extracted, metier, ville, history) {
   const dept = extractDeptFromInput(ville);
-  const cc = dept ? findNearestCCs(dept) : { equipped: [], depot: [], nearbyEquipped: [], closestCC: null, closestEquipped: null, closestDepot: null };
+  // Chercher les coords GPS de la ville pour un calcul de distance précis
+  const villeNorm = (ville || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const cityGps = CITY_GPS[villeNorm] || null;
+  const cc = dept ? findNearestCCs(dept, 200, cityGps?.lat || null, cityGps?.lng || null) : { equipped: [], depot: [], nearbyEquipped: [], closestCC: null, closestEquipped: null, closestDepot: null };
   const vehicleInfo = extracted?.marque ? `ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}` : "ton véhicule";
   let demontage = extracted?.demontage || null;
   if (!demontage && history) demontage = detectDemontageFromHistory(history);
