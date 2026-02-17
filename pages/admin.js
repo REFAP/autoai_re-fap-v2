@@ -203,7 +203,7 @@ export default function AdminDashboard() {
                         <th style={{ padding: "8px", textAlign: "left", color: "#64748b", fontWeight: 500 }}>Date</th>
                         <th style={{ padding: "8px", textAlign: "left", color: "#64748b", fontWeight: 500 }}>1er message</th>
                         <th style={{ padding: "8px", textAlign: "center", color: "#64748b", fontWeight: 500 }}>Turns</th>
-                        <th style={{ padding: "8px", textAlign: "center", color: "#64748b", fontWeight: 500 }}>Flow</th>
+                        <th style={{ padding: "8px", textAlign: "center", color: "#64748b", fontWeight: 500 }}>Formulaire</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -211,21 +211,14 @@ export default function AdminDashboard() {
                         const d = new Date(String(c.date).replace(" ", "T"));
                         const dateStr = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
                         const timeStr = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-                        const flowSteps = [
-                          c.hasVehicle && "🚗",
-                          c.hasModel && "📋",
-                          c.hasKm && "🔢",
-                          c.hasAttempts && "🔧",
-                          c.hasExpert && "🎯",
-                          c.hasClosing && "📞",
-                          c.hasForm && "📝",
-                        ].filter(Boolean).join(" ");
+                        const formStatus = c.hasForm ? "✅" : "—";
+                        const formColor = c.hasForm ? "#22c55e" : "#374151";
                         return (
                           <tr key={i} style={{ borderBottom: "1px solid rgba(30,41,59,0.3)" }}>
                             <td style={{ padding: "8px", whiteSpace: "nowrap", color: "#94a3b8" }}>{dateStr} {timeStr}</td>
                             <td style={{ padding: "8px", maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.firstMsg || "-"}</td>
                             <td style={{ padding: "8px", textAlign: "center", fontFamily: "monospace", color: "#64748b" }}>{c.userTurns}</td>
-                            <td style={{ padding: "8px", textAlign: "center", letterSpacing: 2 }}>{flowSteps || "—"}</td>
+                            <td style={{ padding: "8px", textAlign: "center", fontSize: 16, color: formColor }}>{formStatus}</td>
                           </tr>
                         );
                       })}
