@@ -2701,6 +2701,18 @@ export default async function handler(req, res) {
     }
 
     // ========================================
+    // OVERRIDE 7b : Contexte manquant pour expert orientation → demander km
+    // On a marque+symptôme+tentatives mais le gate bloque (pas de km/ancienneté/code)
+    // ========================================
+    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && (lastExtracted.previous_attempts || everAskedPreviousAttempts(history)) && !hasEnoughForExpertOrientation(lastExtracted) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
+      if (!lastExtracted.kilometrage && !everAskedKm(history)) {
+        return sendResponse(buildKmQuestion(lastExtracted));
+      }
+      // Si km déjà demandé mais pas répondu, tenter expert orientation quand même (mode dégradé)
+      return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
+    }
+
+    // ========================================
     // OVERRIDE 8 : Closing forcé tour 5+
     // ========================================
     if (userTurns >= MAX_USER_TURNS && lastExtracted.marque && !everAskedClosing(history) && !lastAssistantAskedDemontage(history) && !lastAssistantAskedCity(history) && !lastAssistantAskedSolutionExplanation(history) && !lastAssistantAskedGarageType(history)) {
@@ -2847,6 +2859,11 @@ export default async function handler(req, res) {
       (everAskedPreviousAttempts(history) || extracted.previous_attempts || userTurns >= 4)
     ) {
       if (!everGaveExpertOrientation(history) && hasEnoughForExpertOrientation(extracted)) {
+        return sendResponse(withDataRelance(buildExpertOrientation(extracted, metier), history));
+      } else if (!everGaveExpertOrientation(history) && !extracted.kilometrage && !everAskedKm(history)) {
+        return sendResponse(buildKmQuestion(extracted));
+      } else if (!everGaveExpertOrientation(history)) {
+        // Km demandé mais pas répondu → expert orientation en mode dégradé
         return sendResponse(withDataRelance(buildExpertOrientation(extracted, metier), history));
       } else {
         return sendResponse(buildClosingQuestion(extracted, metier));
