@@ -1684,18 +1684,26 @@ function extractDeptFromInput(input) {
   }
   const NOT_CITIES = ["oui", "ouais", "ouep", "yep", "yes", "non", "nan", "nope", "ok", "merci", "bonjour", "salut", "rien", "pas", "moi", "toi", "lui", "elle", "tout", "bien", "bon", "mal", "car", "les", "des", "une", "par", "sur", "dans", "avec", "pour", "qui", "que", "comment", "quoi", "mais", "donc", "aussi", "encore", "tres", "plus", "garage", "additif", "fap", "voyant", "moteur", "super", "genial", "parfait", "cool", "allez", "allons"];
   if (NOT_CITIES.includes(t)) return null;
+  // CITY_TO_DEPT en premier (457 villes, match exact = plus fiable)
+  for (const [city, dept] of Object.entries(CITY_TO_DEPT)) {
+    const cityNorm = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (t.includes(cityNorm)) return dept;
+  }
+  // Puis CARTER_CASH_LIST (match exact sur nom de ville uniquement)
+  const COMMON_PREFIXES = ["saint", "sainte", "la", "le", "les", "mont", "pont", "bois", "port", "font"];
   for (const cc of CARTER_CASH_LIST) {
     const ccCity = cc.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     if (t.includes(ccCity)) return cc.dept;
     if (t.length >= 5 && ccCity.includes(t)) return cc.dept;
+    // Prefix match uniquement si le premier mot n'est pas un préfixe courant
     const ccFirst = ccCity.split(/[- ]/)[0];
-    if (ccFirst.length >= 4 && t.includes(ccFirst)) return cc.dept;
+    if (ccFirst.length >= 5 && !COMMON_PREFIXES.includes(ccFirst) && t.includes(ccFirst)) return cc.dept;
   }
+  // Dernier recours : prefix match sur CITY_TO_DEPT (même règle stricte)
   for (const [city, dept] of Object.entries(CITY_TO_DEPT)) {
     const cityNorm = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    if (t.includes(cityNorm)) return dept;
     const cityFirst = cityNorm.split(/[- ]/)[0];
-    if (cityFirst.length >= 4 && t.length >= 4 && t.includes(cityFirst)) return dept;
+    if (cityFirst.length >= 5 && !COMMON_PREFIXES.includes(cityFirst) && t.length >= 5 && t.includes(cityFirst)) return dept;
   }
   return null;
 }
