@@ -2116,10 +2116,10 @@ function getMissingDataQuestion(extracted, history) {
   if (lastBot && /quel mod[eè]le|combien de km|quelle ann[eé]e|code erreur|type de trajet|quel coin/i.test(lastBot)) {
     return null;
   }
-  if (extracted?.marque && !extracted?.modele) {
+  if (extracted?.marque && !extracted?.modele && !everAskedModel(history)) {
     return { field: "modele", question: `Au fait, c'est quel modèle exactement ta ${extracted.marque} ? (et l'année si tu l'as)` };
   }
-  if (extracted?.marque && !extracted?.kilometrage) {
+  if (extracted?.marque && !extracted?.kilometrage && !everAskedKm(history)) {
     return { field: "kilometrage", question: `Elle a combien de km à peu près ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} ?` };
   }
   if (!extracted?.anciennete_probleme && extracted?.symptome !== "inconnu") {
