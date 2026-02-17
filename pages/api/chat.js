@@ -956,6 +956,21 @@ function hasEnoughToClose(extracted, history) {
   return hasSymptome && hasMarque;
 }
 
+function hasEnoughForExpertOrientation(extracted) {
+  // Avant de poser un diagnostic, on doit avoir au moins marque + symptôme + UN élément de contexte
+  // Sinon on perd en crédibilité
+  if (!extracted) return false;
+  const hasMarque = !!extracted.marque;
+  const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
+  const hasAttempts = !!extracted.previous_attempts;
+  // Éléments de contexte qui crédibilisent le diagnostic
+  const hasKm = !!extracted.kilometrage;
+  const hasAnciennete = !!extracted.anciennete_probleme;
+  const hasCodeOBD = extracted.codes && extracted.codes.length > 0;
+  const hasContext = hasKm || hasAnciennete || hasCodeOBD;
+  return hasMarque && hasSymptome && hasAttempts && hasContext;
+}
+
 function countUserTurns(history) {
   if (!Array.isArray(history)) return 0;
   return history.filter((m) => m?.role === "user").length;
@@ -1206,7 +1221,7 @@ function buildMetierResponse(quickData, extracted, metier, userTurns, history) {
     return null;
   }
 
-  if (extracted.marque && extracted.symptome !== "inconnu" && (extracted.previous_attempts || everAskedPreviousAttempts(history)) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
+  if (extracted.marque && extracted.symptome !== "inconnu" && (extracted.previous_attempts || everAskedPreviousAttempts(history)) && hasEnoughForExpertOrientation(extracted) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
     return buildExpertOrientation(extracted, metier);
   }
 
@@ -1858,7 +1873,12 @@ function buildExpertOrientation(extracted, metier) {
   const modele = extracted?.modele;
   const certitude = extracted?.certitude_fap;
   const attempts = extracted?.previous_attempts || "";
+  const km = extracted?.kilometrage;
+  const anciennete = extracted?.anciennete_probleme;
+  const codes = extracted?.codes || [];
+  const vehicleStr = marque ? `${marque}${modele ? " " + modele : ""}` : "ton véhicule";
 
+  // --- Réponses aux tentatives précédentes ---
   const attemptResponses = [];
   if (attempts.includes("regeneration_forcee")) {
     attemptResponses.push("Pour la régénération : elle brûle les suies à ~600°C, mais elle ne peut rien contre les cendres métalliques qui se sont accumulées dans le filtre. Si le FAP est trop chargé en cendres, même une régénération réussie ne suffit plus — le filtre reste partiellement bouché.");
@@ -1888,20 +1908,46 @@ function buildExpertOrientation(extracted, metier) {
     attemptResponses.push("Si les solutions que tu as essayées n'ont pas fonctionné, c'est probablement parce qu'elles agissent uniquement sur les suies. Les cendres métalliques, elles, s'accumulent et ne se dissolvent ni ne se brûlent — c'est souvent le vrai problème.");
   }
 
+  // --- Intro contextuelle (mesurée, pas catégorique) ---
   let techExplanation = "";
+  const kmNum = km ? parseInt(String(km).replace(/\D/g, "")) : 0;
+  const hasHighKm = kmNum >= 120000;
+  const hasMediumKm = kmNum >= 80000 && kmNum < 120000;
+  const hasLowKm = kmNum > 0 && kmNum < 80000;
+  const hasFapCode = codes.some(c => /^P2002|^P2463|^P244[0-9]|^P2458/i.test(c));
+  const isLongterm = anciennete === "plusieurs_mois" || anciennete === "longtemps";
+
   if (attemptResponses.length > 0) {
     techExplanation = attemptResponses.join("\n\n");
+  } else if (hasFapCode && hasHighKm) {
+    // Code FAP + gros km = très confiant
+    techExplanation = `Sur une ${vehicleStr} à ${km}, avec un code FAP, c'est très probablement un filtre qui arrive à saturation. Les suies et surtout les cendres métalliques se sont accumulées au fil du temps — c'est un phénomène normal à ce kilométrage.`;
+  } else if (hasHighKm) {
+    // Gros km = confiant
+    techExplanation = `Sur une ${vehicleStr} à ${km}, ce type de symptôme est souvent lié à un FAP qui commence à saturer. Avec le kilométrage, les cendres métalliques — résidus de l'huile moteur — s'accumulent dans le filtre et finissent par le colmater.`;
+  } else if (hasFapCode) {
+    // Code FAP sans km connu
+    techExplanation = `Le code ${codes[0]} pointe directement vers le FAP. Sur une ${vehicleStr}, ça signifie généralement que le filtre est trop chargé pour se régénérer correctement. Ça peut venir d'un encrassement progressif (suies + cendres) ou d'un problème en amont.`;
+  } else if (hasMediumKm) {
+    // Km moyens = prudent
+    techExplanation = `Sur une ${vehicleStr} à ${km}, le voyant peut avoir plusieurs causes : un besoin de régénération, un capteur de pression différentielle fatigué, ou un début d'encrassement du FAP. Le plus probable sur ce type de moteur, c'est une accumulation progressive de suies et de cendres dans le filtre.`;
+  } else if (isLongterm) {
+    // Problème ancien = probablement encrassement
+    techExplanation = `Si le problème dure depuis un moment sur ta ${vehicleStr}, c'est souvent le signe d'un encrassement progressif du FAP. Les régénérations automatiques n'arrivent plus à compenser l'accumulation de suies et surtout de cendres métalliques dans le filtre.`;
+  } else if (hasLowKm) {
+    // Faible km = prudent, pourrait être autre chose
+    techExplanation = `Sur une ${vehicleStr} à ${km}, un problème de FAP à ce kilométrage c'est moins fréquent mais ça arrive — surtout si la voiture fait beaucoup de petits trajets en ville. Ça peut être un encrassement prématuré, un problème de capteur, ou un souci sur le système de régénération. Un diagnostic plus poussé permettrait de confirmer.`;
   } else {
-    if (certitude === "haute") {
-      techExplanation = "Ce que tu décris, c'est typiquement un FAP qui est arrivé à saturation. Les suies et les cendres se sont accumulées au point où le filtre ne laisse plus passer assez de gaz d'échappement — d'où le voyant et la perte de puissance.";
-    } else {
-      techExplanation = "D'après ce que tu décris, il y a de bonnes chances que ce soit lié au FAP.";
-    }
+    // Fallback mesuré
+    techExplanation = `D'après ce que tu décris sur ta ${vehicleStr}, il y a de bonnes chances que ce soit lié au FAP. Le voyant s'allume quand le filtre n'arrive plus à se régénérer correctement — ça peut venir d'un encrassement (suies + cendres accumulées), d'un capteur défaillant, ou de conditions de roulage qui ne permettent pas la régénération.`;
   }
 
+  // --- Bloc diagnostic (seulement si tentatives ou km élevé) ---
   let diagnosisBlock = "";
   if (attemptResponses.length > 0) {
     diagnosisBlock = "Le problème de fond, c'est l'accumulation de cendres métalliques dans le filtre. C'est un phénomène normal avec le temps et le kilométrage — aucune solution \"maison\" (régénération, additifs, roulage autoroute) ne peut les retirer.";
+  } else if (hasHighKm || hasFapCode) {
+    diagnosisBlock = "Ce qu'il faut savoir : dans un FAP, il y a deux types de particules. Les suies, que le filtre brûle normalement lors des régénérations. Et les cendres métalliques (résidus d'huile moteur), qui elles ne brûlent jamais et s'accumulent au fil du temps. C'est souvent ces cendres qui posent problème à terme.";
   }
 
   let additifNote = "";
@@ -1909,7 +1955,12 @@ function buildExpertOrientation(extracted, metier) {
     additifNote = `À savoir aussi : ta ${marque || "voiture"} utilise un système d'additif (${metier.vehicle.systeme_additif}) pour faciliter les régénérations. Si le niveau du réservoir d'additif est bas, ça peut aggraver le problème. C'est un point à vérifier de ton côté ou avec ton garagiste.`;
   }
 
-  const openQuestion = "Il existe une solution pour retirer ces cendres, mais je préfère d'abord t'expliquer comment ça fonctionne plutôt que de te balancer un devis. Tu veux que je te détaille ça ?";
+  let openQuestion;
+  if (hasHighKm || hasFapCode || attemptResponses.length > 0) {
+    openQuestion = "Il existe une solution pour retirer ces cendres, mais je préfère d'abord t'expliquer comment ça fonctionne plutôt que de te balancer un devis. Tu veux que je te détaille ça ?";
+  } else {
+    openQuestion = "Si c'est bien un encrassement du FAP, il existe une solution. Tu veux que je t'explique comment ça fonctionne ?";
+  }
 
   const parts = [techExplanation];
   if (diagnosisBlock) parts.push(diagnosisBlock);
@@ -2645,7 +2696,7 @@ export default async function handler(req, res) {
     // ========================================
     // OVERRIDE 7 : Expert orientation
     // ========================================
-    if (hasEnoughToClose(lastExtracted, history) && (everAskedPreviousAttempts(history) || lastExtracted.previous_attempts) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
+    if (hasEnoughForExpertOrientation(lastExtracted) && (everAskedPreviousAttempts(history) || lastExtracted.previous_attempts) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
       return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
     }
 
@@ -2754,7 +2805,7 @@ export default async function handler(req, res) {
       if (!extracted.previous_attempts && !everAskedPreviousAttempts(history)) {
         return sendResponse(buildPreviousAttemptsQuestion(extracted, metier));
       }
-      if (!everGaveExpertOrientation(history)) {
+      if (!everGaveExpertOrientation(history) && hasEnoughForExpertOrientation(extracted)) {
         return sendResponse(withDataRelance(buildExpertOrientation(extracted, metier), history));
       }
       return sendResponse(buildClosingQuestion(extracted, metier));
@@ -2795,7 +2846,7 @@ export default async function handler(req, res) {
       !lastAssistantAskedSolutionExplanation(history) && !lastAssistantAskedGarageType(history) &&
       (everAskedPreviousAttempts(history) || extracted.previous_attempts || userTurns >= 4)
     ) {
-      if (!everGaveExpertOrientation(history)) {
+      if (!everGaveExpertOrientation(history) && hasEnoughForExpertOrientation(extracted)) {
         return sendResponse(withDataRelance(buildExpertOrientation(extracted, metier), history));
       } else {
         return sendResponse(buildClosingQuestion(extracted, metier));
