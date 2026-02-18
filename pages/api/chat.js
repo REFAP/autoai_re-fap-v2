@@ -1180,6 +1180,47 @@ function upsertEnrichment(supabase, conversationId, extracted, quickData, metier
 }
 
 // ============================================================
+// LOG CENTRE ASSIGNMENT — Insert dans centre_assignments + update conversations
+// ============================================================
+async function logCentreAssignment(supabase, conversationId, sessionId, assignment) {
+  if (!supabase || !conversationId || !assignment) return;
+  try {
+    // 1. Lookup centre par postal_code
+    const { data: centre } = await supabase
+      .from("centres")
+      .select("id, centre_type")
+      .eq("postal_code", assignment.postal_code)
+      .eq("status", "ACTIVE")
+      .limit(1)
+      .single();
+
+    const centreId = centre?.id || null;
+
+    // 2. Insert centre_assignments
+    const { error: insertError } = await supabase.from("centre_assignments").insert({
+      conversation_id: conversationId,
+      session_id: sessionId,
+      assigned_centre_id: centreId,
+      assigned_by: "CHATBOT",
+      reason: assignment.reason || "plus proche",
+      user_location_input: assignment.user_location_input || null,
+      user_dept: assignment.user_dept || null,
+      distance_km: assignment.distance_km || null,
+      centre_type_assigned: assignment.centre_type || (centre?.centre_type) || "STANDARD",
+      confidence: assignment.distance_km && assignment.distance_km <= 50 ? 90 : 75,
+    });
+    if (insertError) console.warn("⚠️ Centre assignment insert failed:", insertError.message);
+
+    // 3. Update conversations.assigned_centre_id
+    if (centreId) {
+      await supabase.from("conversations").update({ assigned_centre_id: centreId }).eq("id", conversationId);
+    }
+  } catch (err) {
+    console.error("❌ logCentreAssignment error:", err.message);
+  }
+}
+
+// ============================================================
 // BUILD METIER RESPONSE
 // ============================================================
 function buildMetierResponse(quickData, extracted, metier, userTurns, history) {
@@ -2081,6 +2122,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
   const villeDisplay = capitalizeVille(ville);
   const { prixCC, prixEnvoi } = getPricing(extracted, metier);
   let replyClean = "";
+  let assignedCC = null; // CC principal attribué (pour logging centre_assignments)
 
   // Helper pour afficher la distance
   const distLabel = (cc) => cc.distance ? ` (~${cc.distance} km)` : "";
@@ -2090,6 +2132,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
   if (demontage === "self") {
     if (cc.equipped.length > 0) {
       const best = cc.equipped[0];
+      assignedCC = { ...best, reason: "centre express local" };
       replyClean = `Bonne nouvelle ! Il y a un Carter-Cash équipé d'une machine Re-FAP près de chez toi : ${best.name} (${best.postal} ${best.city})${distLabel(best)}. Tu y déposes ton FAP démonté, nettoyage sur place en ~4h, ${prixCC}. Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
     } else {
       const closestDepotCC = cc.closestDepot;
@@ -2098,12 +2141,15 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
 
       if (closestDepotCC && equipMentionable && closestDepotCC.distance < nearestEquip.distance) {
         // Dépôt plus proche que l'équipé, les 2 sont à distance raisonnable
+        assignedCC = { ...closestDepotCC, reason: "depot plus proche que express" };
         replyClean = `OK, près de chez toi il y a le ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y laisses ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon, le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — là-bas c'est nettoyage sur place en 4h à ${prixCC}.\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
       } else if (equipMentionable) {
         // Équipé à distance raisonnable
+        assignedCC = { ...nearestEquip, reason: "centre express le plus proche" };
         replyClean = `Le Carter-Cash équipé le plus proche de chez toi c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h, ${prixCC}. Sinon, tu peux aussi déposer ton FAP dans n'importe quel Carter-Cash (point dépôt) : envoi 48-72h, ${prixEnvoi} port inclus.${closestDepotCC ? ` Le plus proche : ${closestDepotCC.name}${distLabel(closestDepotCC)}.` : ""}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
       } else if (closestDepotCC) {
         // Pas d'équipé à proximité, mais un dépôt
+        assignedCC = { ...closestDepotCC, reason: "depot standard le plus proche" };
         replyClean = `OK, le Carter-Cash le plus proche de chez toi c'est ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y déposes ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon tu peux aussi nous l'envoyer directement par transporteur (même tarif, même délai).\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
       } else {
         replyClean = `Pour ton secteur, la solution la plus simple c'est l'envoi direct : tu nous envoies ton FAP démonté par transporteur, on le nettoie et on te le retourne en 48-72h, ${prixEnvoi} port inclus. Tu veux qu'un expert Re-FAP t'envoie les détails ?`;
@@ -2113,6 +2159,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
     const nearest = cc.closestEquipped || cc.nearbyEquipped?.[0];
     const equipMentionable = nearest && nearest.distance <= MAX_EQUIPPED_MENTION_KM;
     if (equipMentionable) {
+      assignedCC = { ...nearest, reason: "centre express garage" };
       replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearest.name} (${nearest.city})${distLabel(nearest)}. On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z : démontage, envoi Re-FAP, remontage.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
     } else {
       replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est 99€ (FAP seul) ou 149€ (FAP avec catalyseur intégré), plus frais de port et main d'œuvre du garage.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
@@ -2126,8 +2173,10 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
     const nearestDepot = cc.closestDepot || cc.depot?.[0];
 
     if (equipMentionable && nearestEquip.distance <= 80) {
+      assignedCC = { ...nearestEquip, reason: "centre express proche" };
       replyClean = `OK, ${villeDisplay}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine Re-FAP pas loin : ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}. Si tu déposes ton FAP démonté, nettoyage sur place en ~4h à ${prixCC}. On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
     } else if (nearestDepot) {
+      assignedCC = { ...nearestDepot, reason: "depot standard le plus proche" };
       let equippedHint = "";
       if (equipMentionable) {
         equippedHint = `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en 4h à ${prixCC}.`;
@@ -2140,8 +2189,19 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
 
   const data = { ...(extracted || DEFAULT_DATA), intention: "rdv", ville: villeDisplay || null, departement: dept || null, next_best_action: "proposer_devis" };
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+
+  // Préparer l'objet assignment pour logging en DB
+  const assignment = assignedCC ? {
+    postal_code: assignedCC.postal,
+    centre_type: assignedCC.equipped ? "EXPRESS" : "STANDARD",
+    reason: assignedCC.reason || "plus proche",
+    user_location_input: ville || null,
+    user_dept: dept || null,
+    distance_km: assignedCC.distance || null,
+  } : null;
+
   return {
-    replyClean, replyFull, extracted: data,
+    replyClean, replyFull, extracted: data, assignment,
     suggested_replies: [
       { label: "✅ Oui, rappelez-moi", value: "oui je veux être rappelé" },
       { label: "Non merci", value: "non merci" },
@@ -2480,6 +2540,12 @@ export default async function handler(req, res) {
       if (response.extracted) response.extracted.engagement_score = computeEngagement(history);
       await supabase.from("messages").insert({ conversation_id: conversationId, role: "assistant", content: response.replyFull });
       upsertEnrichment(supabase, conversationId, response.extracted, quickData, metier);
+
+      // Log centre assignment si présent (fire-and-forget)
+      if (response.assignment) {
+        logCentreAssignment(supabase, conversationId, session_id, response.assignment).catch(e => console.error("Assignment log error:", e));
+      }
+
       const result = { reply: response.replyClean, reply_full: response.replyFull, session_id, conversation_id: conversationId, extracted_data: response.extracted };
       if (action) result.action = action;
       if (response.suggested_replies) result.suggested_replies = response.suggested_replies;
