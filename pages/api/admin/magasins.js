@@ -50,13 +50,19 @@ export default async function handler(req, res) {
       .select("store_code, qty_week, ca_ht_week, marge_week, week_start")
       .gte("week_start", new Date(Date.now() - days * 86400000).toISOString().slice(0, 10));
 
+    // 5. CRM Leads
+    const { data: crmLeads, error: crmErr } = await supabase
+      .from("crm_leads")
+      .select("id, assigned_centre_id, source, source_page, contact_mode, chatbot_cid, utm_source, created_at")
+      .gte("created_at", since);
+
     // === BUILD RESPONSE ===
     const centreMap = {};
     for (const c of centres || []) {
       centreMap[c.id] = c;
     }
 
-    // Agrégation par magasin
+    // Agrégation par magasin (assignments)
     const magasinStats = {};
     for (const a of assignments || []) {
       const c = centreMap[a.assigned_centre_id];
@@ -72,6 +78,9 @@ export default async function handler(req, res) {
           type: c.centre_type === "EXPRESS" ? "EQUIPE" : "DEPOT",
           store_code: c.store_code,
           assignments: 0,
+          leads: 0,
+          leads_chatbot: 0,
+          leads_meta: 0,
           avg_distance_km: 0,
           distances: [],
           reasons: {},
@@ -81,6 +90,34 @@ export default async function handler(req, res) {
       if (a.distance_km) magasinStats[key].distances.push(parseFloat(a.distance_km));
       const r = a.reason || "inconnu";
       magasinStats[key].reasons[r] = (magasinStats[key].reasons[r] || 0) + 1;
+    }
+
+    // Agrégation leads CRM par magasin
+    for (const l of crmLeads || []) {
+      const c = l.assigned_centre_id ? centreMap[l.assigned_centre_id] : null;
+      if (!c) continue;
+      const key = c.id;
+      if (!magasinStats[key]) {
+        magasinStats[key] = {
+          name: c.name,
+          city: c.city,
+          postal_code: c.postal_code,
+          department: c.department,
+          region: c.region,
+          type: c.centre_type === "EXPRESS" ? "EQUIPE" : "DEPOT",
+          store_code: c.store_code,
+          assignments: 0,
+          leads: 0,
+          leads_chatbot: 0,
+          leads_meta: 0,
+          avg_distance_km: 0,
+          distances: [],
+          reasons: {},
+        };
+      }
+      magasinStats[key].leads++;
+      if (l.chatbot_cid) magasinStats[key].leads_chatbot++;
+      if (l.utm_source === "meta") magasinStats[key].leads_meta++;
     }
 
     // Calcul distance moyenne
@@ -122,10 +159,17 @@ export default async function handler(req, res) {
     const depotCount = (assignments || []).length - equipeCount;
 
     // KPIs
+    const totalLeads = (crmLeads || []).length;
+    const leadsChatbot = (crmLeads || []).filter(l => l.chatbot_cid).length;
+    const leadsMeta = (crmLeads || []).filter(l => l.utm_source === "meta").length;
+
     const kpis = {
       period_days: days,
       total_assignments: (assignments || []).length,
       total_conversations: convCount || 0,
+      total_leads: totalLeads,
+      leads_chatbot: leadsChatbot,
+      leads_meta: leadsMeta,
       equipe: equipeCount,
       depot: depotCount,
       taux_orientation: convCount > 0 ? Math.round(100 * (assignments || []).length / convCount) : 0,
@@ -138,6 +182,7 @@ export default async function handler(req, res) {
         city: m.city,
         type: m.type,
         assignments: m.assignments,
+        leads: m.leads,
         prestations: m.prestations || null,
       }));
       return res.status(200).json({
@@ -145,6 +190,7 @@ export default async function handler(req, res) {
         kpis: {
           period_days: kpis.period_days,
           total_assignments: kpis.total_assignments,
+          total_leads: kpis.total_leads,
           equipe: kpis.equipe,
           depot: kpis.depot,
         },
