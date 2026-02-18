@@ -1710,7 +1710,7 @@ const CITY_GPS = {
   "limoges":{lat:45.83,lng:1.26},"epinal":{lat:48.17,lng:6.45},"auxerre":{lat:47.80,lng:3.57},
   "belfort":{lat:47.64,lng:6.86},"evry":{lat:48.63,lng:2.44},"nanterre":{lat:48.89,lng:2.21},
   "bobigny":{lat:48.91,lng:2.44},"creteil":{lat:48.79,lng:2.46},"pontoise":{lat:49.05,lng:2.10},
-  "cergy":{lat:49.04,lng:2.08},
+  "cergy":{lat:49.04,lng:2.08},"nogent-sur-marne":{lat:48.84,lng:2.48},"nogent sur marne":{lat:48.84,lng:2.48},
   // Sous-préfectures & villes moyennes clés
   "ambert":{lat:45.55,lng:3.74},"issoire":{lat:45.54,lng:3.25},"riom":{lat:45.89,lng:3.11},
   "thiers":{lat:45.86,lng:3.55},"vichy":{lat:46.13,lng:3.43},"montlucon":{lat:46.34,lng:2.60},
@@ -1863,20 +1863,22 @@ function extractDeptFromInput(input) {
   }
   const NOT_CITIES = ["oui", "ouais", "ouep", "yep", "yes", "non", "nan", "nope", "ok", "merci", "bonjour", "salut", "rien", "pas", "moi", "toi", "lui", "elle", "tout", "bien", "bon", "mal", "car", "les", "des", "une", "par", "sur", "dans", "avec", "pour", "qui", "que", "comment", "quoi", "mais", "donc", "aussi", "encore", "tres", "plus", "garage", "additif", "fap", "voyant", "moteur", "super", "genial", "parfait", "cool", "allez", "allons"];
   if (NOT_CITIES.includes(t)) return null;
+  // Normaliser tirets↔espaces pour matcher "nogent sur marne" = "nogent-sur-marne"
+  const tSpaced = t.replace(/-/g, " ");
   // CITY_TO_DEPT en premier (457 villes, match exact = plus fiable)
   for (const [city, dept] of Object.entries(CITY_TO_DEPT)) {
-    const cityNorm = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    if (t.includes(cityNorm)) return dept;
+    const cityNorm = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
+    if (tSpaced.includes(cityNorm)) return dept;
   }
   // Puis CARTER_CASH_LIST (match exact sur nom de ville uniquement)
   const COMMON_PREFIXES = ["saint", "sainte", "la", "le", "les", "mont", "pont", "bois", "port", "font"];
   for (const cc of CARTER_CASH_LIST) {
-    const ccCity = cc.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    if (t.includes(ccCity)) return cc.dept;
-    if (t.length >= 5 && ccCity.includes(t)) return cc.dept;
+    const ccCity = cc.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
+    if (tSpaced.includes(ccCity)) return cc.dept;
+    if (tSpaced.length >= 5 && ccCity.includes(tSpaced)) return cc.dept;
     // Prefix match uniquement si le premier mot n'est pas un préfixe courant
     const ccFirst = ccCity.split(/[- ]/)[0];
-    if (ccFirst.length >= 5 && !COMMON_PREFIXES.includes(ccFirst) && t.includes(ccFirst)) return cc.dept;
+    if (ccFirst.length >= 5 && !COMMON_PREFIXES.includes(ccFirst) && tSpaced.includes(ccFirst)) return cc.dept;
   }
   // Dernier recours : prefix match sur CITY_TO_DEPT (même règle stricte)
   for (const [city, dept] of Object.entries(CITY_TO_DEPT)) {
@@ -2113,7 +2115,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
   const dept = extractDeptFromInput(ville);
   // Chercher les coords GPS de la ville pour un calcul de distance précis
   const villeNorm = (ville || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  const cityGps = CITY_GPS[villeNorm] || null;
+  const cityGps = CITY_GPS[villeNorm] || CITY_GPS[villeNorm.replace(/ /g, "-")] || CITY_GPS[villeNorm.replace(/-/g, " ")] || null;
   const cc = dept ? findNearestCCs(dept, 200, cityGps?.lat || null, cityGps?.lng || null) : { equipped: [], depot: [], nearbyEquipped: [], closestCC: null, closestEquipped: null, closestDepot: null };
   const vehicleInfo = extracted?.marque ? `ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}` : "ton véhicule";
   let demontage = extracted?.demontage || null;
