@@ -194,12 +194,18 @@ export default function MagasinsDashboard() {
         {data && !loading && (
           <>
             {/* KPIs */}
-            <div className="kpi-row" style={{ display: "flex", gap: "14px", marginBottom: "28px", flexWrap: "wrap" }}>
+            <div className="kpi-row" style={{ display: "flex", gap: "14px", marginBottom: "14px", flexWrap: "wrap" }}>
               <KPICard label="Orientations" value={formatNum(kpis.total_assignments)} accent="#6bbd45" />
+              <KPICard label="Leads CRM" value={formatNum(kpis.total_leads)} sub={kpis.leads_chatbot ? `${kpis.leads_chatbot} via chatbot` : "—"} accent="#3b82f6" />
               <KPICard label="Équipés" value={formatNum(kpis.equipe)} sub={kpis.total_assignments > 0 ? Math.round(100 * kpis.equipe / kpis.total_assignments) + "%" : "—"} accent="#22c55e" />
               <KPICard label="Dépôts" value={formatNum(kpis.depot)} sub={kpis.total_assignments > 0 ? Math.round(100 * kpis.depot / kpis.total_assignments) + "%" : "—"} accent="#64748b" />
-              {!isCC && <KPICard label="Conversations" value={formatNum(kpis.total_conversations)} sub={`Taux orient. ${kpis.taux_orientation || 0}%`} />}
             </div>
+            {!isCC && (
+              <div className="kpi-row" style={{ display: "flex", gap: "14px", marginBottom: "28px", flexWrap: "wrap" }}>
+                <KPICard label="Conversations" value={formatNum(kpis.total_conversations)} sub={`Taux orient. ${kpis.taux_orientation || 0}%`} />
+                {kpis.leads_meta > 0 && <KPICard label="Leads Meta" value={formatNum(kpis.leads_meta)} accent="#1877f2" />}
+              </div>
+            )}
 
             {/* TABLE MAGASINS */}
             <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
@@ -216,6 +222,7 @@ export default function MagasinsDashboard() {
                       <th style={{ ...thStyle, textAlign: "left" }}>Magasin</th>
                       <th style={thStyle}>Type</th>
                       <th style={thStyle}>Orientations</th>
+                      <th style={thStyle}>Leads</th>
                       {!isCC && <th style={thStyle}>Dist. moy.</th>}
                       {!isCC && <th style={thStyle}>Raison princ.</th>}
                       <th style={thStyle}>Prestas</th>
@@ -224,7 +231,7 @@ export default function MagasinsDashboard() {
                   <tbody>
                     {magasins.length === 0 && (
                       <tr>
-                        <td colSpan={isCC ? 5 : 7} style={{ padding: "32px", textAlign: "center", color: "#94a3b8" }}>
+                        <td colSpan={isCC ? 6 : 8} style={{ padding: "32px", textAlign: "center", color: "#94a3b8" }}>
                           Aucune orientation sur cette période. Les données apparaîtront quand le chatbot orientera des clients.
                         </td>
                       </tr>
@@ -245,6 +252,16 @@ export default function MagasinsDashboard() {
                           <td style={tdStyle}><Badge type={m.type} /></td>
                           <td style={{ ...tdStyle, fontWeight: 700, fontSize: "15px", color: m.assignments > 0 ? "#0f172a" : "#cbd5e1" }}>
                             {m.assignments}
+                          </td>
+                          <td style={tdStyle}>
+                            {(m.leads || 0) > 0 ? (
+                              <span style={{ fontWeight: 700, color: "#3b82f6" }}>
+                                {m.leads}
+                                {m.leads_chatbot > 0 && <span style={{ fontSize: "10px", color: "#94a3b8", marginLeft: "4px" }}>({m.leads_chatbot}🤖)</span>}
+                              </span>
+                            ) : (
+                              <span style={{ color: "#cbd5e1" }}>—</span>
+                            )}
                           </td>
                           {!isCC && <td style={tdStyle}>{m.avg_distance_km ? m.avg_distance_km + " km" : "—"}</td>}
                           {!isCC && <td style={{ ...tdStyle, fontSize: "11px", color: "#64748b", maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topReason}</td>}
