@@ -2039,7 +2039,13 @@ function buildSolutionExplanation(extracted, metier) {
 }
 
 function getPricing(extracted, metier) {
-  const defaults = { prixCC: "99-149€", prixEnvoi: "199€", prixText: "entre 99€ et 149€" };
+  const defaults = {
+    prixCC: "99-149€",
+    prixEnvoi: "199€",
+    prixText: "entre 99€ et 149€",
+    prixCCDetail: "99€ (FAP seul type DV6) ou 149€ (FAP combiné avec catalyseur)",
+    prixEnvoiDetail: "199€ port A/R inclus, tous types de FAP VL",
+  };
   if (!extracted?.modele) return defaults;
   if (metier?.vehicle?.pricing_hint && metier?.pricing?.length > 0) {
     const matchCC = metier.pricing.find((p) => p.fap_type === metier.vehicle.pricing_hint && p.equipped_machine === true);
@@ -2048,14 +2054,16 @@ function getPricing(extracted, metier) {
       prixCC: matchCC ? `${matchCC.price_ttc}€` : defaults.prixCC,
       prixEnvoi: matchEnvoi ? `${matchEnvoi.price_ttc}€` : defaults.prixEnvoi,
       prixText: matchCC ? `${matchCC.price_ttc}€` : defaults.prixText,
+      prixCCDetail: defaults.prixCCDetail,
+      prixEnvoiDetail: defaults.prixEnvoiDetail,
     };
   }
   return defaults;
 }
 
 function buildSelfRemovalResponse(extracted, metier) {
-  const { prixCC, prixEnvoi } = getPricing(extracted, metier);
-  const replyClean = `C'est la solution la plus économique. Une fois le FAP démonté, tu as deux options :\n\n→ Le déposer dans un Carter-Cash équipé d'une machine : nettoyage sur place en ~4h, ${prixCC}.\n→ Le déposer dans n'importe quel Carter-Cash (point dépôt) : envoi au centre Re-FAP, retour en 48-72h, ${prixEnvoi} port inclus.\n\nTu es dans quel coin ? Je regarde le Carter-Cash le plus proche de chez toi.`;
+  const { prixCCDetail, prixEnvoiDetail } = getPricing(extracted, metier);
+  const replyClean = `C'est la solution la plus économique. Une fois le FAP démonté, tu as deux options :\n\n→ Le déposer dans un Carter-Cash équipé d'une machine : nettoyage sur place en ~4h, ${prixCCDetail}.\n→ Le déposer dans n'importe quel Carter-Cash (point dépôt) : envoi au centre Re-FAP, retour en 48-72h, ${prixEnvoiDetail}.\n\nTu es dans quel coin ? Je regarde le Carter-Cash le plus proche de chez toi.`;
   const data = { ...(extracted || DEFAULT_DATA), intention: "diagnostic", demontage: "self", next_best_action: "demander_ville" };
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
@@ -2122,7 +2130,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
   if (!demontage && history) demontage = detectDemontageFromHistory(history);
   if (!demontage) demontage = "unknown";
   const villeDisplay = capitalizeVille(ville);
-  const { prixCC, prixEnvoi } = getPricing(extracted, metier);
+  const { prixCC, prixEnvoi, prixCCDetail, prixEnvoiDetail } = getPricing(extracted, metier);
   let replyClean = "";
   let assignedCC = null; // CC principal attribué (pour logging centre_assignments)
 
@@ -2135,7 +2143,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
     if (cc.equipped.length > 0) {
       const best = cc.equipped[0];
       assignedCC = { ...best, reason: "centre express local" };
-      replyClean = `Bonne nouvelle ! Il y a un Carter-Cash équipé d'une machine Re-FAP près de chez toi : ${best.name} (${best.postal} ${best.city})${distLabel(best)}. Tu y déposes ton FAP démonté, nettoyage sur place en ~4h, ${prixCC}. Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
+      replyClean = `Bonne nouvelle ! Il y a un Carter-Cash équipé d'une machine Re-FAP près de chez toi : ${best.name} (${best.postal} ${best.city})${distLabel(best)}. Tu y déposes ton FAP démonté, nettoyage sur place en ~4h.\n\nTarifs : ${prixCCDetail}.\n\nTu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
     } else {
       const closestDepotCC = cc.closestDepot;
       const nearestEquip = cc.closestEquipped;
@@ -2144,11 +2152,11 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
       if (closestDepotCC && equipMentionable && closestDepotCC.distance < nearestEquip.distance) {
         // Dépôt plus proche que l'équipé, les 2 sont à distance raisonnable
         assignedCC = { ...closestDepotCC, reason: "depot plus proche que express" };
-        replyClean = `OK, près de chez toi il y a le ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y laisses ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon, le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — là-bas c'est nettoyage sur place en 4h à ${prixCC}.\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
+        replyClean = `OK, près de chez toi il y a le ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y laisses ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon, le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — là-bas c'est nettoyage sur place en 4h (${prixCCDetail}).\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
       } else if (equipMentionable) {
         // Équipé à distance raisonnable
         assignedCC = { ...nearestEquip, reason: "centre express le plus proche" };
-        replyClean = `Le Carter-Cash équipé le plus proche de chez toi c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h, ${prixCC}. Sinon, tu peux aussi déposer ton FAP dans n'importe quel Carter-Cash (point dépôt) : envoi 48-72h, ${prixEnvoi} port inclus.${closestDepotCC ? ` Le plus proche : ${closestDepotCC.name}${distLabel(closestDepotCC)}.` : ""}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
+        replyClean = `Le Carter-Cash équipé le plus proche de chez toi c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}). Sinon, tu peux aussi déposer ton FAP dans n'importe quel Carter-Cash (point dépôt) : envoi 48-72h, ${prixEnvoi} port inclus.${closestDepotCC ? ` Le plus proche : ${closestDepotCC.name}${distLabel(closestDepotCC)}.` : ""}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
       } else if (closestDepotCC) {
         // Pas d'équipé à proximité, mais un dépôt
         assignedCC = { ...closestDepotCC, reason: "depot standard le plus proche" };
@@ -2162,7 +2170,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
     const equipMentionable = nearest && nearest.distance <= MAX_EQUIPPED_MENTION_KM;
     if (equipMentionable) {
       assignedCC = { ...nearest, reason: "centre express garage" };
-      replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearest.name} (${nearest.city})${distLabel(nearest)}. On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z : démontage, envoi Re-FAP, remontage.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+      replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearest.name} (${nearest.city})${distLabel(nearest)} — nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z : démontage, envoi Re-FAP, remontage.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
     } else {
       replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est 99€ (FAP seul) ou 149€ (FAP avec catalyseur intégré), plus frais de port et main d'œuvre du garage.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
     }
@@ -2176,12 +2184,12 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
 
     if (equipMentionable && nearestEquip.distance <= 80) {
       assignedCC = { ...nearestEquip, reason: "centre express proche" };
-      replyClean = `OK, ${villeDisplay}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine Re-FAP pas loin : ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}. Si tu déposes ton FAP démonté, nettoyage sur place en ~4h à ${prixCC}. On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+      replyClean = `OK, ${villeDisplay}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine Re-FAP pas loin : ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}. Si tu déposes ton FAP démonté, nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
     } else if (nearestDepot) {
       assignedCC = { ...nearestDepot, reason: "depot standard le plus proche" };
       let equippedHint = "";
       if (equipMentionable) {
-        equippedHint = `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en 4h à ${prixCC}.`;
+        equippedHint = `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en 4h (${prixCCDetail}).`;
       }
       replyClean = `OK, ${villeDisplay}. Il y a le ${nearestDepot.name} (${nearestDepot.postal} ${nearestDepot.city})${distLabel(nearestDepot)} qui est un point dépôt (envoi 48-72h, ${prixEnvoi}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.${equippedHint}\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
     } else {
