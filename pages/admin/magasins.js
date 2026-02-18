@@ -1,309 +1,213 @@
-// /pages/admin/magasins.js
-// Dashboard Magasins Re-FAP — Interne + Version filtrée CC
-// Usage: /admin/magasins (interne) ou /admin/magasins?mode=cc (Carter-Cash)
+// /pages/api/admin/magasins.js
+// Dashboard API — Magasins Re-FAP (assignments, prestations, corrélation)
+// Compatible Vercel + Supabase
 
-import { useState, useEffect } from "react";
-import Head from "next/head";
+import { createClient } from "@supabase/supabase-js";
 
-const ADMIN_KEY = "refap2026admin";
-
-function formatNum(n) {
-  if (n === null || n === undefined) return "—";
-  return n.toLocaleString("fr-FR");
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
 }
 
-function Badge({ type }) {
-  const isEquipe = type === "EQUIPE";
-  return (
-    <span style={{
-      display: "inline-block",
-      padding: "2px 8px",
-      borderRadius: "4px",
-      fontSize: "11px",
-      fontWeight: 700,
-      letterSpacing: "0.5px",
-      textTransform: "uppercase",
-      backgroundColor: isEquipe ? "#22c55e20" : "#94a3b820",
-      color: isEquipe ? "#16a34a" : "#64748b",
-      border: isEquipe ? "1px solid #22c55e40" : "1px solid #94a3b840",
-    }}>
-      {isEquipe ? "⚡ Équipé" : "📦 Dépôt"}
-    </span>
-  );
-}
+export default async function handler(req, res) {
+  if (req.method !== "GET") return res.status(405).json({ error: "GET only" });
 
-function KPICard({ label, value, sub, accent }) {
-  return (
-    <div style={{
-      background: "#fff",
-      borderRadius: "12px",
-      padding: "20px 24px",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-      border: "1px solid #e2e8f0",
-      flex: "1 1 180px",
-      minWidth: "160px",
-    }}>
-      <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>
-        {label}
-      </div>
-      <div style={{ fontSize: "32px", fontWeight: 800, color: accent || "#0f172a", lineHeight: 1 }}>
-        {value}
-      </div>
-      {sub && <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "6px" }}>{sub}</div>}
-    </div>
-  );
-}
+  const supabase = getSupabase();
+  if (!supabase) return res.status(500).json({ error: "Config Supabase manquante" });
 
-export default function MagasinsDashboard() {
-  const [auth, setAuth] = useState(false);
-  const [keyInput, setKeyInput] = useState("");
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [period, setPeriod] = useState("30");
-  const [mode, setMode] = useState("internal");
-  const [error, setError] = useState(null);
+  const mode = req.query.mode || "internal"; // "internal" ou "cc"
+  const period = req.query.period || "30"; // "1", "7", "30"
+  const days = parseInt(period) || 30;
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("mode") === "cc") setMode("cc");
-      if (sessionStorage.getItem("refap_admin") === ADMIN_KEY) setAuth(true);
+  try {
+    // 1. KPIs globaux
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+
+    const { data: assignments, error: aErr } = await supabase
+      .from("centre_assignments")
+      .select("id, assigned_centre_id, centre_type_assigned, reason, distance_km, assigned_by, created_at")
+      .eq("assigned_by", "CHATBOT")
+      .gte("created_at", since);
+
+    if (aErr) throw aErr;
+
+    // 2. Centres (référentiel)
+    const { data: centres } = await supabase
+      .from("centres")
+      .select("id, name, city, postal_code, department, region, centre_type, store_code, cc_code, status")
+      .eq("status", "ACTIVE");
+
+    // 3. Conversations count (période)
+    const { count: convCount } = await supabase
+      .from("conversations")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", since);
+
+    // 4. Prestations (si dispo)
+    const { data: prestations } = await supabase
+      .from("prestations_weekly")
+      .select("store_code, qty_week, ca_ht_week, marge_week, week_start")
+      .gte("week_start", new Date(Date.now() - days * 86400000).toISOString().slice(0, 10));
+
+    // 5. CRM Leads
+    const { data: crmLeads, error: crmErr } = await supabase
+      .from("crm_leads")
+      .select("id, assigned_centre_id, source, source_page, contact_mode, chatbot_cid, utm_source, created_at")
+      .gte("created_at", since);
+
+    // === BUILD RESPONSE ===
+    const centreMap = {};
+    for (const c of centres || []) {
+      centreMap[c.id] = c;
     }
-  }, []);
 
-  useEffect(() => {
-    if (auth) fetchData();
-  }, [auth, period, mode]);
-
-  async function fetchData() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/magasins?period=${period}&mode=${mode}`);
-      if (!res.ok) throw new Error(`Erreur ${res.status}`);
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
+    // Agrégation par magasin (assignments)
+    const magasinStats = {};
+    for (const a of assignments || []) {
+      const c = centreMap[a.assigned_centre_id];
+      if (!c) continue;
+      const key = c.id;
+      if (!magasinStats[key]) {
+        magasinStats[key] = {
+          name: c.name,
+          city: c.city,
+          postal_code: c.postal_code,
+          department: c.department,
+          region: c.region,
+          type: c.centre_type === "EXPRESS" ? "EQUIPE" : "DEPOT",
+          store_code: c.store_code,
+          assignments: 0,
+          leads: 0,
+          leads_chatbot: 0,
+          leads_meta: 0,
+          avg_distance_km: 0,
+          distances: [],
+          reasons: {},
+        };
+      }
+      magasinStats[key].assignments++;
+      if (a.distance_km) magasinStats[key].distances.push(parseFloat(a.distance_km));
+      const r = a.reason || "inconnu";
+      magasinStats[key].reasons[r] = (magasinStats[key].reasons[r] || 0) + 1;
     }
-  }
 
-  function handleLogin(e) {
-    e.preventDefault();
-    if (keyInput === ADMIN_KEY) {
-      sessionStorage.setItem("refap_admin", ADMIN_KEY);
-      setAuth(true);
+    // Agrégation leads CRM par magasin
+    for (const l of crmLeads || []) {
+      const c = l.assigned_centre_id ? centreMap[l.assigned_centre_id] : null;
+      if (!c) continue;
+      const key = c.id;
+      if (!magasinStats[key]) {
+        magasinStats[key] = {
+          name: c.name,
+          city: c.city,
+          postal_code: c.postal_code,
+          department: c.department,
+          region: c.region,
+          type: c.centre_type === "EXPRESS" ? "EQUIPE" : "DEPOT",
+          store_code: c.store_code,
+          assignments: 0,
+          leads: 0,
+          leads_chatbot: 0,
+          leads_meta: 0,
+          avg_distance_km: 0,
+          distances: [],
+          reasons: {},
+        };
+      }
+      magasinStats[key].leads++;
+      if (l.chatbot_cid) magasinStats[key].leads_chatbot++;
+      if (l.utm_source === "meta") magasinStats[key].leads_meta++;
     }
+
+    // Calcul distance moyenne
+    for (const s of Object.values(magasinStats)) {
+      if (s.distances.length > 0) {
+        s.avg_distance_km = Math.round(s.distances.reduce((a, b) => a + b, 0) / s.distances.length);
+      }
+      delete s.distances;
+    }
+
+    // Agrégation prestations par store_code
+    const prestaByStore = {};
+    for (const p of prestations || []) {
+      if (!p.store_code) continue;
+      if (!prestaByStore[p.store_code]) {
+        prestaByStore[p.store_code] = { qty: 0, ca_ht: 0, marge: 0 };
+      }
+      prestaByStore[p.store_code].qty += p.qty_week || 0;
+      prestaByStore[p.store_code].ca_ht += parseFloat(p.ca_ht_week) || 0;
+      prestaByStore[p.store_code].marge += parseFloat(p.marge_week) || 0;
+    }
+
+    // Top magasins (trié par assignments)
+    let topMagasins = Object.values(magasinStats)
+      .sort((a, b) => b.assignments - a.assignments);
+
+    // Enrichir avec prestations
+    for (const m of topMagasins) {
+      if (m.store_code && prestaByStore[m.store_code]) {
+        m.prestations = prestaByStore[m.store_code];
+      }
+    }
+
+    // Split EQUIPE vs DEPOT
+    const equipeCount = (assignments || []).filter(a => {
+      const c = centreMap[a.assigned_centre_id];
+      return c?.centre_type === "EXPRESS";
+    }).length;
+    const depotCount = (assignments || []).length - equipeCount;
+
+    // KPIs
+    const totalLeads = (crmLeads || []).length;
+    const leadsChatbot = (crmLeads || []).filter(l => l.chatbot_cid).length;
+    const leadsMeta = (crmLeads || []).filter(l => l.utm_source === "meta").length;
+
+    const kpis = {
+      period_days: days,
+      total_assignments: (assignments || []).length,
+      total_conversations: convCount || 0,
+      total_leads: totalLeads,
+      leads_chatbot: leadsChatbot,
+      leads_meta: leadsMeta,
+      equipe: equipeCount,
+      depot: depotCount,
+      taux_orientation: convCount > 0 ? Math.round(100 * (assignments || []).length / convCount) : 0,
+    };
+
+    // Mode CC : on filtre les données sensibles
+    if (mode === "cc") {
+      topMagasins = topMagasins.map(m => ({
+        name: m.name,
+        city: m.city,
+        type: m.type,
+        assignments: m.assignments,
+        leads: m.leads,
+        prestations: m.prestations || null,
+      }));
+      return res.status(200).json({
+        mode: "cc",
+        kpis: {
+          period_days: kpis.period_days,
+          total_assignments: kpis.total_assignments,
+          total_leads: kpis.total_leads,
+          equipe: kpis.equipe,
+          depot: kpis.depot,
+        },
+        magasins: topMagasins,
+      });
+    }
+
+    // Mode interne : tout
+    return res.status(200).json({
+      mode: "internal",
+      kpis,
+      magasins: topMagasins,
+    });
+
+  } catch (err) {
+    console.error("Dashboard magasins error:", err);
+    return res.status(500).json({ error: err.message });
   }
-
-  if (!auth) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#f8fafc", fontFamily: "'Segoe UI', sans-serif" }}>
-        <form onSubmit={handleLogin} style={{ background: "#fff", padding: "40px", borderRadius: "16px", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", textAlign: "center" }}>
-          <h2 style={{ margin: "0 0 20px", color: "#0f172a" }}>🔒 Dashboard Magasins</h2>
-          <input
-            type="password"
-            value={keyInput}
-            onChange={e => setKeyInput(e.target.value)}
-            placeholder="Clé admin"
-            style={{ padding: "10px 16px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px", width: "220px" }}
-          />
-          <button type="submit" style={{ marginLeft: "8px", padding: "10px 20px", background: "#6bbd45", color: "#fff", border: "none", borderRadius: "8px", fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>
-            Entrer
-          </button>
-        </form>
-      </div>
-    );
-  }
-
-  const isCC = mode === "cc";
-  const kpis = data?.kpis || {};
-  const magasins = data?.magasins || [];
-
-  return (
-    <>
-      <Head>
-        <title>{isCC ? "Re-FAP × Carter-Cash" : "Re-FAP Dashboard Magasins"}</title>
-        <style>{`
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { background: #f1f5f9; font-family: 'Segoe UI', -apple-system, sans-serif; color: #0f172a; }
-          @media (max-width: 768px) {
-            .kpi-row { flex-direction: column !important; }
-            .table-wrap { overflow-x: auto; }
-            .table-wrap table { min-width: 600px; }
-          }
-        `}</style>
-      </Head>
-
-      <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "24px 16px" }}>
-        {/* HEADER */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "28px", flexWrap: "wrap", gap: "12px" }}>
-          <div>
-            <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a" }}>
-              {isCC ? "📊 Activité Magasins Re-FAP" : "📊 Dashboard Magasins — Interne"}
-            </h1>
-            <p style={{ fontSize: "13px", color: "#94a3b8", marginTop: "4px" }}>
-              {isCC ? "Orientations chatbot par magasin Carter-Cash" : "Attribution centre · Orientations · Prestations"}
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-            {["1", "7", "30"].map(p => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: "6px",
-                  border: "1px solid " + (period === p ? "#6bbd45" : "#e2e8f0"),
-                  background: period === p ? "#6bbd45" : "#fff",
-                  color: period === p ? "#fff" : "#64748b",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {p === "1" ? "24h" : p + "j"}
-              </button>
-            ))}
-            {!isCC && (
-              <button
-                onClick={() => setMode(mode === "internal" ? "cc" : "internal")}
-                style={{
-                  marginLeft: "12px",
-                  padding: "6px 14px",
-                  borderRadius: "6px",
-                  border: "1px solid #e2e8f0",
-                  background: "#fff",
-                  color: "#64748b",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {mode === "internal" ? "Vue CC →" : "← Vue interne"}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {loading && <p style={{ textAlign: "center", padding: "40px", color: "#94a3b8" }}>Chargement…</p>}
-        {error && <p style={{ textAlign: "center", padding: "40px", color: "#ef4444" }}>Erreur : {error}</p>}
-
-        {data && !loading && (
-          <>
-            {/* KPIs */}
-            <div className="kpi-row" style={{ display: "flex", gap: "14px", marginBottom: "14px", flexWrap: "wrap" }}>
-              <KPICard label="Orientations" value={formatNum(kpis.total_assignments)} accent="#6bbd45" />
-              <KPICard label="Leads CRM" value={formatNum(kpis.total_leads)} sub={kpis.leads_chatbot ? `${kpis.leads_chatbot} via chatbot` : "—"} accent="#3b82f6" />
-              <KPICard label="Équipés" value={formatNum(kpis.equipe)} sub={kpis.total_assignments > 0 ? Math.round(100 * kpis.equipe / kpis.total_assignments) + "%" : "—"} accent="#22c55e" />
-              <KPICard label="Dépôts" value={formatNum(kpis.depot)} sub={kpis.total_assignments > 0 ? Math.round(100 * kpis.depot / kpis.total_assignments) + "%" : "—"} accent="#64748b" />
-            </div>
-            {!isCC && (
-              <div className="kpi-row" style={{ display: "flex", gap: "14px", marginBottom: "28px", flexWrap: "wrap" }}>
-                <KPICard label="Conversations" value={formatNum(kpis.total_conversations)} sub={`Taux orient. ${kpis.taux_orientation || 0}%`} />
-                {kpis.leads_meta > 0 && <KPICard label="Leads Meta" value={formatNum(kpis.leads_meta)} accent="#1877f2" />}
-              </div>
-            )}
-
-            {/* TABLE MAGASINS */}
-            <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-              <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9" }}>
-                <h2 style={{ fontSize: "15px", fontWeight: 700 }}>
-                  Top magasins ({magasins.length})
-                </h2>
-              </div>
-              <div className="table-wrap">
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                  <thead>
-                    <tr style={{ borderBottom: "2px solid #f1f5f9" }}>
-                      <th style={thStyle}>#</th>
-                      <th style={{ ...thStyle, textAlign: "left" }}>Magasin</th>
-                      <th style={thStyle}>Type</th>
-                      <th style={thStyle}>Orientations</th>
-                      <th style={thStyle}>Leads</th>
-                      {!isCC && <th style={thStyle}>Dist. moy.</th>}
-                      {!isCC && <th style={thStyle}>Raison princ.</th>}
-                      <th style={thStyle}>Prestas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {magasins.length === 0 && (
-                      <tr>
-                        <td colSpan={isCC ? 6 : 8} style={{ padding: "32px", textAlign: "center", color: "#94a3b8" }}>
-                          Aucune orientation sur cette période. Les données apparaîtront quand le chatbot orientera des clients.
-                        </td>
-                      </tr>
-                    )}
-                    {magasins.map((m, i) => {
-                      const topReason = m.reasons
-                        ? Object.entries(m.reasons).sort((a, b) => b[1] - a[1])[0]?.[0] || "—"
-                        : "—";
-                      return (
-                        <tr key={i} style={{ borderBottom: "1px solid #f8fafc" }}>
-                          <td style={tdStyle}>{i + 1}</td>
-                          <td style={{ ...tdStyle, textAlign: "left", fontWeight: 600 }}>
-                            {m.name || m.city}
-                            {!isCC && m.department && (
-                              <span style={{ color: "#94a3b8", fontWeight: 400, marginLeft: "6px" }}>({m.department})</span>
-                            )}
-                          </td>
-                          <td style={tdStyle}><Badge type={m.type} /></td>
-                          <td style={{ ...tdStyle, fontWeight: 700, fontSize: "15px", color: m.assignments > 0 ? "#0f172a" : "#cbd5e1" }}>
-                            {m.assignments}
-                          </td>
-                          <td style={tdStyle}>
-                            {(m.leads || 0) > 0 ? (
-                              <span style={{ fontWeight: 700, color: "#3b82f6" }}>
-                                {m.leads}
-                                {m.leads_chatbot > 0 && <span style={{ fontSize: "10px", color: "#94a3b8", marginLeft: "4px" }}>({m.leads_chatbot}🤖)</span>}
-                              </span>
-                            ) : (
-                              <span style={{ color: "#cbd5e1" }}>—</span>
-                            )}
-                          </td>
-                          {!isCC && <td style={tdStyle}>{m.avg_distance_km ? m.avg_distance_km + " km" : "—"}</td>}
-                          {!isCC && <td style={{ ...tdStyle, fontSize: "11px", color: "#64748b", maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topReason}</td>}
-                          <td style={tdStyle}>
-                            {m.prestations ? (
-                              <span style={{ color: "#16a34a", fontWeight: 600 }}>
-                                {m.prestations.qty} FAP · {formatNum(Math.round(m.prestations.ca_ht))}€
-                              </span>
-                            ) : (
-                              <span style={{ color: "#cbd5e1" }}>—</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* FOOTER */}
-            <div style={{ marginTop: "20px", textAlign: "center", fontSize: "11px", color: "#94a3b8" }}>
-              {isCC ? "Re-FAP × Carter-Cash — Données agrégées" : "Re-FAP — Dashboard interne"} · Période : {period === "1" ? "24h" : period + " jours"} · {new Date().toLocaleDateString("fr-FR")}
-            </div>
-          </>
-        )}
-      </div>
-    </>
-  );
 }
-
-const thStyle = {
-  padding: "10px 12px",
-  textAlign: "center",
-  fontSize: "11px",
-  fontWeight: 700,
-  color: "#94a3b8",
-  textTransform: "uppercase",
-  letterSpacing: "0.3px",
-};
-
-const tdStyle = {
-  padding: "10px 12px",
-  textAlign: "center",
-};
