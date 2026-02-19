@@ -1,4 +1,4 @@
-// /pages/api/lead-chatbot.js
+// /pages/api/lead-chatbot.js 
 // Proxy Vercel → WordPress admin-ajax.php
 // Mappe les champs chatbot vers les noms attendus par le handler WP
 
