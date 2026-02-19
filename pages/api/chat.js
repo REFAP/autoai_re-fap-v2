@@ -957,18 +957,11 @@ function hasEnoughToClose(extracted, history) {
 }
 
 function hasEnoughForExpertOrientation(extracted) {
-  // Avant de poser un diagnostic, on doit avoir au moins marque + symptôme + UN élément de contexte
-  // Sinon on perd en crédibilité
   if (!extracted) return false;
   const hasMarque = !!extracted.marque;
   const hasSymptome = extracted.symptome && extracted.symptome !== "inconnu";
   const hasAttempts = !!extracted.previous_attempts;
-  // Éléments de contexte qui crédibilisent le diagnostic
-  const hasKm = !!extracted.kilometrage;
-  const hasAnciennete = !!extracted.anciennete_probleme;
-  const hasCodeOBD = extracted.codes && extracted.codes.length > 0;
-  const hasContext = hasKm || hasAnciennete || hasCodeOBD;
-  return hasMarque && hasSymptome && hasAttempts && hasContext;
+  return hasMarque && hasSymptome && hasAttempts;
 }
 
 function countUserTurns(history) {
@@ -2374,18 +2367,17 @@ function getMissingDataQuestion(extracted, history) {
   if (extracted?.marque && !extracted?.kilometrage && !everAskedKm(history)) {
     return { field: "kilometrage", question: `Elle a combien de km à peu près ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} ?` };
   }
-  if (!extracted?.anciennete_probleme && extracted?.symptome !== "inconnu") {
-    return { field: "anciennete", question: "C'est depuis combien de temps ce problème ?" };
+  if (lastBot && /quel mod[eè]le|combien de km|quelle ann[eé]e|code erreur|type de trajet|quel coin/i.test(lastBot)) {
+    return null;
   }
-  if (extracted?.codes?.length === 0) {
-    return { field: "codes", question: "Tu as un code erreur par hasard ? Si un garage ou un lecteur OBD t'a donné un code (genre P2002, P2463...), ça m'aide à affiner le diagnostic." };
+  if (extracted?.marque && !extracted?.modele && !everAskedModel(history)) {
+    return { field: "modele", question: `Au fait, c'est quel modèle exactement ta ${extracted.marque} ? (et l'année si tu l'as)` };
   }
-  if (!extracted?.type_trajets || extracted.type_trajets === "inconnu") {
-    return { field: "type_trajets", question: "Tu fais surtout de la ville, de l'autoroute, ou un mix des deux ?" };
+  if (extracted?.marque && !extracted?.kilometrage && !everAskedKm(history)) {
+    return { field: "kilometrage", question: `Elle a combien de km à peu près ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} ?` };
   }
   return null;
 }
-
 function getLastAssistantMessage(history) {
   if (!Array.isArray(history)) return null;
   for (let i = history.length - 1; i >= 0; i--) {
@@ -2397,12 +2389,9 @@ function getLastAssistantMessage(history) {
 }
 
 function getDataRelanceForResponse(extracted, history) {
-  const engagement = computeEngagement(history);
   const missing = getMissingDataQuestion(extracted, history);
   if (!missing) return null;
   if (missing.field === "modele" || missing.field === "kilometrage") return missing.question;
-  if (missing.field === "anciennete" && engagement >= 4) return missing.question;
-  if ((missing.field === "codes" || missing.field === "type_trajets") && engagement >= 6) return missing.question;
   return null;
 }
 
@@ -2955,3 +2944,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
