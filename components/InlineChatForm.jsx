@@ -37,7 +37,7 @@ export default function InlineChatForm({ conversationId, conversationData, onSuc
     setLoading(true);
 
     try {
-      const res = await fetch('/api/lead-chatbot', {
+const res = await fetch('https://autoai-re-fap-v2.vercel.app/api/lead-chatbot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
