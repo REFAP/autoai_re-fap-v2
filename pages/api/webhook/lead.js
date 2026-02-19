@@ -1,7 +1,7 @@
 // /pages/api/webhook/lead.js
 // Reçoit les leads du handler WordPress v3.2 et les insère dans Supabase
 // + Attribution centre automatique par code postal
-// Sécurisé par clé partagée
+// Sécurisé par clé partagée 
 
 import { createClient } from "@supabase/supabase-js";
 
