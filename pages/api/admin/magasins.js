@@ -12,7 +12,7 @@ function getSupabase() {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "GET") return res.status(405).json({ error: "GET only" }); 
+  if (req.method !== "GET") return res.status(405).json({ error: "GET only" });
 
   const supabase = getSupabase();
   if (!supabase) return res.status(500).json({ error: "Config Supabase manquante" });
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const { data: assignments, error: aErr } = await supabase
       .from("centre_assignments")
       .select("id, assigned_centre_id, centre_type_assigned, reason, distance_km, assigned_by, created_at")
-      .eq("assigned_by", "CHATBOT")
+      .in("assigned_by", ["CHATBOT", "PHONE", "SMS", "EMAIL", "HUMAN"])
       .gte("created_at", since);
 
     if (aErr) throw aErr;
