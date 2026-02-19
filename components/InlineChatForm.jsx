@@ -1,12 +1,8 @@
 /**
  * InlineChatForm.jsx — Formulaire inline chatbot Re-FAP
  * 
- * S'affiche dans le chat quand Mistral retourne OPEN_FORM.
- * 2 champs seulement : prénom + téléphone.
- * Le reste (véhicule, km, symptômes, ville) vient du DATA JSON de la conversation.
- * 
- * INTÉGRATION : Importer dans le composant chat principal et afficher
- * quand `showInlineForm` est true (voir INTEGRATION.md)
+ * POST direct vers WordPress admin-ajax.php (handler refap_submit_lead)
+ * → Le lead arrive directement dans wp_refap_devis comme les autres
  */
 
 import { useState } from 'react';
@@ -19,7 +15,7 @@ export default function InlineChatForm({ conversationId, conversationData, onSuc
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setError('');
 
     // Validation téléphone FR (mobile ou fixe)
@@ -37,34 +33,49 @@ export default function InlineChatForm({ conversationId, conversationData, onSuc
     setLoading(true);
 
     try {
-const res = await fetch('https://autoai-re-fap-v2.vercel.app/api/lead-chatbot', {
+      // POST vers WordPress admin-ajax.php — même handler que le formulaire auto.re-fap.fr
+      const formData = new FormData();
+      formData.append('action', 'refap_submit_lead');
+      formData.append('prenom', prenom.trim());
+      formData.append('telephone', cleanPhone);
+      formData.append('contact_mode', 'callback');
+      formData.append('source', 'auto.re-fap.fr');
+      formData.append('source_page', 'chatbot_inline');
+
+      // Données enrichies depuis le DATA JSON du chatbot
+      if (conversationData?.vehicule) formData.append('vehicule', conversationData.vehicule);
+      if (conversationData?.symptome) {
+        const symp = Array.isArray(conversationData.symptome)
+          ? conversationData.symptome.join(', ')
+          : conversationData.symptome;
+        formData.append('symptomes', symp);
+      }
+      if (conversationData?.km) formData.append('mileage', conversationData.km);
+      if (conversationData?.codes) {
+        const codes = Array.isArray(conversationData.codes)
+          ? conversationData.codes.join(', ')
+          : conversationData.codes;
+        if (codes) formData.append('fault_code', codes);
+      }
+      if (conversationData?.ville) formData.append('ville', conversationData.ville);
+      if (conversationData?.code_postal) formData.append('code_postal', conversationData.code_postal);
+      if (conversationData?.centre_proche) formData.append('centre_proche', conversationData.centre_proche);
+      if (conversationId) formData.append('chatbot_cid', conversationId);
+      formData.append('form_type', 'chatbot');
+
+      const res = await fetch('https://auto.re-fap.fr/wp-admin/admin-ajax.php', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prenom: prenom.trim(),
-          telephone: cleanPhone,
-          conversation_id: conversationId,
-          // DATA JSON collecté pendant la conversation
-          vehicule: conversationData?.vehicule || '',
-          symptomes: conversationData?.symptome || '',
-          km: conversationData?.km || '',
-          ville: conversationData?.ville || '',
-          code_postal: conversationData?.code_postal || '',
-          tentative_precedente: conversationData?.tentative || '',
-          fault_code: conversationData?.codes?.join(', ') || '',
-          centre_proche: conversationData?.centre_proche || '',
-          urgence: conversationData?.urgence || '',
-        }),
+        body: formData,
       });
 
       const data = await res.json();
 
-      if (res.ok && data.success) {
+      if (data.success) {
         setSubmitted(true);
         onSuccess?.();
       } else {
-        setError(data.error || 'Erreur lors de l\'envoi');
-        onError?.(data.error);
+        setError(data.data?.message || "Erreur lors de l'envoi");
+        onError?.(data.data?.message);
       }
     } catch (err) {
       setError('Erreur réseau, réessaye');
@@ -98,7 +109,7 @@ const res = await fetch('https://autoai-re-fap-v2.vercel.app/api/lead-chatbot', 
           Laisse ton prénom et ton numéro, un expert Re-FAP te contacte rapidement.
         </div>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
+        <div style={styles.form}>
           <input
             type="text"
             placeholder="Prénom"
@@ -124,7 +135,8 @@ const res = await fetch('https://autoai-re-fap-v2.vercel.app/api/lead-chatbot', 
           {error && <div style={styles.error}>{error}</div>}
 
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             style={{
               ...styles.button,
               opacity: loading ? 0.7 : 1,
@@ -134,18 +146,22 @@ const res = await fetch('https://autoai-re-fap-v2.vercel.app/api/lead-chatbot', 
           >
             {loading ? 'Envoi...' : 'Être rappelé ✓'}
           </button>
-        </form>
+        </div>
 
         <div style={styles.privacy}>
           🔒 Données utilisées uniquement pour te recontacter
         </div>
+
+        <div style={styles.separator}>ou</div>
+
+        <a href="tel:0473378821" style={styles.callLink}>
+          📞 Appeler Julien, Expert FAP — 04 73 37 88 21
+        </a>
       </div>
     </div>
   );
 }
 
-// Styles inline pour éviter les dépendances CSS externes
-// Adaptés au contexte chatbot (fond sombre probable, mobile-first)
 const styles = {
   container: {
     padding: '8px 0',
@@ -195,7 +211,7 @@ const styles = {
     fontSize: '15px',
     fontWeight: '600',
     color: '#ffffff',
-    background: '#2563eb', // Bleu Re-FAP
+    background: '#2563eb',
     border: 'none',
     borderRadius: '8px',
     marginTop: '4px',
@@ -213,7 +229,6 @@ const styles = {
     textAlign: 'center',
     marginTop: '8px',
   },
-  // Succès
   successBox: {
     background: '#f0fdf4',
     borderRadius: '12px',
@@ -235,5 +250,23 @@ const styles = {
     fontSize: '13px',
     color: '#15803d',
     lineHeight: '1.4',
+  },
+  separator: {
+    textAlign: 'center',
+    fontSize: '12px',
+    color: '#9ca3af',
+    margin: '8px 0',
+  },
+  callLink: {
+    display: 'block',
+    textAlign: 'center',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#2563eb',
+    textDecoration: 'none',
+    padding: '8px',
+    borderRadius: '8px',
+    background: '#eff6ff',
+    border: '1px solid #dbeafe',
   },
 };
