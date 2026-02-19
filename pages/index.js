@@ -1,9 +1,10 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 6.0 - Dynamic suggested_replies from backend + static fallback + UTM propagation
+// VERSION 6.1 - Formulaire inline chatbot (remplace redirect FormCTA)
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
+import InlineChatForm from "../components/InlineChatForm";
 
 // ============================================================
 // HELPERS
@@ -94,144 +95,6 @@ function getStaticQuickReplies(messages, showFormCTA) {
 }
 
 // ============================================================
-// COMPOSANT CARTE CTA FORMULAIRE
-// ============================================================
-function FormCTACard({ formUrl }) {
-  return (
-    <div className="form-cta-card">
-      <div className="form-cta-icon">👨‍🔧</div>
-      <h3 className="form-cta-title">Passez à l'étape suivante</h3>
-      <p className="form-cta-text">
-        Un expert Re-FAP va analyser votre situation et vous orienter vers la meilleure solution.
-        <strong> Pas de vente, juste des conseils.</strong>
-      </p>
-      
-      <div className="form-cta-options">
-        <div className="form-cta-option">
-          <span className="option-icon">📞</span>
-          <span>Être rappelé</span>
-        </div>
-        <div className="form-cta-option">
-          <span className="option-icon">📝</span>
-          <span>Demander un devis gratuit</span>
-        </div>
-        <div className="form-cta-option">
-          <span className="option-icon">❓</span>
-          <span>Poser une question</span>
-        </div>
-      </div>
-
-      <a 
-        href={formUrl} 
-        target="_blank" 
-        rel="noopener noreferrer"
-        className="form-cta-button"
-      >
-        Continuer
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </a>
-      
-      <p className="form-cta-reassurance">
-        ✓ Gratuit et sans engagement
-      </p>
-
-      <style jsx>{`
-        .form-cta-card {
-          background: linear-gradient(135deg, #ffffff 0%, #f8fdf8 100%);
-          border: 2px solid #e0f2e0;
-          border-radius: 16px;
-          padding: 24px 20px;
-          margin: 4px 0;
-          max-width: 300px;
-          box-shadow: 0 4px 20px rgba(76, 140, 43, 0.1);
-        }
-
-        .form-cta-icon {
-          font-size: 32px;
-          margin-bottom: 10px;
-        }
-
-        .form-cta-title {
-          margin: 0 0 10px 0;
-          font-size: 17px;
-          font-weight: 700;
-          color: #2d5a27;
-        }
-
-        .form-cta-text {
-          margin: 0 0 14px 0;
-          font-size: 13px;
-          color: #555;
-          line-height: 1.5;
-        }
-
-        .form-cta-text strong {
-          color: #2d5a27;
-        }
-
-        .form-cta-options {
-          background: #f5f9f5;
-          border-radius: 10px;
-          padding: 10px 12px;
-          margin-bottom: 14px;
-        }
-
-        .form-cta-option {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 7px 0;
-          font-size: 13px;
-          color: #444;
-        }
-
-        .form-cta-option:not(:last-child) {
-          border-bottom: 1px solid #e8f2e8;
-        }
-
-        .option-icon {
-          font-size: 15px;
-        }
-
-        .form-cta-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          width: 100%;
-          background: linear-gradient(135deg, #8bc34a 0%, #689f38 100%);
-          color: white;
-          border: none;
-          padding: 13px 18px;
-          border-radius: 25px;
-          font-size: 15px;
-          font-weight: 600;
-          cursor: pointer;
-          text-decoration: none;
-          transition: all 0.2s;
-          box-shadow: 0 4px 12px rgba(104, 159, 56, 0.3);
-        }
-
-        .form-cta-button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 16px rgba(104, 159, 56, 0.4);
-        }
-
-        .form-cta-reassurance {
-          margin: 12px 0 0 0;
-          font-size: 12px;
-          color: #2e7d32;
-          font-weight: 500;
-          text-align: center;
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
 export default function Home() {
@@ -241,8 +104,8 @@ export default function Home() {
   const [sessionId, setSessionId] = useState(null);
   const [error, setError] = useState(null);
   const [showFormCTA, setShowFormCTA] = useState(false);
-  const [formUrl, setFormUrl] = useState("");
-  const [dynamicReplies, setDynamicReplies] = useState(null); // suggested_replies du backend
+  const [conversationData, setConversationData] = useState({});
+  const [dynamicReplies, setDynamicReplies] = useState(null);
   const messagesEndRef = useRef(null);
 
   // Init session + bootstrap cookie
@@ -271,7 +134,7 @@ export default function Home() {
     setInput("");
     setError(null);
     setShowFormCTA(false);
-    setDynamicReplies(null); // Clear les boutons dès que l'user envoie un message
+    setDynamicReplies(null);
 
     const newUserMessage = { role: "user", content: userMessage };
     setMessages((prev) => [...prev, newUserMessage]);
@@ -318,20 +181,19 @@ export default function Home() {
         setDynamicReplies(null);
       }
 
-      // HANDLE ACTION : Afficher carte CTA après délai + propager UTM/fbclid
-      if (data.action?.type === "OPEN_FORM" && data.action?.url) {
-        var tracking = getTrackingParams();
-        var url = data.action.url;
-        if (tracking) {
-          var hashIdx = url.indexOf('#');
-          if (hashIdx !== -1) {
-            url = url.substring(0, hashIdx) + (url.substring(0, hashIdx).indexOf('?') !== -1 ? '&' : '?') + tracking + url.substring(hashIdx);
-          } else {
-            url = url + (url.indexOf('?') !== -1 ? '&' : '?') + tracking;
-          }
-        }
-        setFormUrl(url);
-        setTimeout(() => setShowFormCTA(true), 1200);
+      // Accumuler le DATA JSON à chaque réponse bot (pour le formulaire inline)
+      const rawReply = data.reply_full || data.reply || "";
+      const dataMatch = rawReply.match(/DATA:\s*(\{[\s\S]*?\})\s*$/);
+      if (dataMatch) {
+        try {
+          const parsed = JSON.parse(dataMatch[1]);
+          setConversationData(prev => ({ ...prev, ...parsed }));
+        } catch (e) { /* ignore parse error */ }
+      }
+
+      // HANDLE ACTION : Formulaire inline chatbot
+      if (data.action?.type === "OPEN_FORM") {
+        setTimeout(() => setShowFormCTA(true), 800);
       }
 
     } catch (err) {
@@ -361,6 +223,7 @@ export default function Home() {
     setMessages([]);
     setError(null);
     setShowFormCTA(false);
+    setConversationData({});
     setDynamicReplies(null);
   };
 
@@ -433,11 +296,22 @@ export default function Home() {
             </div>
           )}
 
-          {/* CARTE CTA FORMULAIRE */}
+          {/* FORMULAIRE INLINE CHATBOT */}
           {showFormCTA && (
             <div className="message message-assistant cta-message">
               <div className="avatar">🔧</div>
-              <FormCTACard formUrl={formUrl} />
+              <InlineChatForm
+                conversationId={sessionId}
+                conversationData={conversationData}
+                onSuccess={() => {
+                  setShowFormCTA(false);
+                  const confirmMsg = {
+                    role: "assistant",
+                    content: "C'est noté ! Un expert Re-FAP te rappelle rapidement. 🚗",
+                  };
+                  setMessages(prev => [...prev, confirmMsg]);
+                }}
+              />
             </div>
           )}
 
@@ -612,7 +486,7 @@ export default function Home() {
         }
 
         .cta-message {
-          max-width: 340px;
+          max-width: 380px;
         }
 
         .avatar {
