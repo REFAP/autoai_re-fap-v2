@@ -12,7 +12,7 @@ function getSupabase() {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "GET") return res.status(405).json({ error: "GET only" });
+  if (req.method !== "GET") return res.status(405).json({ error: "GET only" }); 
 
   const supabase = getSupabase();
   if (!supabase) return res.status(500).json({ error: "Config Supabase manquante" });
