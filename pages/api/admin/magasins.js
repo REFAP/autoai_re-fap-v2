@@ -27,7 +27,8 @@ export default async function handler(req, res) {
 
     const { data: assignments, error: aErr } = await supabase
       .from("centre_assignments")
-      .select("id, assigned_centre_id, centre_type_assigned, reason, distance_km, created_at")
+      .select("id, assigned_centre_id, centre_type_assigned, reason, distance_km, assigned_by, created_at")
+      .eq("assigned_by", "CHATBOT")
       .gte("created_at", since);
 
     if (aErr) throw aErr;
