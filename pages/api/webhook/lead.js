@@ -15,72 +15,62 @@ function getSupabase() {
 }
 
 // ============================================================
-// Matching postal_code → centre le plus proche
-// Même logique que le chatbot (département → centres du dept)
+// Attribution centre : uniquement par source_page ou chatbot_cid
+// PAS par code postal (un CP ne signifie pas une orientation)
 // ============================================================
-async function findCentreByPostal(supabase, postalCode) {
-  if (!postalCode || postalCode.length < 2) return null;
-
-  const dept = postalCode.substring(0, 2);
-
-  // 1. Chercher un EXPRESS dans le département
-  const { data: express } = await supabase
-    .from("centres")
-    .select("id, name, centre_type, postal_code")
-    .eq("department", dept)
-    .eq("centre_type", "EXPRESS")
-    .eq("status", "ACTIVE")
-    .limit(1);
-
-  if (express && express.length > 0) return { centre: express[0], reason: "express même département" };
-
-  // 2. Chercher un STANDARD dans le département
-  const { data: standard } = await supabase
-    .from("centres")
-    .select("id, name, centre_type, postal_code")
-    .eq("department", dept)
-    .eq("status", "ACTIVE")
-    .limit(1);
-
-  if (standard && standard.length > 0) return { centre: standard[0], reason: "standard même département" };
-
-  // 3. EXPRESS le plus proche (IDF: 75/77/78/91/92/93/94/95)
-  const idfDepts = ["75", "77", "78", "91", "92", "93", "94", "95"];
-  if (idfDepts.includes(dept)) {
-    const { data: idfExpress } = await supabase
+async function findCentreFromLead(supabase, data) {
+  // 1. Source page = "centre-thiais", "centre-lambres", etc.
+  if (data.source_page && data.source_page.startsWith("centre-")) {
+    const slug = "centre-re-fap-" + data.source_page.replace("centre-", "");
+    const { data: match } = await supabase
       .from("centres")
-      .select("id, name, centre_type, postal_code, department")
-      .eq("centre_type", "EXPRESS")
+      .select("id, name, centre_type")
+      .eq("page_slug", slug)
       .eq("status", "ACTIVE")
-      .in("department", idfDepts)
       .limit(1);
 
-    if (idfExpress && idfExpress.length > 0) return { centre: idfExpress[0], reason: "express IDF" };
-  }
+    if (match && match.length > 0) {
+      return { centre: match[0], reason: `page centre: ${data.source_page}` };
+    }
 
-  // 4. HdF: 59/60/62/80/02
-  const hdfDepts = ["59", "60", "62", "80", "02"];
-  if (hdfDepts.includes(dept)) {
-    const { data: hdfExpress } = await supabase
+    // Fallback: chercher par ville dans le slug
+    const cityPart = data.source_page.replace("centre-", "").replace(/-/g, " ");
+    const { data: cityMatch } = await supabase
       .from("centres")
-      .select("id, name, centre_type, postal_code, department")
-      .eq("centre_type", "EXPRESS")
+      .select("id, name, centre_type")
+      .ilike("city", `%${cityPart}%`)
       .eq("status", "ACTIVE")
-      .in("department", hdfDepts)
       .limit(1);
 
-    if (hdfExpress && hdfExpress.length > 0) return { centre: hdfExpress[0], reason: "express HdF" };
+    if (cityMatch && cityMatch.length > 0) {
+      return { centre: cityMatch[0], reason: `page centre (city match): ${data.source_page}` };
+    }
   }
 
-  // 5. Fallback → STANDARD envoi national
-  const { data: fallback } = await supabase
-    .from("centres")
-    .select("id, name")
-    .eq("postal_code", "00000")
-    .limit(1);
+  // 2. Chatbot CID → chercher l'attribution existante du chatbot
+  if (data.chatbot_cid) {
+    const { data: botAssign } = await supabase
+      .from("centre_assignments")
+      .select("assigned_centre_id, reason")
+      .eq("conversation_id", data.chatbot_cid)
+      .eq("assigned_by", "CHATBOT")
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-  if (fallback && fallback.length > 0) return { centre: fallback[0], reason: "envoi national (fallback)" };
+    if (botAssign && botAssign.length > 0 && botAssign[0].assigned_centre_id) {
+      const { data: c } = await supabase
+        .from("centres")
+        .select("id, name, centre_type")
+        .eq("id", botAssign[0].assigned_centre_id)
+        .limit(1);
 
+      if (c && c.length > 0) {
+        return { centre: c[0], reason: `via chatbot cid: ${data.chatbot_cid}` };
+      }
+    }
+  }
+
+  // 3. Pas d'attribution = lead général (pas d'orientation magasin)
   return null;
 }
 
@@ -118,10 +108,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // Attribution centre par postal_code
+    // Attribution centre (source_page ou chatbot_cid uniquement)
     let assignedCentreId = null;
     let assignReason = null;
-    const match = await findCentreByPostal(supabase, d.postal_code);
+    const match = await findCentreFromLead(supabase, d);
     if (match) {
       assignedCentreId = match.centre.id;
       assignReason = match.reason;
@@ -164,23 +154,9 @@ export default async function handler(req, res) {
 
     if (leadErr) throw leadErr;
 
-    // INSERT centre_assignments (assigned_by: FORM)
-    if (assignedCentreId && lead) {
-      const centreType = match?.centre?.centre_type === "EXPRESS" ? "EXPRESS" : "STANDARD";
-
-      await supabase.from("centre_assignments").insert({
-        conversation_id: d.chatbot_cid || null,
-        session_id: null,
-        assigned_centre_id: assignedCentreId,
-        assigned_by: "FORM",
-        reason: `form lead #${d.wp_lead_id || "?"} — ${assignReason}`,
-        user_location_input: d.postal_code || null,
-        user_dept: d.postal_code ? d.postal_code.substring(0, 2) : null,
-        distance_km: null,
-        centre_type_assigned: centreType,
-        confidence: 70,
-      });
-    }
+    // PAS d'insert centre_assignments pour les FORM
+    // Un formulaire rempli ≠ une orientation chatbot
+    // L'attribution est tracée uniquement dans crm_leads.assigned_centre_id
 
     return res.status(200).json({
       status: "ok",
