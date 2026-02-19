@@ -1,7 +1,7 @@
 /**
  * InlineChatForm.jsx — Formulaire inline chatbot Re-FAP
- * POST FormData vers WordPress admin-ajax.php
- * CORS géré par le snippet WPCode "CORS Chatbot"
+ * POST vers /api/lead-chatbot (même domaine Vercel = pas de CORS)
+ * L'API Vercel forward vers WordPress côté serveur
  */
 
 import { useState } from 'react';
@@ -29,40 +29,30 @@ export default function InlineChatForm({ conversationId, conversationData, onSuc
     setLoading(true);
 
     try {
-      var formData = new FormData();
-      formData.append('action', 'refap_submit_lead');
-      formData.append('prenom', prenom.trim());
-      formData.append('telephone', cleanPhone);
-      formData.append('contact_mode', 'callback');
-      formData.append('source', 'auto.re-fap.fr');
-      formData.append('source_page', 'chatbot_inline');
-      formData.append('form_type', 'chatbot');
-      if (conversationId) formData.append('chatbot_cid', conversationId);
-      if (conversationData?.vehicule) formData.append('vehicule', conversationData.vehicule);
-      if (conversationData?.symptome) {
-        formData.append('symptomes', Array.isArray(conversationData.symptome) ? conversationData.symptome.join(', ') : conversationData.symptome);
-      }
-      if (conversationData?.km) formData.append('mileage', conversationData.km);
-      if (conversationData?.codes) {
-        var c = Array.isArray(conversationData.codes) ? conversationData.codes.join(', ') : conversationData.codes;
-        if (c) formData.append('fault_code', c);
-      }
-      if (conversationData?.ville) formData.append('ville', conversationData.ville);
-      if (conversationData?.code_postal) formData.append('code_postal', conversationData.code_postal);
-      if (conversationData?.centre_proche) formData.append('centre_proche', conversationData.centre_proche);
-
-      var res = await fetch('https://auto.re-fap.fr/wp-admin/admin-ajax.php', {
+      var res = await fetch('/api/lead-chatbot', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prenom: prenom.trim(),
+          telephone: cleanPhone,
+          chatbot_cid: conversationId || '',
+          vehicule: conversationData?.vehicule || '',
+          symptomes: Array.isArray(conversationData?.symptome) ? conversationData.symptome.join(', ') : (conversationData?.symptome || ''),
+          km: conversationData?.km || '',
+          codes: Array.isArray(conversationData?.codes) ? conversationData.codes.join(', ') : (conversationData?.codes || ''),
+          ville: conversationData?.ville || '',
+          code_postal: conversationData?.code_postal || '',
+          centre_proche: conversationData?.centre_proche || '',
+        }),
       });
 
       var data = await res.json();
 
-      if (data.success) {
+      if (res.ok && data.success) {
         setSubmitted(true);
         if (onSuccess) onSuccess();
       } else {
-        setError("Erreur, réessaye ou appelle directement");
+        setError(data.error || "Erreur, réessaye ou appelle directement");
       }
     } catch (err) {
       setError('Erreur réseau, réessaye ou appelle directement');
