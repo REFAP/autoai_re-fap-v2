@@ -1,5 +1,5 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 6.2 (geo patch février 2026)
+// FAPexpert Re-FAP — VERSION 6.3 (geo patch février 2026)
 // Bot d'orientation : qualifier → personnaliser → closer → capturer data marché
 // CHANGELOG v6.2:
 //   - GPS Haversine : 94 CC avec lat/lng, calcul distance réelle
@@ -1175,36 +1175,54 @@ function upsertEnrichment(supabase, conversationId, extracted, quickData, metier
 // ============================================================
 // LOG CENTRE ASSIGNMENT — Insert dans centre_assignments + update conversations
 // ============================================================
-async function logCentreAssignment(supabase, conversationId, sessionId, assignment) {
-  if (!supabase || !conversationId || !assignment) return;
+// v6.3 : logCentreAssignment avec support garage partenaire
+async function logCentreAssignment(supabase, conversationId, sessionId, assignment, garageAssignment) {
+  if (!supabase || !conversationId) return;
+
   try {
-    // 1. Lookup centre par postal_code
-    const { data: centre } = await supabase
-      .from("centres")
-      .select("id, centre_type")
-      .eq("postal_code", assignment.postal_code)
-      .eq("status", "ACTIVE")
-      .limit(1)
-      .single();
+    let centreId = null;
+    let centreType = "STANDARD";
 
-    const centreId = centre?.id || null;
+    if (assignment?.postal_code) {
+      const { data: centre } = await supabase
+        .from("centres")
+        .select("id, centre_type")
+        .eq("postal_code", assignment.postal_code)
+        .eq("status", "ACTIVE")
+        .limit(1)
+        .single();
 
-    // 2. Insert centre_assignments
-    const { error: insertError } = await supabase.from("centre_assignments").insert({
+      centreId = centre?.id || null;
+      centreType = assignment.centre_type || centre?.centre_type || "STANDARD";
+    }
+
+    // Si garage assigné mais pas de CC, type = GARAGE
+    if (garageAssignment && !centreId) {
+      centreType = "GARAGE";
+    }
+
+    const insertData = {
       conversation_id: conversationId,
       session_id: sessionId,
       assigned_centre_id: centreId,
       assigned_by: "CHATBOT",
-      reason: assignment.reason || "plus proche",
-      user_location_input: assignment.user_location_input || null,
-      user_dept: assignment.user_dept || null,
-      distance_km: assignment.distance_km || null,
-      centre_type_assigned: assignment.centre_type || (centre?.centre_type) || "STANDARD",
-      confidence: assignment.distance_km && assignment.distance_km <= 50 ? 90 : 75,
-    });
+      reason: assignment?.reason || "plus proche",
+      user_location_input: assignment?.user_location_input || null,
+      user_dept: assignment?.user_dept || null,
+      distance_km: assignment?.distance_km || null,
+      centre_type_assigned: centreType,
+      confidence: assignment?.distance_km && assignment.distance_km <= 50 ? 90 : 75,
+    };
+
+    // 🆕 v6.3 : colonnes garage
+    if (garageAssignment) {
+      insertData.garage_partenaire_id = garageAssignment.garage_partenaire_id;
+      insertData.garage_name = garageAssignment.garage_name;
+    }
+
+    const { error: insertError } = await supabase.from("centre_assignments").insert(insertData);
     if (insertError) console.warn("⚠️ Centre assignment insert failed:", insertError.message);
 
-    // 3. Update conversations.assigned_centre_id
     if (centreId) {
       await supabase.from("conversations").update({ assigned_centre_id: centreId }).eq("id", conversationId);
     }
@@ -1825,7 +1843,29 @@ function findNearestCCs(dept, maxKm = 200, cityLat = null, cityLng = null) {
 function findCCForDept(dept) {
   return findNearestCCs(dept);
 }
-
+// ============================================================
+// findNearestGarages — Requête Supabase RPC (v6.3)
+// Trouve les garages partenaires les plus proches d'un point GPS
+// ============================================================
+async function findNearestGarages(supabase, refLat, refLng, maxKm = 80, maxResults = 3) {
+  if (!supabase || !refLat || !refLng) return [];
+  try {
+    const { data, error } = await supabase.rpc("find_nearest_garages", {
+      ref_lat: refLat,
+      ref_lng: refLng,
+      max_km: maxKm,
+      max_results: maxResults,
+    });
+    if (error) {
+      console.warn("⚠️ findNearestGarages RPC error:", error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("⚠️ findNearestGarages error:", err.message);
+    return [];
+  }
+}
 // ============================================================
 // extractDeptFromInput — Détection département depuis input utilisateur
 // ============================================================
@@ -2112,11 +2152,16 @@ function detectDemontageFromHistory(history) {
 // buildLocationOrientationResponse — Orientation géographique GPS
 
 // ============================================================
-function buildLocationOrientationResponse(extracted, metier, ville, history) {
+// buildLocationOrientationResponse — v6.3 avec circuit Garage + CC
+// ============================================================
+async function await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history) {
   const dept = extractDeptFromInput(ville);
-  // Chercher les coords GPS de la ville pour un calcul de distance précis
   const villeNorm = (ville || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
   const cityGps = CITY_GPS[villeNorm] || CITY_GPS[villeNorm.replace(/ /g, "-")] || CITY_GPS[villeNorm.replace(/-/g, " ")] || null;
+
+  const refLat = cityGps?.lat || (dept && DEPT_CENTROIDS[dept]?.lat) || null;
+  const refLng = cityGps?.lng || (dept && DEPT_CENTROIDS[dept]?.lng) || null;
+
   const cc = dept ? findNearestCCs(dept, 200, cityGps?.lat || null, cityGps?.lng || null) : { equipped: [], depot: [], nearbyEquipped: [], closestCC: null, closestEquipped: null, closestDepot: null };
   const vehicleInfo = extracted?.marque ? `ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}` : "ton véhicule";
   let demontage = extracted?.demontage || null;
@@ -2125,14 +2170,28 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
   const villeDisplay = capitalizeVille(ville);
   const { prixCC, prixEnvoi, prixCCDetail, prixEnvoiDetail } = getPricing(extracted, metier);
   let replyClean = "";
-  let assignedCC = null; // CC principal attribué (pour logging centre_assignments)
+  let assignedCC = null;
+  let assignedGarage = null;
 
-  // Helper pour afficher la distance
   const distLabel = (cc) => cc.distance ? ` (~${cc.distance} km)` : "";
-  // Seuil : au-delà on ne mentionne pas le CC équipé (le réseau évolue)
   const MAX_EQUIPPED_MENTION_KM = 150;
 
+  // ============================================================
+  // RECHERCHE GARAGE PARTENAIRE (si demontage != self && != garage_own)
+  // ============================================================
+  let nearestGarages = [];
+  if (refLat && refLng && demontage !== "self" && demontage !== "garage_own") {
+    nearestGarages = await findNearestGarages(supabase, refLat, refLng, 80, 3);
+  }
+  const bestGarage = nearestGarages.length > 0 ? nearestGarages[0] : null;
+  const garageDistLabel = (g) => g.distance_km ? ` (~${g.distance_km} km)` : "";
+
+  // ============================================================
+  // RÉPONSES PAR CAS
+  // ============================================================
+
   if (demontage === "self") {
+    // --- Self removal : inchangé ---
     if (cc.equipped.length > 0) {
       const best = cc.equipped[0];
       assignedCC = { ...best, reason: "centre express local" };
@@ -2143,41 +2202,88 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
       const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
 
       if (closestDepotCC && equipMentionable && closestDepotCC.distance < nearestEquip.distance) {
-        // Dépôt plus proche que l'équipé, les 2 sont à distance raisonnable
         assignedCC = { ...closestDepotCC, reason: "depot plus proche que express" };
         replyClean = `OK, près de chez toi il y a le ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y laisses ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon, le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — là-bas c'est nettoyage sur place en 4h (${prixCCDetail}).\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
       } else if (equipMentionable) {
-        // Équipé à distance raisonnable
         assignedCC = { ...nearestEquip, reason: "centre express le plus proche" };
         replyClean = `Le Carter-Cash équipé le plus proche de chez toi c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}). Sinon, tu peux aussi déposer ton FAP dans n'importe quel Carter-Cash (point dépôt) : envoi 48-72h, ${prixEnvoi} port inclus.${closestDepotCC ? ` Le plus proche : ${closestDepotCC.name}${distLabel(closestDepotCC)}.` : ""}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
       } else if (closestDepotCC) {
-        // Pas d'équipé à proximité, mais un dépôt
         assignedCC = { ...closestDepotCC, reason: "depot standard le plus proche" };
         replyClean = `OK, le Carter-Cash le plus proche de chez toi c'est ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y déposes ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon tu peux aussi nous l'envoyer directement par transporteur (même tarif, même délai).\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
       } else {
         replyClean = `Pour ton secteur, la solution la plus simple c'est l'envoi direct : tu nous envoies ton FAP démonté par transporteur, on le nettoie et on te le retourne en 48-72h, ${prixEnvoi} port inclus. Tu veux qu'un expert Re-FAP t'envoie les détails ?`;
       }
     }
+
+  } else if (demontage === "garage_own") {
+    // --- Garage du client : inchangé ---
+    replyClean = `OK, ${villeDisplay}. On va préparer tout ça pour ton garagiste.\n\nUn expert Re-FAP va te rappeler pour :\n→ Répondre aux questions techniques que ton garagiste pourrait avoir\n→ Lui envoyer les infos sur le process et les tarifs\n→ Organiser l'envoi et le retour du FAP\n\nL'objectif c'est que ton garagiste soit à l'aise pour faire le job, même si c'est la première fois. Tu veux qu'on te rappelle ?`;
+
   } else if (demontage === "garage" || demontage === "garage_partner") {
-    const nearest = cc.closestEquipped || cc.nearbyEquipped?.[0];
-    const equipMentionable = nearest && nearest.distance <= MAX_EQUIPPED_MENTION_KM;
-    if (equipMentionable) {
-      assignedCC = { ...nearest, reason: "centre express garage" };
-      replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearest.name} (${nearest.city})${distLabel(nearest)} — nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z : démontage, envoi Re-FAP, remontage.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+    // ================================================================
+    // 🆕 v6.3 : CIRCUIT GARAGE PARTENAIRE + CC
+    // ================================================================
+    const nearestEquip = cc.closestEquipped || cc.nearbyEquipped?.[0];
+    const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
+    const closestDepotCC = cc.closestDepot || cc.depot?.[0];
+
+    if (bestGarage && equipMentionable) {
+      // 🏆 CAS IDÉAL : garage partenaire + CC équipé à proximité
+      assignedCC = { ...nearestEquip, reason: "circuit garage+express" };
+      assignedGarage = bestGarage;
+      const reseauTag = bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? bestGarage.reseau + " " : "";
+      replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${bestGarage.nom} (${reseauTag}${bestGarage.ville || ""})${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au Carter-Cash, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
+
+    } else if (bestGarage && closestDepotCC) {
+      // Garage partenaire + CC dépôt
+      assignedCC = { ...closestDepotCC, reason: "circuit garage+depot" };
+      assignedGarage = bestGarage;
+      const reseauTag = bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? bestGarage.reseau + " " : "";
+      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${bestGarage.nom} (${reseauTag}${bestGarage.ville || ""})${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage, envoi au centre Re-FAP, remontage.\n\nLe Carter-Cash le plus proche c'est ${closestDepotCC.name}${distLabel(closestDepotCC)} (point dépôt 48-72h). Le garage peut y déposer le FAP ou l'envoyer directement — on s'organise au mieux.\n\nCôté budget : 99€ (FAP seul) ou 149€ (FAP combiné) + frais de port et main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
+
+    } else if (bestGarage) {
+      // Garage partenaire sans CC proche
+      assignedGarage = bestGarage;
+      const reseauTag = bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? bestGarage.reseau + " " : "";
+      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${bestGarage.nom} (${reseauTag}${bestGarage.ville || ""})${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation.\n\nCôté budget : 99€ (FAP seul) ou 149€ (FAP combiné) + frais de port et main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge ?`;
+
+    } else if (equipMentionable) {
+      // Pas de garage trouvé mais CC équipé proche
+      assignedCC = { ...nearestEquip, reason: "centre express garage non trouve" };
+      replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+
     } else {
       replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est 99€ (FAP seul) ou 149€ (FAP avec catalyseur intégré), plus frais de port et main d'œuvre du garage.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
     }
-  } else if (demontage === "garage_own") {
-    replyClean = `OK, ${villeDisplay}. On va préparer tout ça pour ton garagiste.\n\nUn expert Re-FAP va te rappeler pour :\n→ Répondre aux questions techniques que ton garagiste pourrait avoir\n→ Lui envoyer les infos sur le process et les tarifs\n→ Organiser l'envoi et le retour du FAP\n\nL'objectif c'est que ton garagiste soit à l'aise pour faire le job, même si c'est la première fois. Tu veux qu'on te rappelle ?`;
+
   } else {
-    // Demontage inconnu : montrer la meilleure option locale
+    // ================================================================
+    // 🆕 v6.3 : DEMONTAGE INCONNU — Montrer garage + CC
+    // ================================================================
     const nearestEquip = cc.closestEquipped || cc.nearbyEquipped?.[0];
     const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
     const nearestDepot = cc.closestDepot || cc.depot?.[0];
 
-    if (equipMentionable && nearestEquip.distance <= 80) {
+    if (bestGarage && equipMentionable && nearestEquip.distance <= 80) {
+      // Garage + CC équipé proches
+      assignedCC = { ...nearestEquip, reason: "circuit garage+express auto" };
+      assignedGarage = bestGarage;
+      replyClean = `OK, ${villeDisplay}. Bonne nouvelle, on a un garage partenaire et un Carter-Cash équipé pas loin :\n\n🔧 ${bestGarage.nom}${garageDistLabel(bestGarage)} — pour le démontage/remontage\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail})\n\nSi tu préfères démonter toi-même, tu peux déposer le FAP directement au CC. Sinon le garage s'occupe de tout.\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
+
+    } else if (bestGarage && nearestDepot) {
+      // Garage + CC dépôt
+      assignedCC = { ...nearestDepot, reason: "circuit garage+depot auto" };
+      assignedGarage = bestGarage;
+      let equippedHint = "";
+      if (equipMentionable) {
+        equippedHint = `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en 4h (${prixCCDetail}).`;
+      }
+      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi : ${bestGarage.nom}${garageDistLabel(bestGarage)} qui peut gérer le démontage/remontage. Et le ${nearestDepot.name}${distLabel(nearestDepot)} pour le nettoyage (envoi 48-72h, ${prixEnvoi}).${equippedHint}\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
+
+    } else if (equipMentionable && nearestEquip.distance <= 80) {
       assignedCC = { ...nearestEquip, reason: "centre express proche" };
       replyClean = `OK, ${villeDisplay}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine Re-FAP pas loin : ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}. Si tu déposes ton FAP démonté, nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+
     } else if (nearestDepot) {
       assignedCC = { ...nearestDepot, reason: "depot standard le plus proche" };
       let equippedHint = "";
@@ -2185,6 +2291,7 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
         equippedHint = `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en 4h (${prixCCDetail}).`;
       }
       replyClean = `OK, ${villeDisplay}. Il y a le ${nearestDepot.name} (${nearestDepot.postal} ${nearestDepot.city})${distLabel(nearestDepot)} qui est un point dépôt (envoi 48-72h, ${prixEnvoi}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.${equippedHint}\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+
     } else {
       replyClean = `OK, ${villeDisplay}. On a des centres Carter-Cash et plus de 800 garages partenaires en France. Pour ${vehicleInfo}, le mieux c'est qu'un expert Re-FAP vérifie le centre le plus adapté près de chez toi et te confirme le prix exact. Tu veux qu'on te rappelle ?`;
     }
@@ -2193,7 +2300,6 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
   const data = { ...(extracted || DEFAULT_DATA), intention: "rdv", ville: villeDisplay || null, departement: dept || null, next_best_action: "proposer_devis" };
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
-  // Préparer l'objet assignment pour logging en DB
   const assignment = assignedCC ? {
     postal_code: assignedCC.postal,
     centre_type: assignedCC.equipped ? "EXPRESS" : "STANDARD",
@@ -2203,15 +2309,24 @@ function buildLocationOrientationResponse(extracted, metier, ville, history) {
     distance_km: assignedCC.distance || null,
   } : null;
 
+  // 🆕 v6.3 : Garage assignment
+  const garageAssignment = assignedGarage ? {
+    garage_partenaire_id: assignedGarage.id,
+    garage_name: assignedGarage.nom,
+    garage_reseau: assignedGarage.reseau,
+    garage_distance_km: assignedGarage.distance_km,
+  } : null;
+
   return {
-    replyClean, replyFull, extracted: data, assignment,
+    replyClean, replyFull, extracted: data,
+    assignment,
+    garageAssignment,
     suggested_replies: [
       { label: "✅ Oui, rappelez-moi", value: "oui je veux être rappelé" },
       { label: "Non merci", value: "non merci" },
     ],
   };
 }
-
 function buildClosingQuestion(extracted, metier) {
   const { prixText } = getPricing(extracted, metier);
   let vehicleInfo = "";
@@ -2541,8 +2656,8 @@ export default async function handler(req, res) {
       upsertEnrichment(supabase, conversationId, response.extracted, quickData, metier);
 
       // Log centre assignment si présent (fire-and-forget)
-      if (response.assignment) {
-        logCentreAssignment(supabase, conversationId, session_id, response.assignment).catch(e => console.error("Assignment log error:", e));
+     if (response.assignment || response.garageAssignment) {
+        logCentreAssignment(supabase, conversationId, session_id, response.assignment, response.garageAssignment).catch(e => console.error("Assignment log error:", e));
       }
 
       const result = { reply: response.replyClean, reply_full: response.replyFull, session_id, conversation_id: conversationId, extracted_data: response.extracted };
@@ -2590,7 +2705,7 @@ export default async function handler(req, res) {
             .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
             .replace(/[.!?]+$/, "").trim();
           if (!ville) ville = message.trim();
-          return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
+          return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history)));
         }
         return sendResponse(buildSolutionExplanation(lastExtracted, metier));
       }
@@ -2612,7 +2727,7 @@ export default async function handler(req, res) {
           .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
           .replace(/[.!?]+$/, "").trim();
         if (!ville) ville = message.trim();
-        return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
+        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
       }
       if (userSaysYes(message)) {
         const clarifyReply = "Pour t'orienter au mieux : tu as la possibilité de démonter le FAP toi-même, ou tu préfères qu'un garage s'occupe de tout (démontage + remontage) ?";
@@ -2636,7 +2751,7 @@ export default async function handler(req, res) {
           .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
           .replace(/[.!?]+$/, "").trim();
         if (!ville) ville = message.trim();
-        return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
+        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
       }
       return sendResponse(buildPartnerGarageResponse(lastExtracted, metier));
     }
@@ -2650,8 +2765,7 @@ export default async function handler(req, res) {
         .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
         .replace(/[.!?]+$/, "").trim();
       if (!ville) ville = message.trim();
-      return sendResponse(buildLocationOrientationResponse(lastExtracted, metier, ville, history));
-    }
+      return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history)
 
     // ========================================
     // OVERRIDE 2 : NON → Poli
@@ -2944,4 +3058,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
