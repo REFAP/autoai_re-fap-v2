@@ -1,6 +1,6 @@
 // /pages/api/admin/magasins.js
 // Dashboard API — Magasins Re-FAP
-// v3.0 — Ajout orientations garages partenaires + stats par réseau
+// v3.1 — Fix: garage+CC comptés indépendamment (plus de if/else exclusif)
 import { createClient } from "@supabase/supabase-js";
 
 function getSupabase() {
@@ -79,8 +79,11 @@ export default async function handler(req, res) {
     const garageStats = {};
     let totalGarageOrientations = 0;
 
+    // v3.1 — Deux if indépendants : un assignment peut compter dans garage ET dans CC
     for (const a of assignments || []) {
-      if (a.centre_type_assigned === "GARAGE" && a.garage_partenaire_id) {
+
+      // Garage — compter si garage_partenaire_id présent (quel que soit centre_type)
+      if (a.garage_partenaire_id) {
         totalGarageOrientations++;
         const g = garageMap[a.garage_partenaire_id];
         const gId = a.garage_partenaire_id;
@@ -94,20 +97,29 @@ export default async function handler(req, res) {
           };
         }
         garageStats[gId].orientations++;
-        if (a.operator_name) garageStats[gId].operators[a.operator_name] = (garageStats[gId].operators[a.operator_name] || 0) + 1;
-      } else if (a.assigned_centre_id) {
+        if (a.operator_name) {
+          garageStats[gId].operators[a.operator_name] = (garageStats[gId].operators[a.operator_name] || 0) + 1;
+        }
+      }
+
+      // CC — compter si assigned_centre_id présent (peut être EN PLUS d'un garage)
+      if (a.assigned_centre_id) {
         const m = ensureMagasin(a.assigned_centre_id);
-        if (!m) continue;
-        m.assignments++;
-        if (a.distance_km) m.distances.push(parseFloat(a.distance_km));
-        const r = a.reason || "inconnu";
-        m.reasons[r] = (m.reasons[r] || 0) + 1;
-        const src = a.assigned_by || "UNKNOWN";
-        m.by_source[src] = (m.by_source[src] || 0) + 1;
-        if (a.operator_name) m.operators[a.operator_name] = (m.operators[a.operator_name] || 0) + 1;
+        if (m) {
+          m.assignments++;
+          if (a.distance_km) m.distances.push(parseFloat(a.distance_km));
+          const r = a.reason || "inconnu";
+          m.reasons[r] = (m.reasons[r] || 0) + 1;
+          const src = a.assigned_by || "UNKNOWN";
+          m.by_source[src] = (m.by_source[src] || 0) + 1;
+          if (a.operator_name) {
+            m.operators[a.operator_name] = (m.operators[a.operator_name] || 0) + 1;
+          }
+        }
       }
     }
 
+    // CRM Leads
     for (const l of crmLeads || []) {
       const m = l.assigned_centre_id ? ensureMagasin(l.assigned_centre_id) : null;
       if (!m) continue;
@@ -116,11 +128,15 @@ export default async function handler(req, res) {
       if (l.utm_source === "meta") m.leads_meta++;
     }
 
+    // Distance moyenne
     for (const s of Object.values(magasinStats)) {
-      if (s.distances.length > 0) s.avg_distance_km = Math.round(s.distances.reduce((a, b) => a + b, 0) / s.distances.length);
+      if (s.distances.length > 0) {
+        s.avg_distance_km = Math.round(s.distances.reduce((a, b) => a + b, 0) / s.distances.length);
+      }
       delete s.distances;
     }
 
+    // Prestations
     const prestaByStore = {};
     for (const p of prestations || []) {
       if (!p.store_code) continue;
@@ -135,37 +151,59 @@ export default async function handler(req, res) {
       if (m.store_code && prestaByStore[m.store_code]) m.prestations = prestaByStore[m.store_code];
     }
 
+    // Top garages
     const topGarages = Object.values(garageStats).sort((a, b) => b.orientations - a.orientations);
     const garageByReseau = {};
-    for (const g of topGarages) garageByReseau[g.reseau] = (garageByReseau[g.reseau] || 0) + g.orientations;
+    for (const g of topGarages) {
+      garageByReseau[g.reseau] = (garageByReseau[g.reseau] || 0) + g.orientations;
+    }
 
-    const ccAssignments = (assignments || []).filter(a => a.centre_type_assigned !== "GARAGE");
-    const equipeCount = ccAssignments.filter(a => centreMap[a.assigned_centre_id]?.centre_type === "EXPRESS").length;
-    const depotCount = ccAssignments.length - equipeCount;
+    // KPIs globaux
+    const equipeCount = (assignments || []).filter(a => a.assigned_centre_id && centreMap[a.assigned_centre_id]?.centre_type === "EXPRESS").length;
+    const depotCount = (assignments || []).filter(a => a.assigned_centre_id && centreMap[a.assigned_centre_id]?.centre_type !== "EXPRESS").length;
     const globalBySource = {};
-    for (const a of ccAssignments) { const src = a.assigned_by || "UNKNOWN"; globalBySource[src] = (globalBySource[src] || 0) + 1; }
+    for (const a of assignments || []) {
+      if (a.assigned_centre_id) {
+        const src = a.assigned_by || "UNKNOWN";
+        globalBySource[src] = (globalBySource[src] || 0) + 1;
+      }
+    }
 
     const kpis = {
       period_days: days,
-      total_assignments: ccAssignments.length,
+      total_assignments: equipeCount + depotCount,
       total_garage_orientations: totalGarageOrientations,
       total_all: (assignments || []).length,
       total_conversations: convCount || 0,
       total_leads: (crmLeads || []).length,
       leads_chatbot: (crmLeads || []).filter(l => l.chatbot_cid).length,
       leads_meta: (crmLeads || []).filter(l => l.utm_source === "meta").length,
-      equipe: equipeCount, depot: depotCount,
-      taux_orientation: convCount > 0 ? Math.round(100 * ccAssignments.length / convCount) : 0,
+      equipe: equipeCount,
+      depot: depotCount,
+      taux_orientation: convCount > 0 ? Math.round(100 * (equipeCount + depotCount) / convCount) : 0,
       by_source: globalBySource,
       garage_by_reseau: garageByReseau,
       total_garages_db: (garages || []).length,
     };
 
+    // Mode CC
     if (mode === "cc") {
       return res.status(200).json({
         mode: "cc",
-        kpis: { period_days: kpis.period_days, total_assignments: kpis.total_assignments, total_leads: kpis.total_leads, equipe: kpis.equipe, depot: kpis.depot, by_source: kpis.by_source },
-        magasins: topMagasins.map(m => ({ name: m.name, city: m.city, type: m.type, assignments: m.assignments, leads: m.leads, by_source: m.by_source, prestations: m.prestations || null })),
+        kpis: {
+          period_days: kpis.period_days,
+          total_assignments: kpis.total_assignments,
+          total_leads: kpis.total_leads,
+          equipe: kpis.equipe,
+          depot: kpis.depot,
+          by_source: kpis.by_source,
+        },
+        magasins: topMagasins.map(m => ({
+          name: m.name, city: m.city, type: m.type,
+          assignments: m.assignments, leads: m.leads,
+          by_source: m.by_source,
+          prestations: m.prestations || null,
+        })),
       });
     }
 
