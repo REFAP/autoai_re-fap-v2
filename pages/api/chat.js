@@ -2220,7 +2220,7 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
     replyClean = `OK, ${villeDisplay}. On va préparer tout ça pour ton garagiste.\n\nUn expert Re-FAP va te rappeler pour :\n→ Répondre aux questions techniques que ton garagiste pourrait avoir\n→ Lui envoyer les infos sur le process et les tarifs\n→ Organiser l'envoi et le retour du FAP\n\nL'objectif c'est que ton garagiste soit à l'aise pour faire le job, même si c'est la première fois. Tu veux qu'on te rappelle ?`;
 
   } else if (demontage === "garage" || demontage === "garage_partner") {
-    // ================================================================
+  // ================================================================
     // 🆕 v6.3 : CIRCUIT GARAGE PARTENAIRE + CC
     // ================================================================
     const nearestEquip = cc.closestEquipped || cc.nearbyEquipped?.[0];
@@ -2231,21 +2231,27 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
       // 🏆 CAS IDÉAL : garage partenaire + CC équipé à proximité
       assignedCC = { ...nearestEquip, reason: "circuit garage+express" };
       assignedGarage = bestGarage;
-      const reseauTag = bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? bestGarage.reseau + " " : "";
-      replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${bestGarage.nom} (${reseauTag}${bestGarage.ville || ""})${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au Carter-Cash, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
+      const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
+      const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
+      const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
+      replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au Carter-Cash, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
 
     } else if (bestGarage && closestDepotCC) {
       // Garage partenaire + CC dépôt
       assignedCC = { ...closestDepotCC, reason: "circuit garage+depot" };
       assignedGarage = bestGarage;
-      const reseauTag = bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? bestGarage.reseau + " " : "";
-      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${bestGarage.nom} (${reseauTag}${bestGarage.ville || ""})${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage, envoi au centre Re-FAP, remontage.\n\nLe Carter-Cash le plus proche c'est ${closestDepotCC.name}${distLabel(closestDepotCC)} (point dépôt 48-72h). Le garage peut y déposer le FAP ou l'envoyer directement — on s'organise au mieux.\n\nCôté budget : 99€ (FAP seul) ou 149€ (FAP combiné) + frais de port et main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
+      const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
+      const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
+      const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
+      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage, envoi au centre Re-FAP, remontage.\n\nLe Carter-Cash le plus proche c'est ${closestDepotCC.name}${distLabel(closestDepotCC)} (point dépôt 48-72h). Le garage peut y déposer le FAP ou l'envoyer directement — on s'organise au mieux.\n\nCôté budget : 99€ (FAP seul) ou 149€ (FAP combiné) + frais de port et main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
 
     } else if (bestGarage) {
       // Garage partenaire sans CC proche
       assignedGarage = bestGarage;
-      const reseauTag = bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? bestGarage.reseau + " " : "";
-      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${bestGarage.nom} (${reseauTag}${bestGarage.ville || ""})${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation.\n\nCôté budget : 99€ (FAP seul) ou 149€ (FAP combiné) + frais de port et main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge ?`;
+      const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
+      const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
+      const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
+      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation.\n\nCôté budget : 99€ (FAP seul) ou 149€ (FAP combiné) + frais de port et main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge ?`;
 
     } else if (equipMentionable) {
       // Pas de garage trouvé mais CC équipé proche
@@ -3058,6 +3064,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
