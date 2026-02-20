@@ -2065,7 +2065,7 @@ function buildSolutionExplanation(extracted, metier) {
     replyClean, replyFull, extracted: data,
     suggested_replies: [
       { label: "🔧 Je peux le démonter", value: "je le demonte moi-meme" },
-      { label: "🏭 Un garage s'en occupe", value: "j'ai besoin d'un garage" },
+      { label: "🏭 j'ai besoin d'un garage", value: "j'ai besoin d'un garage" },
       { label: "📦 Il est déjà démonté", value: "il est deja demonte" },
     ],
   };
@@ -3064,6 +3064,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
