@@ -2766,7 +2766,7 @@ export default async function handler(req, res) {
         .replace(/[.!?]+$/, "").trim();
       if (!ville) ville = message.trim();
       return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
-
+   }
     // ========================================
     // OVERRIDE 2 : NON → Poli
     // ========================================
@@ -3058,6 +3058,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
