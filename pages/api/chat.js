@@ -2154,7 +2154,7 @@ function detectDemontageFromHistory(history) {
 // ============================================================
 // buildLocationOrientationResponse — v6.3 avec circuit Garage + CC
 // ============================================================
-async function buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history) {
+async function buildLocationOrientationResponse(supabase, extracted, metier, ville, history) {
   const dept = extractDeptFromInput(ville);
   const villeNorm = (ville || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
   const cityGps = CITY_GPS[villeNorm] || CITY_GPS[villeNorm.replace(/ /g, "-")] || CITY_GPS[villeNorm.replace(/-/g, " ")] || null;
@@ -3058,6 +3058,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
