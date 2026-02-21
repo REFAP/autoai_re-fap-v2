@@ -1934,12 +1934,36 @@ function capitalizeVille(ville) {
 
 function looksLikeCityAnswer(message) {
   const t = String(message || "").trim();
-  if (t.length < 50) return true;
+
+  // Rejet immédiat : trop long (phrase, explication, question)
+  if (t.length > 30) return false;
+
+  // Rejet : insultes
+  if (userIsInsulting(t)) return false;
+
+  // Rejet : mots de confirmation/négation courants (réponses OUI/NON)
+  if (/^(ok|oui|ouais|ouep|yep|yes|non|nan|nope|merci|super|parfait|cool|allez|bien|bof|voila|voilà|pas|rien|jamais)$/i.test(t)) return false;
+
+  // Rejet : contient un verbe conjugué → phrase, pas une ville
+  if (/\b(suis|habite|vis|trouve|peux|veux|vais|fait|faut|sait|connais|cherche|comprends|ai|as|est|sont|ont)\b/i.test(t)) return false;
+
+  // Rejet : question
+  if (t.includes("?")) return false;
+
+  // Rejet : négation
+  if (/\b(non|nan|pas|jamais|rien|ne )\b/i.test(t)) return false;
+
+  // Accepté : code postal seul ou avec ville
   if (/\b\d{5}\b/.test(t)) return true;
-  if (/\bje suis [àa]\b|\bj.habite\b|\bj.suis [àa]\b|\bje vis [àa]\b|\bdans le \d{2}\b|\bdepartement\b|\bprès de\b|\bpres de\b|\brégion\b|\bsecteur\b|\bquel coin\b/i.test(t)) return true;
+
+  // Accepté : département seul (2 chiffres)
+  if (/^\d{2}$/.test(t)) return true;
+
+  // Accepté : ressemble à un nom de ville (lettres, tirets, espaces)
+  if (/^[a-zA-ZÀ-ÿ\-]{2,}(\s+[a-zA-ZÀ-ÿ\-]+)*(\s+\d{5})?$/.test(t)) return true;
+
   return false;
 }
-
 // ============================================================
 // EXPERT ORIENTATION + RESPONSES
 // ============================================================
@@ -2694,26 +2718,31 @@ export default async function handler(req, res) {
       return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: `https://auto.re-fap.fr/?cid=${conversationId}#devis` });
     }
 
-    // ========================================
+  // ========================================
     // OVERRIDE 1a : Question diagnostic ("tu veux que je te détaille ?")
     // ========================================
     if (lastAssistantAskedSolutionExplanation(history)) {
+      if (userIsInsulting(message)) {
+        return sendResponse(buildInsultResponse(lastExtracted));
+      }
       if (userSaysNo(message)) {
         // Géré par Override 2
       } else if (userSaysSelfRemoval(message)) {
         return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
       } else if (userNeedsGarage(message)) {
         return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
-      } else {
-        const deptTestSolExpl = looksLikeCityAnswer(message) ? extractDeptFromInput(message) : null;
-        if (deptTestSolExpl) {
-          let ville = message.trim()
-            .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
-            .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
-            .replace(/[.!?]+$/, "").trim();
-          if (!ville) ville = message.trim();
+      } else if (looksLikeCityAnswer(message)) {
+        const dept = extractDeptFromInput(message);
+        if (dept) {
+          const ville = cleanVilleInput(message);
           return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
         }
+        // Ville non reconnue → demander département
+        const replyClean = "Je n'arrive pas à localiser ça. Tu peux me donner le code postal ou le numéro de département ?";
+        const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      } else {
         return sendResponse(buildSolutionExplanation(lastExtracted, metier));
       }
     }
@@ -2763,17 +2792,30 @@ export default async function handler(req, res) {
       return sendResponse(buildPartnerGarageResponse(lastExtracted, metier));
     }
 
-    // ========================================
+  // ========================================
     // OVERRIDE 1c : Ville donnée → orientation concrète
     // ========================================
     if (lastAssistantAskedCity(history) && !userSaysYes(message) && !userSaysNo(message) && message.length > 1) {
-      let ville = message.trim()
-        .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
-        .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
-        .replace(/[.!?]+$/, "").trim();
-      if (!ville) ville = message.trim();
+      if (userIsInsulting(message)) {
+        return sendResponse(buildInsultResponse(lastExtracted));
+      }
+      if (!looksLikeCityAnswer(message)) {
+        const replyClean = "Je n'ai pas bien saisi. Tu es dans quelle ville ou quel département ?";
+        const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      }
+      const dept = extractDeptFromInput(message);
+      if (!dept) {
+        const replyClean = "Je n'arrive pas à localiser ça. Tu peux me donner le code postal ou le numéro de département ?";
+        const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      }
+      const ville = cleanVilleInput(message);
       return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
-   }
+    }
+
     // ========================================
     // OVERRIDE 2 : NON → Poli
     // ========================================
@@ -2794,7 +2836,6 @@ export default async function handler(req, res) {
     if (quickData.intention === "prix" && !everAskedClosing(history)) {
       return sendResponse(buildPriceDirectResponse(lastExtracted, metier));
     }
-
     // ========================================
     // OVERRIDE 4b : "Autre marque"
     // ========================================
@@ -3065,6 +3106,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
