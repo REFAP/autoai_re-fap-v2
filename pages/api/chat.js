@@ -2228,7 +2228,7 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
     const closestDepotCC = cc.closestDepot || cc.depot?.[0];
 
     if (bestGarage && equipMentionable) {
-      // 🏆 CAS IDÉAL : garage partenaire + CC équipé à proximité
+      // 🏆 CAS IDÉAL : garage partenaire + CC équipé → tarif machine sur place
       assignedCC = { ...nearestEquip, reason: "circuit garage+express" };
       assignedGarage = bestGarage;
       const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
@@ -2237,29 +2237,30 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
       replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au Carter-Cash, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
 
     } else if (bestGarage && closestDepotCC) {
-      // Garage partenaire + CC dépôt
+      // Garage partenaire + CC dépôt → FAP envoyé au centre, tarif envoi
       assignedCC = { ...closestDepotCC, reason: "circuit garage+depot" };
       assignedGarage = bestGarage;
       const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
       const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
       const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
-      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage, envoi au centre Re-FAP, remontage.\n\nLe Carter-Cash le plus proche c'est ${closestDepotCC.name}${distLabel(closestDepotCC)} (point dépôt 48-72h). Le garage peut y déposer le FAP ou l'envoyer directement — on s'organise au mieux.\n\nCôté budget : 99€ (FAP seul) ou 149€ (FAP combiné) + frais de port et main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
+      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage, envoi au centre Re-FAP, remontage.\n\nLe Carter-Cash le plus proche c'est ${closestDepotCC.name}${distLabel(closestDepotCC)} (point dépôt 48-72h). Le garage peut y déposer le FAP ou l'envoyer directement — on s'organise au mieux.\n\nCôté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
 
     } else if (bestGarage) {
-      // Garage partenaire sans CC proche
+      // Garage partenaire sans CC proche → envoi direct au centre
       assignedGarage = bestGarage;
       const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
       const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
       const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
-      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation.\n\nCôté budget : 99€ (FAP seul) ou 149€ (FAP combiné) + frais de port et main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge ?`;
+      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation.\n\nCôté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge ?`;
 
     } else if (equipMentionable) {
-      // Pas de garage trouvé mais CC équipé proche
+      // Pas de garage trouvé mais CC équipé proche → tarif machine sur place
       assignedCC = { ...nearestEquip, reason: "centre express garage non trouve" };
       replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
 
     } else {
-      replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Le nettoyage c'est 99€ (FAP seul) ou 149€ (FAP avec catalyseur intégré), plus frais de port et main d'œuvre du garage.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
+      // Fallback total → envoi direct
+      replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Côté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
     }
 
   } else {
@@ -3064,6 +3065,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
