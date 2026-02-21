@@ -2,16 +2,65 @@
  * InlineChatForm.jsx — Formulaire inline chatbot Re-FAP
  * POST vers /api/lead-chatbot (même domaine Vercel = pas de CORS)
  * L'API Vercel forward vers WordPress côté serveur
+ *
+ * v2.1.0 — Ajout tracking source_page / UTM / referrer
+ * via window.rfapGetTrackingData() exposé par WPCode sur re-fap.fr
+ * Si le visiteur vient directement sur auto.re-fap.fr,
+ * on lit les params UTM depuis l'URL courante en fallback.
  */
 
 import { useState } from 'react';
 
+/**
+ * Lit les données de tracking depuis :
+ * 1. window.rfapGetTrackingData() si dispo (visiteur venant de re-fap.fr)
+ * 2. URLSearchParams de l'URL courante en fallback (lien direct avec UTMs)
+ * 3. Valeurs vides sinon
+ */
+function getTrackingData() {
+  // Cas 1 : visiteur venant de re-fap.fr via le snippet WPCode
+  if (typeof window !== 'undefined' && typeof window.rfapGetTrackingData === 'function') {
+    try {
+      return window.rfapGetTrackingData();
+    } catch (e) {
+      // silencieux, on passe au fallback
+    }
+  }
+
+  // Cas 2 : fallback — lecture des params dans l'URL courante
+  // Utilisé quand le chatbot est ouvert via un lien direct avec UTMs
+  // ex: auto.re-fap.fr/?source_page=p2002&utm_source=google
+  if (typeof window !== 'undefined') {
+    var params = new URLSearchParams(window.location.search);
+    return {
+      source_page:   params.get('source_page')   || 'chatbot-direct',
+      source_url:    window.location.href,
+      referrer:      document.referrer || '',
+      utm_source:    params.get('utm_source')    || '',
+      utm_medium:    params.get('utm_medium')    || '',
+      utm_campaign:  params.get('utm_campaign')  || '',
+      utm_content:   params.get('utm_content')   || '',
+    };
+  }
+
+  // Cas 3 : SSR / aucune donnée disponible
+  return {
+    source_page:  'chatbot-direct',
+    source_url:   '',
+    referrer:     '',
+    utm_source:   '',
+    utm_medium:   '',
+    utm_campaign: '',
+    utm_content:  '',
+  };
+}
+
 export default function InlineChatForm({ conversationId, conversationData, onSuccess }) {
-  const [prenom, setPrenom] = useState('');
+  const [prenom, setPrenom]       = useState('');
   const [telephone, setTelephone] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]     = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]         = useState('');
 
   const handleSubmit = async () => {
     setError('');
@@ -28,21 +77,38 @@ export default function InlineChatForm({ conversationId, conversationData, onSuc
 
     setLoading(true);
 
+    // Récupère les données de tracking au moment du submit
+    var tracking = getTrackingData();
+
     try {
       var res = await fetch('/api/lead-chatbot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prenom: prenom.trim(),
-          telephone: cleanPhone,
-          chatbot_cid: conversationId || '',
-          vehicule: conversationData?.vehicule || '',
-          symptomes: Array.isArray(conversationData?.symptome) ? conversationData.symptome.join(', ') : (conversationData?.symptome || ''),
-          km: conversationData?.km || '',
-          codes: Array.isArray(conversationData?.codes) ? conversationData.codes.join(', ') : (conversationData?.codes || ''),
-          ville: conversationData?.ville || '',
-          code_postal: conversationData?.code_postal || '',
+          // Données contact
+          prenom:        prenom.trim(),
+          telephone:     cleanPhone,
+          chatbot_cid:   conversationId || '',
+          // Données véhicule / diagnostic
+          vehicule:      conversationData?.vehicule    || '',
+          symptomes:     Array.isArray(conversationData?.symptome)
+                           ? conversationData.symptome.join(', ')
+                           : (conversationData?.symptome || ''),
+          km:            conversationData?.km          || '',
+          codes:         Array.isArray(conversationData?.codes)
+                           ? conversationData.codes.join(', ')
+                           : (conversationData?.codes  || ''),
+          ville:         conversationData?.ville       || '',
+          code_postal:   conversationData?.code_postal || '',
           centre_proche: conversationData?.centre_proche || '',
+          // ↓ Tracking v2.1.0
+          source_page:   tracking.source_page,
+          source_url:    tracking.source_url,
+          referrer:      tracking.referrer,
+          utm_source:    tracking.utm_source,
+          utm_medium:    tracking.utm_medium,
+          utm_campaign:  tracking.utm_campaign,
+          utm_content:   tracking.utm_content,
         }),
       });
 
@@ -108,7 +174,9 @@ export default function InlineChatForm({ conversationId, conversationData, onSuc
             inputMode="tel"
           />
 
-          {error && <div style={{ color: '#dc2626', fontSize: '13px', padding: '4px 0' }}>{error}</div>}
+          {error && (
+            <div style={{ color: '#dc2626', fontSize: '13px', padding: '4px 0' }}>{error}</div>
+          )}
 
           <button
             type="button"
@@ -140,9 +208,9 @@ export default function InlineChatForm({ conversationId, conversationData, onSuc
 }
 
 var styles = {
-  container: { padding: '8px 0', width: '100%', maxWidth: '340px' },
-  formBox: { background: '#ffffff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
-  input: { width: '100%', padding: '10px 12px', fontSize: '15px', border: '1.5px solid #d1d5db', borderRadius: '8px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#1a1a1a', background: '#fafafa' },
-  callLink: { display: 'block', textAlign: 'center', fontSize: '13px', fontWeight: '600', color: '#2563eb', textDecoration: 'none', padding: '8px', borderRadius: '8px', background: '#eff6ff', border: '1px solid #dbeafe' },
+  container:  { padding: '8px 0', width: '100%', maxWidth: '340px' },
+  formBox:    { background: '#ffffff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' },
+  input:      { width: '100%', padding: '10px 12px', fontSize: '15px', border: '1.5px solid #d1d5db', borderRadius: '8px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#1a1a1a', background: '#fafafa' },
+  callLink:   { display: 'block', textAlign: 'center', fontSize: '13px', fontWeight: '600', color: '#2563eb', textDecoration: 'none', padding: '8px', borderRadius: '8px', background: '#eff6ff', border: '1px solid #dbeafe' },
   successBox: { background: '#f0fdf4', borderRadius: '12px', padding: '16px', textAlign: 'center', border: '1px solid #bbf7d0' },
 };
