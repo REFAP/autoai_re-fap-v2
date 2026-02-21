@@ -2436,10 +2436,18 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
       replyClean = `OK, ${villeDisplay}. On a des centres Carter-Cash et plus de 800 garages partenaires en France. Pour ${vehicleInfo}, le mieux c'est qu'un expert Re-FAP vérifie le centre le plus adapté près de chez toi et te confirme le prix exact. Tu veux qu'on te rappelle ?`;
     }
   }
-
-  const data = { ...(extracted || DEFAULT_DATA), intention: "rdv", ville: villeDisplay || null, departement: dept || null, next_best_action: "proposer_devis" };
+const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "rdv",
+    ville: villeDisplay || null,
+    departement: dept || null,
+    next_best_action: "proposer_devis",
+    // 🆕 centre_proche pour le récap buildFormCTA
+    centre_proche: assignedCC?.isRefapCenter
+      ? "Re-FAP Clermont-Ferrand"
+      : assignedCC?.name ? `Carter-Cash ${assignedCC.city}` : null,
+  };
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-
   // 🆕 centre_type inclut REFAP_CENTER
   const assignment = assignedCC ? {
     postal_code: assignedCC.postal,
@@ -2537,7 +2545,56 @@ function buildPreviousAttemptsQuestion(extracted, metier) {
 
 function buildFormCTA(extracted) {
   const data = { ...(extracted || DEFAULT_DATA), intention: "rdv", next_best_action: "clore" };
-  const replyClean = `Parfait ! Laisse tes coordonnées et un expert Re-FAP te rappelle rapidement pour t'orienter vers la meilleure solution près de chez toi.`;
+
+  // 🆕 Bloc récap dynamique
+  const lines = ["📋 Résumé de ta situation :\n"];
+
+  if (extracted?.marque) {
+    const vehicule = `${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}`;
+    lines.push(`🚗 Véhicule : ${vehicule}`);
+  }
+  if (extracted?.symptome && extracted.symptome !== "inconnu") {
+    const symptomeLabels = {
+      voyant_fap: "Voyant FAP allumé",
+      voyant_fap_puissance: "Voyant FAP + perte de puissance",
+      perte_puissance: "Perte de puissance",
+      fumee_noire: "Fumée noire",
+      fumee_blanche: "Fumée blanche",
+      ct_refuse: "Contrôle technique refusé",
+      regeneration_echec: "Régénération en échec",
+    };
+    const label = symptomeLabels[extracted.symptome] || extracted.symptome;
+    lines.push(`⚠️ Symptôme : ${label}`);
+  }
+  if (extracted?.kilometrage) {
+    lines.push(`📏 Kilométrage : ${extracted.kilometrage}`);
+  }
+  if (extracted?.codes?.length > 0) {
+    lines.push(`🔍 Code(s) défaut : ${extracted.codes.join(", ")}`);
+  }
+  if (extracted?.ville) {
+    lines.push(`📍 Localisation : ${extracted.ville}`);
+  }
+  if (extracted?.centre_proche) {
+    lines.push(`🔧 Solution : Nettoyage sur place — ${extracted.centre_proche}`);
+  } else if (extracted?.demontage === "self") {
+    lines.push(`🔧 Solution : Dépôt FAP démonté — Carter-Cash le plus proche`);
+  } else if (["garage_own", "garage_partner", "garage"].includes(extracted?.demontage)) {
+    lines.push(`🔧 Solution : Prise en charge complète par garage partenaire`);
+  } else {
+    lines.push(`🔧 Solution : Nettoyage Re-FAP — orientation à confirmer`);
+  }
+  if (extracted?.departement === "63" || extracted?.ville?.toLowerCase().includes("clermont")) {
+    lines.push(`💶 Tarif estimé : 99€ (DV6) ou 149€ (FAP combiné) + main d'œuvre`);
+  } else if (extracted?.demontage === "self" || extracted?.centre_proche) {
+    lines.push(`💶 Tarif estimé : 99€ (FAP seul) ou 149€ (FAP combiné avec catalyseur)`);
+  } else {
+    lines.push(`💶 Tarif estimé : 199€ TTC port A/R inclus`);
+  }
+
+  lines.push("\nUn expert Re-FAP te rappelle pour confirmer et organiser la prise en charge.");
+
+  const replyClean = lines.join("\n");
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
@@ -3249,6 +3306,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
