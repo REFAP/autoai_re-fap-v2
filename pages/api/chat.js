@@ -2339,19 +2339,17 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
     const closestDepotCC = cc.closestDepot || cc.depot?.[0];
 
     if (bestGarage && equipMentionable) {
-      // 🏆 CAS IDÉAL : garage partenaire + centre équipé proche
       assignedCC = { ...nearestEquip, reason: "circuit garage+express" };
       assignedGarage = bestGarage;
-      const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
-      const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
-      const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
-      // 🆕 Re-FAP Clermont comme centre équipé
+      // 🆕 Re-FAP Clermont : centre full-service, pas besoin de garage partenaire
       if (nearestEquip.isRefapCenter) {
-        replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 Re-FAP Clermont-Ferrand${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au centre Re-FAP, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
+        replyClean = `OK, ${villeDisplay}. Bonne nouvelle, le centre Re-FAP est directement à ${nearestEquip.city} et s'occupe de tout !\n\n${buildRefapCenterBlock(nearestEquip, demontage)}\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
       } else {
+        const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
+        const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
+        const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
         replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au Carter-Cash, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
       }
-
     } else if (bestGarage && closestDepotCC) {
       // Garage partenaire + CC dépôt → tarif envoi
       assignedCC = { ...closestDepotCC, reason: "circuit garage+depot" };
@@ -3251,6 +3249,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
