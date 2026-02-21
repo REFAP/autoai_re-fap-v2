@@ -2734,6 +2734,13 @@ export default async function handler(req, res) {
       return res.status(200).json(result);
     }
 
+ // ========================================
+    // OVERRIDE 0a : INSULTE → Réponse calme
+    // ========================================
+    if (userIsInsulting(message)) {
+      return sendResponse(buildInsultResponse(lastExtracted));
+    }
+
     // ========================================
     // OVERRIDE 0 : OFF-TOPIC
     // ========================================
@@ -2755,7 +2762,7 @@ export default async function handler(req, res) {
       return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: `https://auto.re-fap.fr/?cid=${conversationId}#devis` });
     }
 
-  // ========================================
+    // ========================================
     // OVERRIDE 1a : Question diagnostic ("tu veux que je te détaille ?")
     // ========================================
     if (lastAssistantAskedSolutionExplanation(history)) {
@@ -2774,7 +2781,6 @@ export default async function handler(req, res) {
           const ville = cleanVilleInput(message);
           return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
         }
-        // Ville non reconnue → demander département
         const replyClean = "Je n'arrive pas à localiser ça. Tu peux me donner le code postal ou le numéro de département ?";
         const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
         const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
@@ -2788,19 +2794,24 @@ export default async function handler(req, res) {
     // OVERRIDE 1b : Démontage → self/garage
     // ========================================
     if (lastAssistantAskedDemontage(history)) {
+      if (userIsInsulting(message)) {
+        return sendResponse(buildInsultResponse(lastExtracted));
+      }
       if (userSaysSelfRemoval(message)) {
         return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
       } else if (userNeedsGarage(message) || userSaysNo(message)) {
         return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
       }
-      const deptTest = looksLikeCityAnswer(message) ? extractDeptFromInput(message) : null;
-      if (deptTest) {
-        let ville = message.trim()
-          .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
-          .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
-          .replace(/[.!?]+$/, "").trim();
-        if (!ville) ville = message.trim();
-        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
+      if (looksLikeCityAnswer(message)) {
+        const dept = extractDeptFromInput(message);
+        if (dept) {
+          const ville = cleanVilleInput(message);
+          return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
+        }
+        const replyClean = "Je n'arrive pas à localiser ça. Tu peux me donner le code postal ou le numéro de département ?";
+        const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
       }
       if (userSaysYes(message)) {
         const clarifyReply = "Pour t'orienter au mieux : tu as la possibilité de démonter le FAP toi-même, ou tu préfères qu'un garage s'occupe de tout (démontage + remontage) ?";
@@ -2815,21 +2826,26 @@ export default async function handler(req, res) {
     // OVERRIDE 1b2 : Type garage (partenaire vs habituel)
     // ========================================
     if (lastAssistantAskedGarageType(history)) {
+      if (userIsInsulting(message)) {
+        return sendResponse(buildInsultResponse(lastExtracted));
+      }
       if (userHasOwnGarage(message)) return sendResponse(buildOwnGarageResponse(lastExtracted, metier));
       if (userWantsPartnerGarage(message)) return sendResponse(buildPartnerGarageResponse(lastExtracted, metier));
-      const deptTestGarage = looksLikeCityAnswer(message) ? extractDeptFromInput(message) : null;
-      if (deptTestGarage) {
-        let ville = message.trim()
-          .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |on est |nous sommes |moi c'est |c'est )(à |a |au |en |sur |dans le |près de |pres de |vers )?/i, "")
-          .replace(/^(à |a |au |en |sur |dans le |près de |pres de |vers )/i, "")
-          .replace(/[.!?]+$/, "").trim();
-        if (!ville) ville = message.trim();
-        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
+      if (looksLikeCityAnswer(message)) {
+        const dept = extractDeptFromInput(message);
+        if (dept) {
+          const ville = cleanVilleInput(message);
+          return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
+        }
+        const replyClean = "Je n'arrive pas à localiser ça. Tu peux me donner le code postal ou le numéro de département ?";
+        const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
       }
       return sendResponse(buildPartnerGarageResponse(lastExtracted, metier));
     }
 
-  // ========================================
+    // ========================================
     // OVERRIDE 1c : Ville donnée → orientation concrète
     // ========================================
     if (lastAssistantAskedCity(history) && !userSaysYes(message) && !userSaysNo(message) && message.length > 1) {
@@ -2854,6 +2870,22 @@ export default async function handler(req, res) {
     }
 
     // ========================================
+    // OVERRIDE 1d : Après formulaire CTA → clore proprement
+    // ========================================
+    if (lastAssistantSentFormCTA(history)) {
+      if (userGivesPhoneOrEmail(message)) {
+        const replyClean = "C'est noté ! Un expert Re-FAP va te rappeler rapidement. Bonne route.";
+        const data = { ...(lastExtracted || DEFAULT_DATA), intention: "rdv", next_best_action: "clore" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      }
+      if (userSaysNo(message)) {
+        return sendResponse(buildDeclinedResponse(lastExtracted));
+      }
+      // Autre message après CTA → laisser passer au LLM sans re-closer
+    }
+
+    // ========================================
     // OVERRIDE 2 : NON → Poli
     // ========================================
     if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history) || lastAssistantAskedSolutionExplanation(history)) && userSaysNo(message)) {
@@ -2873,6 +2905,7 @@ export default async function handler(req, res) {
     if (quickData.intention === "prix" && !everAskedClosing(history)) {
       return sendResponse(buildPriceDirectResponse(lastExtracted, metier));
     }
+
     // ========================================
     // OVERRIDE 4b : "Autre marque"
     // ========================================
@@ -2924,7 +2957,6 @@ export default async function handler(req, res) {
 
       return sendResponse(buildVehicleQuestion(lastExtracted));
     }
-
     // ========================================
     // OVERRIDE 5 : FORMULAIRE SÉQUENTIEL
     // ========================================
@@ -3047,18 +3079,22 @@ export default async function handler(req, res) {
 
     let replyClean = cleanReplyForUI(replyFull);
 
-    // FALLBACK si réponse vide
+   // FALLBACK si réponse vide
     if (!replyClean || replyClean.length < 5) {
       if (!extracted.marque) {
         replyClean = "D'accord. C'est quelle voiture ?";
         extracted.next_best_action = "demander_vehicule";
       } else if (extracted.symptome === "inconnu") {
         replyClean = "Ok. Qu'est-ce qui se passe exactement avec ta voiture ?";
+      } else if (!everAskedClosing(history) && hasEnoughToClose(extracted, history)) {
+        return sendResponse(buildClosingQuestion(extracted, metier));
+      } else if (lastAssistantIsClosing(history)) {
+        replyClean = "Pas de souci ! Si tu as d'autres questions sur ton FAP, n'hésite pas.";
+        extracted.next_best_action = "clore";
       } else {
-        replyClean = "Je comprends. Autre chose à signaler ?";
+        replyClean = "Si tu as d'autres infos sur le problème (codes erreur, kilométrage...), je peux affiner le diagnostic.";
       }
     }
-
     replyFull = `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`;
 
     // SÉCURITÉ : Bloquer TOUS les closings prématurés de Mistral
@@ -3067,7 +3103,6 @@ export default async function handler(req, res) {
       (/expert re-fap/i.test(replyClean) && (/gratuit/i.test(replyClean) || /sans engagement/i.test(replyClean))) &&
       !everGaveExpertOrientation(history);
     const hasRule8Violation = /1500|remplacement/i.test(replyClean);
-
     if (isMistralClosing || isMistralExpertClosing) {
       if (!extracted.marque) {
         return sendResponse(buildVehicleQuestion(extracted));
@@ -3086,7 +3121,6 @@ export default async function handler(req, res) {
       }
       return sendResponse(buildClosingQuestion(extracted, metier));
     }
-
     // Nettoyer violations règle 8
     if (hasRule8Violation) {
       replyClean = replyClean
@@ -3143,6 +3177,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
