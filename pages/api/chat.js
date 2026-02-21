@@ -643,6 +643,30 @@ function lastAssistantAskedSolutionExplanation(history) {
   return false;
 }
 
+// 🆕 Détecte si le dernier message assistant est un CTA formulaire
+function lastAssistantSentFormCTA(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      return content.includes("laisse tes coordonnées") || content.includes("expert re-fap te rappelle rapidement");
+    }
+  }
+  return false;
+}
+
+// 🆕 Détecte si le dernier message assistant est une fermeture de conversation
+function lastAssistantIsClosing(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      return content.includes("autre chose") || content.includes("si tu changes d'avis") || content.includes("je suis là");
+    }
+  }
+  return false;
+}
+
 function everAskedDemontage(history) {
   if (!Array.isArray(history)) return false;
   for (let i = 0; i < history.length; i++) {
@@ -663,6 +687,20 @@ function userSaysSelfRemoval(msg) {
 function userNeedsGarage(msg) {
   const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
   return /garage|j ai besoin|je (ne )?peux pas|pas (les )?outils|pas de pont|je (ne )?sais pas demonte|faut un pro|un professionnel|prise en charge|tout faire|s en occupe|pas equipe|j ai pas de garage|pas capable|pas les competence/.test(t);
+}
+
+// 🆕 Détecte les insultes
+function userIsInsulting(text) {
+  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /\b(con|conne|connard|connasse|enculer?|putain|merde|salaud|salope|idiot|idiote|abruti|abrutie|nul|nulle|incompetent|incompetente|batard|batarde|fdp|ntm|ta gueule|ferme la|va te faire|casse.?toi|je m.en fous|c.est nul|c.est con|rien a foutre)\b/i.test(t);
+}
+
+// 🆕 Détecte un numéro de téléphone ou email donné par l'utilisateur
+function userGivesPhoneOrEmail(text) {
+  const t = String(text || "");
+  return /\b0[67]\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*\d{2}\b/.test(t)
+    || /\b0\d[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}[\s.-]?\d{2}\b/.test(t)
+    || /\b[\w.+-]+@[\w-]+\.[a-z]{2,}\b/i.test(t);
 }
 
 function lastAssistantAskedGarageType(history) {
@@ -708,7 +746,6 @@ function everGaveExpertOrientation(history) {
   }
   return false;
 }
-
 // ============================================================
 // HELPERS : Vehicle Detection
 // ============================================================
@@ -3106,6 +3143,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
