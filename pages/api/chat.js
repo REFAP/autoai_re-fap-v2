@@ -2001,6 +2001,24 @@ function looksLikeCityAnswer(message) {
 
   return false;
 }
+
+function cleanVilleInput(message) {
+  let ville = String(message || "").trim();
+
+  ville = ville
+    .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |je me trouve |on est |nous sommes |moi c'est |c'est |ici c'est )/i, "")
+    .replace(/^(à |a |au |en |sur |dans le |dans |près de |pres de |vers |du côté de |du cote de |secteur |région |region )/i, "")
+    .replace(/[.!?]+$/, "")
+    .trim();
+
+  if (ville.length > 30) {
+    const postalMatch = ville.match(/\b([a-zA-ZÀ-ÿ\-]+(?:\s+[a-zA-ZÀ-ÿ\-]+)*)\s+(\d{5})\b/);
+    if (postalMatch) return postalMatch[1] + " " + postalMatch[2];
+    return ville.split(/\s+/).slice(0, 3).join(" ");
+  }
+
+  return ville || message.trim();
+}
 // ============================================================
 // EXPERT ORIENTATION + RESPONSES
 // ============================================================
@@ -3177,6 +3195,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
