@@ -1397,7 +1397,7 @@ const CARTER_CASH_LIST = [
   {name:"Carter-Cash Calais",city:"Calais",postal:"62100",dept:"62",equipped:false,lat:50.948,lng:1.853},
   {name:"Carter-Cash Bruay-la-Buissiere",city:"Bruay-la-Buissiere",postal:"62700",dept:"62",equipped:false,lat:50.483,lng:2.550},
   {name:"Carter-Cash Fouquieres-les-Lens",city:"Fouquieres-les-Lens",postal:"62740",dept:"62",equipped:false,lat:50.423,lng:2.893},
-  {name:"Carter-Cash Clermont-Ferrand",city:"Clermont-Ferrand",postal:"63000",dept:"63",equipped:false,lat:45.778,lng:3.087},
+ {name:"Re-FAP Clermont-Ferrand",city:"Clermont-Ferrand",postal:"63000",dept:"63",equipped:true,isRefapCenter:true,address:"27 Rue Desaymard, 63000 Clermont-Ferrand",phone:"04 73 37 88 21",website:"https://re-fap.fr/re-fap-clermont-ferrand/",lat:45.778,lng:3.087},
   {name:"Carter-Cash Serres-Castet",city:"Serres-Castet",postal:"64121",dept:"64",equipped:false,lat:43.380,lng:-0.350},
   {name:"Carter-Cash Perpignan",city:"Perpignan",postal:"66000",dept:"66",equipped:false,lat:42.699,lng:2.895},
   {name:"Carter-Cash Souffelweyersheim",city:"Souffelweyersheim",postal:"67460",dept:"67",equipped:false,lat:48.630,lng:7.737},
@@ -2023,6 +2023,19 @@ function cleanVilleInput(message) {
 // EXPERT ORIENTATION + RESPONSES
 // ============================================================
 
+// 🆕 Réponse calme aux insultes
+function buildInsultResponse(extracted) {
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_ville" };
+  const responses = [
+    "Je comprends que la situation soit frustrante. Je suis là pour t'aider à régler le problème du FAP. Tu es dans quel coin ?",
+    "C'est clairement embêtant comme situation. On va trouver une solution. Tu es dans quelle ville ?",
+    "Je t'entends. Pour t'orienter vers le bon garage, j'ai juste besoin de savoir où tu es.",
+  ];
+  const replyClean = responses[Math.floor(Math.random() * responses.length)];
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
 function buildExpertOrientation(extracted, metier) {
   const marque = extracted?.marque;
   const modele = extracted?.modele;
@@ -2075,29 +2088,22 @@ function buildExpertOrientation(extracted, metier) {
   if (attemptResponses.length > 0) {
     techExplanation = attemptResponses.join("\n\n");
   } else if (hasFapCode && hasHighKm) {
-    // Code FAP + gros km = très confiant
     techExplanation = `Sur une ${vehicleStr} à ${km}, avec un code FAP, c'est très probablement un filtre qui arrive à saturation. Les suies et surtout les cendres métalliques se sont accumulées au fil du temps — c'est un phénomène normal à ce kilométrage.`;
   } else if (hasHighKm) {
-    // Gros km = confiant
     techExplanation = `Sur une ${vehicleStr} à ${km}, ce type de symptôme est souvent lié à un FAP qui commence à saturer. Avec le kilométrage, les cendres métalliques — résidus de l'huile moteur — s'accumulent dans le filtre et finissent par le colmater.`;
   } else if (hasFapCode) {
-    // Code FAP sans km connu
     techExplanation = `Le code ${codes[0]} pointe directement vers le FAP. Sur une ${vehicleStr}, ça signifie généralement que le filtre est trop chargé pour se régénérer correctement. Ça peut venir d'un encrassement progressif (suies + cendres) ou d'un problème en amont.`;
   } else if (hasMediumKm) {
-    // Km moyens = prudent
     techExplanation = `Sur une ${vehicleStr} à ${km}, le voyant peut avoir plusieurs causes : un besoin de régénération, un capteur de pression différentielle fatigué, ou un début d'encrassement du FAP. Le plus probable sur ce type de moteur, c'est une accumulation progressive de suies et de cendres dans le filtre.`;
   } else if (isLongterm) {
-    // Problème ancien = probablement encrassement
     techExplanation = `Si le problème dure depuis un moment sur ta ${vehicleStr}, c'est souvent le signe d'un encrassement progressif du FAP. Les régénérations automatiques n'arrivent plus à compenser l'accumulation de suies et surtout de cendres métalliques dans le filtre.`;
   } else if (hasLowKm) {
-    // Faible km = prudent, pourrait être autre chose
     techExplanation = `Sur une ${vehicleStr} à ${km}, un problème de FAP à ce kilométrage c'est moins fréquent mais ça arrive — surtout si la voiture fait beaucoup de petits trajets en ville. Ça peut être un encrassement prématuré, un problème de capteur, ou un souci sur le système de régénération. Un diagnostic plus poussé permettrait de confirmer.`;
   } else {
-    // Fallback mesuré
     techExplanation = `D'après ce que tu décris sur ta ${vehicleStr}, il y a de bonnes chances que ce soit lié au FAP. Le voyant s'allume quand le filtre n'arrive plus à se régénérer correctement — ça peut venir d'un encrassement (suies + cendres accumulées), d'un capteur défaillant, ou de conditions de roulage qui ne permettent pas la régénération.`;
   }
 
-  // --- Bloc diagnostic (seulement si tentatives ou km élevé) ---
+  // --- Bloc diagnostic ---
   let diagnosisBlock = "";
   if (attemptResponses.length > 0) {
     diagnosisBlock = "Le problème de fond, c'est l'accumulation de cendres métalliques dans le filtre. C'est un phénomène normal avec le temps et le kilométrage — aucune solution \"maison\" (régénération, additifs, roulage autoroute) ne peut les retirer.";
@@ -2230,8 +2236,9 @@ function detectDemontageFromHistory(history) {
   }
   return null;
 }
+
 // ============================================================
-// buildLocationOrientationResponse — v6.3 avec circuit Garage + CC
+// buildLocationOrientationResponse — v6.3 + Re-FAP Clermont
 // ============================================================
 async function buildLocationOrientationResponse(supabase, extracted, metier, ville, history) {
   const dept = extractDeptFromInput(ville);
@@ -2255,6 +2262,14 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
   const distLabel = (cc) => cc.distance ? ` (~${cc.distance} km)` : "";
   const MAX_EQUIPPED_MENTION_KM = 150;
 
+  // 🆕 Bloc texte Re-FAP Clermont-Ferrand
+  const buildRefapCenterBlock = (center, demontageType) => {
+    const prixFAP = demontageType === "self"
+      ? "99€ (FAP type DV6 PSA) ou 149€ (FAP combiné avec catalyseur), FAP déjà démonté"
+      : "99€ (FAP type DV6 PSA) ou 149€ (FAP combiné avec catalyseur) + main d'œuvre démontage/remontage/réinitialisation selon le véhicule";
+    return `🔧 Re-FAP Clermont-Ferrand — ${center.address}\n📞 ${center.phone}\n\nMachine Re-FAP sur place. ${prixFAP}.\n\nPrise en charge totale possible. Devis en ligne : ${center.website}`;
+  };
+
   // ============================================================
   // RECHERCHE GARAGE PARTENAIRE (si demontage != self && != garage_own)
   // ============================================================
@@ -2270,11 +2285,17 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
   // ============================================================
 
   if (demontage === "self") {
-    // --- Self removal : inchangé ---
+
     if (cc.equipped.length > 0) {
       const best = cc.equipped[0];
       assignedCC = { ...best, reason: "centre express local" };
-      replyClean = `Bonne nouvelle ! Il y a un Carter-Cash équipé d'une machine Re-FAP près de chez toi : ${best.name} (${best.postal} ${best.city})${distLabel(best)}. Tu y déposes ton FAP démonté, nettoyage sur place en ~4h.\n\nTarifs : ${prixCCDetail}.\n\nTu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
+      // 🆕 Re-FAP Clermont
+      if (best.isRefapCenter) {
+        replyClean = `Bonne nouvelle, le centre Re-FAP est directement à ${best.city} !\n\n${buildRefapCenterBlock(best, "self")}\n\nTu veux qu'on te prépare la prise en charge pour ${vehicleInfo} ?`;
+      } else {
+        replyClean = `Bonne nouvelle ! Il y a un Carter-Cash équipé d'une machine Re-FAP près de chez toi : ${best.name} (${best.postal} ${best.city})${distLabel(best)}. Tu y déposes ton FAP démonté, nettoyage sur place en ~4h.\n\nTarifs : ${prixCCDetail}.\n\nTu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
+      }
+
     } else {
       const closestDepotCC = cc.closestDepot;
       const nearestEquip = cc.closestEquipped;
@@ -2282,41 +2303,57 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
 
       if (closestDepotCC && equipMentionable && closestDepotCC.distance < nearestEquip.distance) {
         assignedCC = { ...closestDepotCC, reason: "depot plus proche que express" };
-        replyClean = `OK, près de chez toi il y a le ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y laisses ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon, le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — là-bas c'est nettoyage sur place en 4h (${prixCCDetail}).\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
+        // 🆕 Re-FAP Clermont dans nearestEquip (mention secondaire)
+        const equippedMention = nearestEquip.isRefapCenter
+          ? `le centre Re-FAP Clermont-Ferrand${distLabel(nearestEquip)} — nettoyage sur place en 4h (${prixCCDetail}).`
+          : `le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — là-bas c'est nettoyage sur place en 4h (${prixCCDetail}).`;
+        replyClean = `OK, près de chez toi il y a le ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y laisses ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon, ${equippedMention}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
+
       } else if (equipMentionable) {
         assignedCC = { ...nearestEquip, reason: "centre express le plus proche" };
-        replyClean = `Le Carter-Cash équipé le plus proche de chez toi c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}). Sinon, tu peux aussi déposer ton FAP dans n'importe quel Carter-Cash (point dépôt) : envoi 48-72h, ${prixEnvoi} port inclus.${closestDepotCC ? ` Le plus proche : ${closestDepotCC.name}${distLabel(closestDepotCC)}.` : ""}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
+        // 🆕 Re-FAP Clermont
+        if (nearestEquip.isRefapCenter) {
+          replyClean = `Le centre Re-FAP le plus proche c'est à ${nearestEquip.city}${distLabel(nearestEquip)} !\n\n${buildRefapCenterBlock(nearestEquip, "self")}\n\nTu veux qu'on te prépare la prise en charge ?`;
+        } else {
+          replyClean = `Le Carter-Cash équipé le plus proche de chez toi c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}). Sinon, tu peux aussi déposer ton FAP dans n'importe quel Carter-Cash (point dépôt) : envoi 48-72h, ${prixEnvoi} port inclus.${closestDepotCC ? ` Le plus proche : ${closestDepotCC.name}${distLabel(closestDepotCC)}.` : ""}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
+        }
+
       } else if (closestDepotCC) {
         assignedCC = { ...closestDepotCC, reason: "depot standard le plus proche" };
         replyClean = `OK, le Carter-Cash le plus proche de chez toi c'est ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y déposes ton FAP démonté, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon tu peux aussi nous l'envoyer directement par transporteur (même tarif, même délai).\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
+
       } else {
         replyClean = `Pour ton secteur, la solution la plus simple c'est l'envoi direct : tu nous envoies ton FAP démonté par transporteur, on le nettoie et on te le retourne en 48-72h, ${prixEnvoi} port inclus. Tu veux qu'un expert Re-FAP t'envoie les détails ?`;
       }
     }
 
   } else if (demontage === "garage_own") {
-    // --- Garage du client : inchangé ---
     replyClean = `OK, ${villeDisplay}. On va préparer tout ça pour ton garagiste.\n\nUn expert Re-FAP va te rappeler pour :\n→ Répondre aux questions techniques que ton garagiste pourrait avoir\n→ Lui envoyer les infos sur le process et les tarifs\n→ Organiser l'envoi et le retour du FAP\n\nL'objectif c'est que ton garagiste soit à l'aise pour faire le job, même si c'est la première fois. Tu veux qu'on te rappelle ?`;
 
   } else if (demontage === "garage" || demontage === "garage_partner") {
-  // ================================================================
-    // 🆕 v6.3 : CIRCUIT GARAGE PARTENAIRE + CC
+    // ================================================================
+    // v6.3 : CIRCUIT GARAGE PARTENAIRE + CC
     // ================================================================
     const nearestEquip = cc.closestEquipped || cc.nearbyEquipped?.[0];
     const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
     const closestDepotCC = cc.closestDepot || cc.depot?.[0];
 
     if (bestGarage && equipMentionable) {
-      // 🏆 CAS IDÉAL : garage partenaire + CC équipé → tarif machine sur place
+      // 🏆 CAS IDÉAL : garage partenaire + centre équipé proche
       assignedCC = { ...nearestEquip, reason: "circuit garage+express" };
       assignedGarage = bestGarage;
       const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
       const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
       const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
-      replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au Carter-Cash, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
+      // 🆕 Re-FAP Clermont comme centre équipé
+      if (nearestEquip.isRefapCenter) {
+        replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 Re-FAP Clermont-Ferrand${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au centre Re-FAP, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
+      } else {
+        replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au Carter-Cash, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
+      }
 
     } else if (bestGarage && closestDepotCC) {
-      // Garage partenaire + CC dépôt → FAP envoyé au centre, tarif envoi
+      // Garage partenaire + CC dépôt → tarif envoi
       assignedCC = { ...closestDepotCC, reason: "circuit garage+depot" };
       assignedGarage = bestGarage;
       const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
@@ -2325,7 +2362,7 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
       replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage, envoi au centre Re-FAP, remontage.\n\nLe Carter-Cash le plus proche c'est ${closestDepotCC.name}${distLabel(closestDepotCC)} (point dépôt 48-72h). Le garage peut y déposer le FAP ou l'envoyer directement — on s'organise au mieux.\n\nCôté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
 
     } else if (bestGarage) {
-      // Garage partenaire sans CC proche → envoi direct au centre
+      // Garage partenaire sans CC proche → envoi direct
       assignedGarage = bestGarage;
       const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
       const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
@@ -2333,48 +2370,67 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
       replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation.\n\nCôté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge ?`;
 
     } else if (equipMentionable) {
-      // Pas de garage trouvé mais CC équipé proche → tarif machine sur place
+      // Pas de garage mais centre équipé proche
       assignedCC = { ...nearestEquip, reason: "centre express garage non trouve" };
-      replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+      // 🆕 Re-FAP Clermont
+      if (nearestEquip.isRefapCenter) {
+        replyClean = `OK, ${villeDisplay}. Le centre Re-FAP le plus proche c'est à ${nearestEquip.city}${distLabel(nearestEquip)}.\n\n${buildRefapCenterBlock(nearestEquip, demontage)}\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
+      } else {
+        replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur qui gèrent tout de A à Z.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+      }
 
     } else {
-      // Fallback total → envoi direct
+      // Fallback total
       replyClean = `OK, ${villeDisplay}. On a des garages partenaires dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Côté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
     }
 
   } else {
     // ================================================================
-    // 🆕 v6.3 : DEMONTAGE INCONNU — Montrer garage + CC
+    // DEMONTAGE INCONNU — Montrer garage + CC
     // ================================================================
     const nearestEquip = cc.closestEquipped || cc.nearbyEquipped?.[0];
     const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
     const nearestDepot = cc.closestDepot || cc.depot?.[0];
 
     if (bestGarage && equipMentionable && nearestEquip.distance <= 80) {
-      // Garage + CC équipé proches
       assignedCC = { ...nearestEquip, reason: "circuit garage+express auto" };
       assignedGarage = bestGarage;
-      replyClean = `OK, ${villeDisplay}. Bonne nouvelle, on a un garage partenaire et un Carter-Cash équipé pas loin :\n\n🔧 ${bestGarage.nom}${garageDistLabel(bestGarage)} — pour le démontage/remontage\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail})\n\nSi tu préfères démonter toi-même, tu peux déposer le FAP directement au CC. Sinon le garage s'occupe de tout.\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
+      // 🆕 Re-FAP Clermont
+      if (nearestEquip.isRefapCenter) {
+        replyClean = `OK, ${villeDisplay}. Bonne nouvelle, on a un garage partenaire et le centre Re-FAP directement à ${nearestEquip.city} :\n\n🔧 ${bestGarage.nom}${garageDistLabel(bestGarage)} — pour le démontage/remontage\n🏪 Re-FAP Clermont-Ferrand${distLabel(nearestEquip)} — machine sur place, nettoyage en ~4h (${prixCCDetail})\n\nSi tu préfères démonter toi-même, tu peux déposer le FAP directement au centre. Sinon le garage s'occupe de tout.\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
+      } else {
+        replyClean = `OK, ${villeDisplay}. Bonne nouvelle, on a un garage partenaire et un Carter-Cash équipé pas loin :\n\n🔧 ${bestGarage.nom}${garageDistLabel(bestGarage)} — pour le démontage/remontage\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail})\n\nSi tu préfères démonter toi-même, tu peux déposer le FAP directement au CC. Sinon le garage s'occupe de tout.\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
+      }
 
     } else if (bestGarage && nearestDepot) {
-      // Garage + CC dépôt
       assignedCC = { ...nearestDepot, reason: "circuit garage+depot auto" };
       assignedGarage = bestGarage;
+      // 🆕 Re-FAP Clermont dans equippedHint
       let equippedHint = "";
       if (equipMentionable) {
-        equippedHint = `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en 4h (${prixCCDetail}).`;
+        equippedHint = nearestEquip.isRefapCenter
+          ? `\n\nLe centre Re-FAP le plus proche c'est à ${nearestEquip.city}${distLabel(nearestEquip)} — machine sur place, nettoyage en 4h (${prixCCDetail}).`
+          : `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en 4h (${prixCCDetail}).`;
       }
       replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi : ${bestGarage.nom}${garageDistLabel(bestGarage)} qui peut gérer le démontage/remontage. Et le ${nearestDepot.name}${distLabel(nearestDepot)} pour le nettoyage (envoi 48-72h, ${prixEnvoi}).${equippedHint}\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
 
     } else if (equipMentionable && nearestEquip.distance <= 80) {
       assignedCC = { ...nearestEquip, reason: "centre express proche" };
-      replyClean = `OK, ${villeDisplay}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine Re-FAP pas loin : ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}. Si tu déposes ton FAP démonté, nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+      // 🆕 Re-FAP Clermont
+      if (nearestEquip.isRefapCenter) {
+        replyClean = `OK, ${villeDisplay}. Bonne nouvelle, le centre Re-FAP est à ${nearestEquip.city}${distLabel(nearestEquip)} — machine sur place, nettoyage en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+      } else {
+        replyClean = `OK, ${villeDisplay}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine Re-FAP pas loin : ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}. Si tu déposes ton FAP démonté, nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+      }
 
     } else if (nearestDepot) {
       assignedCC = { ...nearestDepot, reason: "depot standard le plus proche" };
+      // 🆕 Re-FAP Clermont dans equippedHint
       let equippedHint = "";
       if (equipMentionable) {
-        equippedHint = `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en 4h (${prixCCDetail}).`;
+        equippedHint = nearestEquip.isRefapCenter
+          ? `\n\nLe centre Re-FAP le plus proche c'est à ${nearestEquip.city}${distLabel(nearestEquip)} — machine sur place, nettoyage en 4h (${prixCCDetail}).`
+          : `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en 4h (${prixCCDetail}).`;
       }
       replyClean = `OK, ${villeDisplay}. Il y a le ${nearestDepot.name} (${nearestDepot.postal} ${nearestDepot.city})${distLabel(nearestDepot)} qui est un point dépôt (envoi 48-72h, ${prixEnvoi}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.${equippedHint}\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
 
@@ -2386,16 +2442,16 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
   const data = { ...(extracted || DEFAULT_DATA), intention: "rdv", ville: villeDisplay || null, departement: dept || null, next_best_action: "proposer_devis" };
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
+  // 🆕 centre_type inclut REFAP_CENTER
   const assignment = assignedCC ? {
     postal_code: assignedCC.postal,
-    centre_type: assignedCC.equipped ? "EXPRESS" : "STANDARD",
+    centre_type: assignedCC.isRefapCenter ? "REFAP_CENTER" : (assignedCC.equipped ? "EXPRESS" : "STANDARD"),
     reason: assignedCC.reason || "plus proche",
     user_location_input: ville || null,
     user_dept: dept || null,
     distance_km: assignedCC.distance || null,
   } : null;
 
-  // 🆕 v6.3 : Garage assignment
   const garageAssignment = assignedGarage ? {
     garage_partenaire_id: assignedGarage.id,
     garage_name: assignedGarage.nom,
@@ -2413,6 +2469,7 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
     ],
   };
 }
+
 function buildClosingQuestion(extracted, metier) {
   const { prixText } = getPricing(extracted, metier);
   let vehicleInfo = "";
@@ -2529,7 +2586,6 @@ function buildNonDieselResponse(extracted) {
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
-
 // ============================================================
 // ENGAGEMENT SCORING + DATA RELANCE
 // ============================================================
@@ -3195,6 +3251,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
