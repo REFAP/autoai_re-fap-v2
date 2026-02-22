@@ -3586,18 +3586,18 @@ export default async function handler(req, res) {
     // OVERRIDE 5 : FORMULAIRE SÉQUENTIEL
     // ========================================
 
-    // 5a : Marque, PAS modèle → demander modèle
-    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && !lastExtracted.modele && !everAskedModel(history) && !everAskedClosing(history)) {
+    // 5a : Marque, PAS modèle → demander modèle (sauf flow OBD → géré par déterministe)
+    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && !lastExtracted.modele && !everAskedModel(history) && !everAskedClosing(history) && extractCodesFromHistory(history).length === 0) {
       return sendResponse(buildModelQuestion(lastExtracted));
     }
 
-    // 5b : Marque + modèle, PAS km → demander km
-    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && (lastExtracted.modele || everAskedModel(history)) && !lastExtracted.kilometrage && !everAskedKm(history) && !everAskedClosing(history)) {
+    // 5b : Marque + modèle, PAS km → demander km (sauf flow OBD)
+    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && (lastExtracted.modele || everAskedModel(history)) && !lastExtracted.kilometrage && !everAskedKm(history) && !everAskedClosing(history) && extractCodesFromHistory(history).length === 0) {
       return sendResponse(buildKmQuestion(lastExtracted));
     }
 
-    // 5c : Marque + modèle + km, PAS tentatives → demander tentatives
-    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && (lastExtracted.modele || everAskedModel(history)) && (lastExtracted.kilometrage || everAskedKm(history)) && !lastExtracted.previous_attempts && !everAskedPreviousAttempts(history) && !everAskedClosing(history)) {
+    // 5c : Marque + modèle + km, PAS tentatives → demander tentatives (sauf flow OBD)
+    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && (lastExtracted.modele || everAskedModel(history)) && (lastExtracted.kilometrage || everAskedKm(history)) && !lastExtracted.previous_attempts && !everAskedPreviousAttempts(history) && !everAskedClosing(history) && extractCodesFromHistory(history).length === 0) {
       return sendResponse(buildPreviousAttemptsQuestion(lastExtracted, metier));
     }
 
