@@ -2895,6 +2895,8 @@ function detectSymptom(message) {
   const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   // Codes OBD → traitement séparé
   if (/\bp[0-9]{4}\b|\bdfp[0-9]+\b|code (erreur|defaut|obd)|code[- ]?p\d/i.test(t)) return "code_obd";
+  // Surconsommation — souvent lié FAP encrassé qui force le moteur
+  if (/surconsomm|consomm.*(trop|augment|explos|anormal|excess)|plein.*(trop|vite|souvent)|carburant.*(augment|mont|hausse)/i.test(t)) return "surconsommation";
   // Voyant seul (sans perte puissance)
   if (/voyant|temoin|warning|lampe.*(allum|clignot)|icone|pictogramme|luz/i.test(t) && !/puissance|degrade|bride|limp/i.test(t)) return "voyant";
   // Mode dégradé / perte puissance
@@ -3084,7 +3086,7 @@ function buildSymptomeResponse(symptome, extracted) {
       fumee: `La fumée à l'échappement${marqueStr} indique une combustion incomplète, souvent liée au FAP. À ne pas laisser traîner. C'est quel véhicule ?`,
       ct_refuse: `Un CT refusé pour opacité${marqueStr}, c'est presque toujours un FAP encrassé. Le nettoyage Re-FAP remet les valeurs dans les normes. Délai 48-72h — largement dans les temps pour une contre-visite. C'est quel véhicule ?`,
       fap_bouche: `FAP bouché${marqueStr}, c'est exactement notre spécialité. Nettoyage en machine, cendres ET suies retirées, garanti 1 an. C'est quel véhicule ?`,
-      code_obd: `Un code OBD lié au FAP${marqueStr} — quel code exactement ? (P2002, P0471...). Et c'est quel véhicule ?`,
+      surconsommation: `La surconsommation de carburant${marqueStr} peut être liée à un FAP encrassé — le moteur compense la contre-pression en consommant plus. C'est souvent un signe précoce avant que le voyant s'allume. C'est quel véhicule ?`,
     };
     replyClean = GENERICS[symptome] || `Noté${marqueStr}. Pour bien t'orienter, c'est quel véhicule ?`;
   }
