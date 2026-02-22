@@ -2950,29 +2950,46 @@ function buildVehiculeQuestion(extracted) {
 
 function buildVehiculeResponse(marqueInfo, extracted) {
   const { marque, famille } = marqueInfo;
-  const symptome = extracted?.symptome;
   const marqueDisplay = marque || "ton véhicule";
 
-  const messages = {
-    psa: `Sur ${marqueDisplay} avec le moteur HDi/BlueHDi, le FAP est souvent couplé au catalyseur (FAP combiné) — le nettoyage Re-FAP à 149€ couvre les deux. Sur les DV6 sans catalyseur intégré c'est 99€. Tu es dans quelle ville ?`,
-    renault: `Sur ${marqueDisplay} avec le moteur dCi, le FAP est généralement accessible et le nettoyage est efficace dans 9 cas sur 10. Tarif 99€ à 149€ selon le modèle. Tu es dans quelle ville ?`,
-    vag: `Sur ${marqueDisplay} avec le moteur TDI, le FAP (DPF) nécessite parfois un nettoyage des injecteurs en même temps si le problème vient de sur-injection d'additif. Le nettoyage Re-FAP à 149€ inclut un contrôle avant/après. Tu es dans quelle ville ?`,
-    ford: `Sur ${marqueDisplay} avec le moteur TDCi, le FAP est souvent situé avec le catalyseur — nettoyage 149€ garanti 1 an. Tu es dans quelle ville ?`,
-    bmw: `Sur ${marqueDisplay}, le FAP est généralement intégré avec le catalyseur d'oxydation — c'est un bloc compact à nettoyer en machine. Tarif 149€, contrôle avant/après. Tu es dans quelle ville ?`,
-    mercedes: `Sur ${marqueDisplay}, le FAP (DPF) est souvent accessible sans démontage complexe. Nettoyage 149€ garanti 1 an. Tu es dans quelle ville ?`,
-    opel: `Sur ${marqueDisplay} avec le moteur CDTI, le nettoyage FAP Re-FAP est à 99€ ou 149€ selon si le catalyseur est intégré. Tu es dans quelle ville ?`,
-    fiat: `Sur ${marqueDisplay} avec le moteur JTD/MultiJet, le FAP est généralement bien accessible. Nettoyage 99€ à 149€. Tu es dans quelle ville ?`,
-    toyota: `Sur ${marqueDisplay} avec le moteur D-4D, le FAP a la particularité d'utiliser un additif cérine — on prend ça en compte dans le nettoyage. Tu es dans quelle ville ?`,
+  // Info technique par famille (sans question finale — on l'ajoute selon la cascade)
+  const infos = {
+    psa: `Sur ${marqueDisplay} avec le moteur HDi/BlueHDi, le FAP est souvent couplé au catalyseur (FAP combiné) — le nettoyage Re-FAP à 149€ couvre les deux. Sur les DV6 sans catalyseur intégré c'est 99€.`,
+    renault: `Sur ${marqueDisplay} avec le moteur dCi, le FAP est généralement accessible et le nettoyage est efficace dans 9 cas sur 10. Tarif 99€ à 149€ selon le modèle.`,
+    vag: `Sur ${marqueDisplay} avec le moteur TDI, le FAP (DPF) nécessite parfois un nettoyage des injecteurs en même temps. Le nettoyage Re-FAP à 149€ inclut un contrôle avant/après.`,
+    ford: `Sur ${marqueDisplay} avec le moteur TDCi, le FAP est souvent situé avec le catalyseur — nettoyage 149€ garanti 1 an.`,
+    bmw: `Sur ${marqueDisplay}, le FAP est généralement intégré avec le catalyseur d'oxydation. Tarif 149€, contrôle avant/après.`,
+    mercedes: `Sur ${marqueDisplay}, le FAP (DPF) est souvent accessible sans démontage complexe. Nettoyage 149€ garanti 1 an.`,
+    opel: `Sur ${marqueDisplay} avec le moteur CDTI, le nettoyage FAP Re-FAP est à 99€ ou 149€ selon si le catalyseur est intégré.`,
+    fiat: `Sur ${marqueDisplay} avec le moteur JTD/MultiJet, le FAP est généralement bien accessible. Nettoyage 99€ à 149€.`,
+    toyota: `Sur ${marqueDisplay} avec le moteur D-4D, le FAP utilise un additif cérine — on prend ça en compte dans le nettoyage.`,
     diesel_generique: `Bien reçu, diesel. Pour confirmer le prix exact (99€ ou 149€ selon si le catalyseur est intégré au FAP), c'est quelle marque exactement ?`,
-    autre: `Sur ${marqueDisplay}, le nettoyage FAP Re-FAP est à 149€ garanti 1 an, contrôle avant/après. Tu es dans quelle ville ?`,
+    autre: `Sur ${marqueDisplay}, le nettoyage FAP Re-FAP est à 149€ garanti 1 an, contrôle avant/après.`,
   };
 
-  const replyClean = messages[famille] || messages.autre;
-  const updatedData = {
-    ...(extracted || DEFAULT_DATA),
-    marque: marque || extracted?.marque || null,
-    next_best_action: famille === "diesel_generique" ? "demander_vehicule" : "demander_ville",
-  };
+  // Diesel générique → demander marque exacte
+  if (famille === "diesel_generique") {
+    const data = { ...(extracted || DEFAULT_DATA), marque: null, next_best_action: "demander_vehicule" };
+    return { replyClean: infos.diesel_generique, replyFull: `${infos.diesel_generique}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+  }
+
+  const info = infos[famille] || infos.autre;
+  const updatedData = { ...(extracted || DEFAULT_DATA), marque: marque || extracted?.marque || null };
+
+  // Cascade : modèle → km → ville
+  let question;
+  if (!extracted?.modele) {
+    question = `C'est quel modèle exactement ?`;
+    updatedData.next_best_action = "demander_modele";
+  } else if (!extracted?.kilometrage) {
+    question = `Et à combien de km ?`;
+    updatedData.next_best_action = "demander_km";
+  } else {
+    question = `Tu es dans quelle ville ?`;
+    updatedData.next_best_action = "demander_ville";
+  }
+
+  const replyClean = `${info} ${question}`;
   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(updatedData)}`, extracted: updatedData };
 }
 
