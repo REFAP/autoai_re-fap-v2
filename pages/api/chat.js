@@ -2483,11 +2483,12 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
 
     if (bestGarage && equipMentionable && nearestEquip.distance <= 80) {
       assignedCC = { ...nearestEquip, reason: "circuit garage+express auto" };
-      assignedGarage = bestGarage;
-      // 🆕 Re-FAP Clermont
+      // 🆕 Re-FAP Clermont : centre full-service, pas besoin de garage partenaire
       if (nearestEquip.isRefapCenter) {
-        replyClean = `OK, ${villeDisplay}. Bonne nouvelle, on a un garage partenaire et le centre Re-FAP directement à ${nearestEquip.city} :\n\n🔧 ${bestGarage.nom}${garageDistLabel(bestGarage)} — pour le démontage/remontage\n🏪 Re-FAP Clermont-Ferrand${distLabel(nearestEquip)} — machine sur place, nettoyage en ~4h (${prixCCDetail})\n\nSi tu préfères démonter toi-même, tu peux déposer le FAP directement au centre. Sinon le garage s'occupe de tout.\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
+        // Ne pas afficher de garage partenaire — Re-FAP s'occupe de tout
+        replyClean = `OK, ${villeDisplay}. Bonne nouvelle, le centre Re-FAP est directement à ${nearestEquip.city} et s'occupe de tout !\n\n${buildRefapCenterBlock(nearestEquip, "unknown")}\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
       } else {
+        assignedGarage = bestGarage;
         replyClean = `OK, ${villeDisplay}. Bonne nouvelle, on a un garage partenaire et un Carter-Cash équipé pas loin :\n\n🔧 ${bestGarage.nom}${garageDistLabel(bestGarage)} — pour le démontage/remontage\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail})\n\nSi tu préfères démonter toi-même, tu peux déposer le FAP directement au CC. Sinon le garage s'occupe de tout.\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
       }
 
