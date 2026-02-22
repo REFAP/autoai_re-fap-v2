@@ -2740,6 +2740,219 @@ function buildNonDieselResponse(extracted) {
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
+
+// ============================================================
+// v7.0 — MOTEUR DÉTERMINISTE
+// Remplace Mistral pour 90% des cas
+// ============================================================
+
+// ---- DÉTECTION SYMPTÔME ----
+function detectSymptom(message) {
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // Codes OBD → traitement séparé
+  if (/\bp[0-9]{4}\b|\bdfp[0-9]+\b|code (erreur|defaut|obd)|code[- ]?p\d/i.test(t)) return "code_obd";
+  // Voyant seul (sans perte puissance)
+  if (/voyant|temoin|warning|lampe.*(allum|clignot)|icone|pictogramme|luz/i.test(t) && !/puissance|degrade|bride|limp/i.test(t)) return "voyant";
+  // Mode dégradé / perte puissance
+  if (/perte.*(puissance|motricite)|puissance.*(reduite|perdu|limite|baisse)|mode.*(degrade|securite|limp)|bride|ralenti|n.avance.*(plus|pas)|roule.*(lentement|au ralenti)|ne depasse.*(pas|plus)|acceleration.*(lente|mauvaise|faible)|turbo|manque.*(puissance|de jus)/i.test(t)) return "perte_puissance";
+  // Fumée
+  if (/fum[eé]e?|fume|fumig|noire?.*echapp|echapp.*noir|fumee.*(noire|blanche|bleue)/i.test(t)) return "fumee";
+  // Contrôle technique
+  if (/contr[oô]le.?technique|ct |ct$|opacite|opacimetre|visite technique|contre.?visite|emission|pollution.*ct/i.test(t)) return "ct_refuse";
+  // FAP bouché explicite
+  if (/fap.*(bouch[eé]|colmat|satur|plein|encras)|bouch[eé].*(fap|filtre)|filtre.*(bouch[eé]|colmat|satur)/i.test(t)) return "fap_bouche";
+  // Voyant + puissance (combo)
+  if (/voyant.*puissance|puissance.*voyant/i.test(t)) return "perte_puissance";
+  return null;
+}
+
+// ---- DÉTECTION MARQUE ----
+function detectMarque(message) {
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // PSA
+  if (/\b(peugeot|citroen|ds\b|308|3008|508|5008|206|207|208|307|407|607|partner|berlingo|c3|c4|c5|c6|jumpy|dispatch|expert|c8|picasso|xsara|saxo|307sw|407sw)\b/.test(t)) return { marque: detectMarqueNom(t, "psa"), famille: "psa" };
+  // Renault/Dacia
+  if (/\b(renault|dacia|megane|laguna|scenic|espace|trafic|master|kangoo|clio|captur|kadjar|koleos|duster|sandero|logan|dokker|lodgy|fluence|latitude)\b/.test(t)) return { marque: detectMarqueNom(t, "renault"), famille: "renault" };
+  // VAG
+  if (/\b(volkswagen|vw|audi|seat|skoda|golf|passat|touareg|tiguan|polo|t4|t5|t6|octavia|superb|fabia|leon|ibiza|altea|ateca|a3|a4|a5|a6|a7|q3|q5|q7|tt|transporter|caddy)\b/.test(t)) return { marque: detectMarqueNom(t, "vag"), famille: "vag" };
+  // Ford
+  if (/\b(ford|focus|mondeo|kuga|fiesta|s-max|c-max|galaxy|transit|ranger|tourneo|puma|edge)\b/.test(t)) return { marque: "Ford", famille: "ford" };
+  // BMW/Mini
+  if (/\b(bmw|serie\s*[1-7]|[1-7]\s*serie|x[1-6]\b|mini\b|120|318|320|520|530|x3|x5|x6)\b/.test(t)) return { marque: "BMW", famille: "bmw" };
+  // Mercedes
+  if (/\b(mercedes|benz|classe\s*[acemls]|sprinter|vito|viano|glc|gle|glk|ml\b|cla\b|gla\b)\b/.test(t)) return { marque: "Mercedes", famille: "mercedes" };
+  // Opel/Vauxhall
+  if (/\b(opel|vauxhall|astra|vectra|zafira|insignia|meriva|mokka|vivaro|movano)\b/.test(t)) return { marque: "Opel", famille: "opel" };
+  // Fiat/Alfa/Jeep
+  if (/\b(fiat|alfa|romeo|jeep|doblo|ducato|scudo|multipla|bravo|stilo|500\b|giulietta|159|156)\b/.test(t)) return { marque: detectMarqueNom(t, "fiat"), famille: "fiat" };
+  // Toyota/Lexus
+  if (/\b(toyota|lexus|avensis|yaris|corolla|auris|rav4|verso|d4d|hilux|land.?cruiser)\b/.test(t)) return { marque: "Toyota", famille: "toyota" };
+  // Volvo/Nissan/Mazda/Kia/Hyundai
+  if (/\b(volvo|xc60|xc90|v40|v60|v70|s40|s60|s80)\b/.test(t)) return { marque: "Volvo", famille: "autre" };
+  if (/\b(nissan|qashqai|navara|x-trail|juke|primastar|interstar|pathfinder)\b/.test(t)) return { marque: "Nissan", famille: "autre" };
+  if (/\b(mazda|cx-[357]|mx-5|3\b|6\b|2\b)\b/.test(t)) return { marque: "Mazda", famille: "autre" };
+  if (/\b(kia|hyundai|sportage|sorento|ceed|tucson|i[23][05]|ix[23][05])\b/.test(t)) return { marque: detectMarqueNom(t, "kia"), famille: "autre" };
+  // Diesel générique sans marque
+  if (/\b(diesel|hdi|tdci|tdi|dci|cdti|jtd|crdi|bluehdi|d4d|ddis)\b/.test(t)) return { marque: null, famille: "diesel_generique" };
+  return null;
+}
+
+function detectMarqueNom(t, famille) {
+  if (famille === "psa") {
+    if (/peugeot/.test(t)) return "Peugeot";
+    if (/citroen/.test(t)) return "Citroën";
+    if (/\bds\b/.test(t)) return "DS";
+    return "Peugeot/Citroën";
+  }
+  if (famille === "renault") {
+    if (/dacia/.test(t)) return "Dacia";
+    return "Renault";
+  }
+  if (famille === "vag") {
+    if (/audi/.test(t)) return "Audi";
+    if (/seat/.test(t)) return "Seat";
+    if (/skoda/.test(t)) return "Škoda";
+    return "Volkswagen";
+  }
+  if (famille === "fiat") {
+    if (/alfa/.test(t)) return "Alfa Romeo";
+    if (/jeep/.test(t)) return "Jeep";
+    return "Fiat";
+  }
+  if (famille === "kia") {
+    if (/hyundai/.test(t)) return "Hyundai";
+    return "Kia";
+  }
+  return null;
+}
+
+// ---- ÉTAT COURANT ----
+function detectCurrentState(extracted) {
+  if (!extracted.symptome || extracted.symptome === "inconnu") return "SYMPTOME";
+  if (!extracted.marque) return "VEHICULE";
+  if (!extracted.ville && !extracted.departement) return "VILLE";
+  return "CLOSING";
+}
+
+// ---- RÉPONSES SYMPTÔME ----
+function buildSymptomeQuestion(extracted) {
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "poser_question" };
+  const replyClean = `C'est quel type de problème sur ton véhicule ? (voyant allumé, perte de puissance, fumée, contrôle technique refusé, code erreur OBD...)`;
+  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+}
+
+function buildSymptomeResponse(symptome, extracted) {
+  const marqueStr = extracted?.marque ? ` sur ta ${extracted.marque}` : "";
+  const data = { ...(extracted || DEFAULT_DATA), symptome, certitude_fap: "moyenne", next_best_action: "demander_vehicule" };
+
+  const responses = {
+    voyant: `Le voyant FAP${marqueStr}, c'est souvent signe que le filtre n'a pas pu faire sa régénération automatique (trajets trop courts en ville). C'est pas une urgence immédiate, mais à traiter rapidement. C'est quel véhicule ?`,
+    perte_puissance: `La perte de puissance avec le mode dégradé, c'est le signe classique d'un FAP saturé${marqueStr} — le calculateur bride le moteur pour se protéger. Un nettoyage en machine règle ça dans la grande majorité des cas. C'est quel véhicule ?`,
+    fumee: `La fumée noire à l'échappement indique une combustion incomplète liée à un FAP bouché${marqueStr}. À ne pas laisser traîner. C'est quel véhicule ?`,
+    ct_refuse: `Un refus au CT pour opacité des fumées, c'est presque toujours un FAP encrassé${marqueStr} — le nettoyage en machine Re-FAP remet les valeurs dans les normes CT. C'est quel véhicule ?`,
+    fap_bouche: `Un FAP bouché${marqueStr}, c'est exactement notre spécialité. Le nettoyage en machine retire les suies ET les cendres (contrairement à l'additif ou la régénération). C'est quel véhicule ?`,
+    code_obd: `Un code OBD lié au FAP${marqueStr}, c'est le signe que le calculateur a détecté un problème sur le filtre. C'est quel code exactement ? (P2002, P0471...) Et c'est quel véhicule ?`,
+  };
+
+  const replyClean = responses[symptome] || `C'est noté. Pour bien t'orienter, c'est quel véhicule ?`;
+  data.next_best_action = "demander_vehicule";
+  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+}
+
+// ---- RÉPONSES VÉHICULE ----
+function buildVehiculeQuestion(extracted) {
+  const symptomeStr = extracted?.symptome && extracted.symptome !== "inconnu"
+    ? ` Pour ce type de problème (${extracted.symptome.replace(/_/g, " ")})`
+    : "";
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_vehicule" };
+  const replyClean = `C'est quel véhicule ?${symptomeStr ? " " + symptomeStr + ", la solution dépend du moteur." : ""}`;
+  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+}
+
+function buildVehiculeResponse(marqueInfo, extracted) {
+  const { marque, famille } = marqueInfo;
+  const symptome = extracted?.symptome;
+  const marqueDisplay = marque || "ton véhicule";
+
+  const messages = {
+    psa: `Sur ${marqueDisplay} avec le moteur HDi/BlueHDi, le FAP est souvent couplé au catalyseur (FAP combiné) — le nettoyage Re-FAP à 149€ couvre les deux. Sur les DV6 sans catalyseur intégré c'est 99€. Tu es dans quelle ville ?`,
+    renault: `Sur ${marqueDisplay} avec le moteur dCi, le FAP est généralement accessible et le nettoyage est efficace dans 9 cas sur 10. Tarif 99€ à 149€ selon le modèle. Tu es dans quelle ville ?`,
+    vag: `Sur ${marqueDisplay} avec le moteur TDI, le FAP (DPF) nécessite parfois un nettoyage des injecteurs en même temps si le problème vient de sur-injection d'additif. Le nettoyage Re-FAP à 149€ inclut un contrôle avant/après. Tu es dans quelle ville ?`,
+    ford: `Sur ${marqueDisplay} avec le moteur TDCi, le FAP est souvent situé avec le catalyseur — nettoyage 149€ garanti 1 an. Tu es dans quelle ville ?`,
+    bmw: `Sur ${marqueDisplay}, le FAP est généralement intégré avec le catalyseur d'oxydation — c'est un bloc compact à nettoyer en machine. Tarif 149€, contrôle avant/après. Tu es dans quelle ville ?`,
+    mercedes: `Sur ${marqueDisplay}, le FAP (DPF) est souvent accessible sans démontage complexe. Nettoyage 149€ garanti 1 an. Tu es dans quelle ville ?`,
+    opel: `Sur ${marqueDisplay} avec le moteur CDTI, le nettoyage FAP Re-FAP est à 99€ ou 149€ selon si le catalyseur est intégré. Tu es dans quelle ville ?`,
+    fiat: `Sur ${marqueDisplay} avec le moteur JTD/MultiJet, le FAP est généralement bien accessible. Nettoyage 99€ à 149€. Tu es dans quelle ville ?`,
+    toyota: `Sur ${marqueDisplay} avec le moteur D-4D, le FAP a la particularité d'utiliser un additif cérine — on prend ça en compte dans le nettoyage. Tu es dans quelle ville ?`,
+    diesel_generique: `Bien reçu, diesel. Pour confirmer le prix exact (99€ ou 149€ selon si le catalyseur est intégré au FAP), c'est quelle marque exactement ?`,
+    autre: `Sur ${marqueDisplay}, le nettoyage FAP Re-FAP est à 149€ garanti 1 an, contrôle avant/après. Tu es dans quelle ville ?`,
+  };
+
+  const replyClean = messages[famille] || messages.autre;
+  const updatedData = {
+    ...(extracted || DEFAULT_DATA),
+    marque: marque || extracted?.marque || null,
+    next_best_action: famille === "diesel_generique" ? "demander_vehicule" : "demander_ville",
+  };
+  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(updatedData)}`, extracted: updatedData };
+}
+
+// ---- QUESTION VILLE (si marque déjà connue) ----
+function buildVilleQuestion(extracted) {
+  const marqueStr = extracted?.marque ? ` pour ta ${extracted.marque}` : "";
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_ville" };
+  const replyClean = `Tu es dans quelle ville${marqueStr} ? Je te trouve le centre Re-FAP ou Carter-Cash le plus proche.`;
+  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+}
+
+// ---- ROUTEUR DÉTERMINISTE PRINCIPAL ----
+// Retourne une réponse ou null (→ fallback Mistral)
+function deterministicRouter(message, extracted, history, metier) {
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  // 1. Hors-sujet évident (pas diesel, pas FAP)
+  const nonDieselKeywords = /\b(essence|gpl|electrique|hybride|electric|ev\b|sans.?diesel)\b/i;
+  const isTalkingAboutCar = /\b(voiture|vehicule|auto|car|moteur|cylindre)\b/i.test(t);
+  if (nonDieselKeywords.test(t) && isTalkingAboutCar) return { action: "non_diesel" };
+
+  // 2. Détecter symptôme dans le message
+  const symptome = detectSymptom(message);
+  if (symptome && symptome !== "code_obd") {
+    const updatedExtracted = { ...(extracted || DEFAULT_DATA), symptome };
+    // Si marque déjà connue → passer à ville
+    if (extracted?.marque) {
+      return { action: "ask_ville", extracted: updatedExtracted };
+    }
+    return { action: "symptome_response", symptome, extracted: updatedExtracted };
+  }
+
+  // 3. Détecter code OBD → LLM ciblé
+  if (symptome === "code_obd") {
+    return { action: "llm_obd" };
+  }
+
+  // 4. Détecter marque dans le message
+  const marqueInfo = detectMarque(message);
+  if (marqueInfo && marqueInfo.famille !== "diesel_generique") {
+    const updatedExtracted = { ...(extracted || DEFAULT_DATA), marque: marqueInfo.marque };
+    // Si symptôme déjà connu → répondre avec info marque + demander ville
+    if (extracted?.symptome && extracted.symptome !== "inconnu") {
+      return { action: "marque_response", marqueInfo, extracted: updatedExtracted };
+    }
+    // Sinon → répondre avec info marque + demander symptôme
+    return { action: "marque_response", marqueInfo, extracted: updatedExtracted };
+  }
+
+  // 5. Selon l'état courant → poser la bonne question
+  const state = detectCurrentState(extracted || DEFAULT_DATA);
+  if (state === "SYMPTOME" && history.filter(h => h.role === "assistant").length === 0) {
+    // Premier message du bot → question symptôme
+    return { action: "ask_symptome" };
+  }
+
+  // 6. Pas reconnu → LLM Mistral (fallback)
+  return null;
+}
 // ============================================================
 // ENGAGEMENT SCORING + DATA RELANCE
 // ============================================================
@@ -3296,6 +3509,33 @@ export default async function handler(req, res) {
     }
 
     // ========================================
+    // v7.0 MOTEUR DÉTERMINISTE — avant Mistral
+    // ========================================
+    const deterRoute = deterministicRouter(message, lastExtracted, history, metier);
+    if (deterRoute) {
+      if (deterRoute.action === "non_diesel") {
+        return sendResponse(buildNonDieselResponse(lastExtracted));
+      }
+      if (deterRoute.action === "ask_symptome") {
+        return sendResponse(buildSymptomeQuestion(lastExtracted));
+      }
+      if (deterRoute.action === "symptome_response") {
+        return sendResponse(buildSymptomeResponse(deterRoute.symptome, deterRoute.extracted || lastExtracted));
+      }
+      if (deterRoute.action === "marque_response") {
+        return sendResponse(buildVehiculeResponse(deterRoute.marqueInfo, deterRoute.extracted || lastExtracted));
+      }
+      if (deterRoute.action === "ask_ville") {
+        return sendResponse(buildVilleQuestion(deterRoute.extracted || lastExtracted));
+      }
+      // deterRoute.action === "llm_obd" → passe au LLM avec prompt ciblé
+      if (deterRoute.action === "llm_obd") {
+        // Le LLM recevra un prompt ultra-simplifié pour les codes OBD
+        // (géré dans le bloc Mistral ci-dessous via le flag isOBDQuery)
+      }
+    }
+
+    // ========================================
     // LLM PATH : Mistral — FALLBACK
     // ========================================
     let flowHint = null;
@@ -3308,7 +3548,17 @@ export default async function handler(req, res) {
     }
 
     const facts = buildFacts(metier, quickData, lastExtracted, flowHint);
-    const messagesForMistral = [{ role: "system", content: SYSTEM_PROMPT + facts }];
+    const isOBDQuery = deterRoute?.action === "llm_obd" || /\bp[0-9]{4}\b|code.*(erreur|obd|defaut)/i.test(message);
+    const mistralSystemPrompt = isOBDQuery
+      ? `Tu es FAPexpert, expert FAP diesel. RÈGLES STRICTES :
+1. Explique ce que signifie le code OBD en 1-2 phrases simples (sans jargon).
+2. Dis si c'est probablement lié au FAP ou non.
+3. Termine TOUJOURS par : "Tu es dans quelle ville ? Je te trouve le centre Re-FAP le plus proche."
+4. JAMAIS de prix, JAMAIS de closing formulaire, JAMAIS de listes.
+5. Maximum 3 phrases.`
+      : SYSTEM_PROMPT + facts;
+
+    const messagesForMistral = [{ role: "system", content: mistralSystemPrompt }];
     if (Array.isArray(history)) {
       for (const msg of history) {
         if (msg.role === "user") {
