@@ -3032,7 +3032,7 @@ function deterministicRouter(message, extracted, history, metier) {
   }
 
   // Réponse km dans un flow OBD actif (bot vient de demander le km)
-  if (extracted?.symptome === "code_obd" && extracted?.marque && !extracted?.kilometrage) {
+  if (extractCodesFromHistory(history).length > 0 && extracted?.marque && !extracted?.kilometrage) {
     const { extractKmFromMessage } = { extractKmFromMessage: (t) => {
       const m = t.match(/(\d[\d\s.]{1,7})\s*(km|kilometre|kilo)/i);
       return m ? m[1].replace(/[\s.]/g, "") + " km" : null;
@@ -3074,16 +3074,17 @@ function deterministicRouter(message, extracted, history, metier) {
   if (marqueInfo && marqueInfo.famille !== "diesel_generique") {
     const updatedExtracted = { ...(extracted || DEFAULT_DATA), marque: marqueInfo.marque };
 
-    // Flow OBD actif → demander km via buildOBDResponse
-    if (extracted?.symptome === "code_obd") {
-      const codesInHistory = extractCodesFromHistory(history);
-      const codeToLookup = extracted?.codes?.[0] || codesInHistory[0];
-      if (codeToLookup) {
-        const codeInfo = OBD_FAP_CODES[codeToLookup]
-          ? { code: codeToLookup, ...OBD_FAP_CODES[codeToLookup] }
-          : { code: codeToLookup, explication: null, lié_fap: null };
-        return { action: "obd_response", codeInfo, extracted: updatedExtracted };
-      }
+    // Flow OBD actif → chercher le code dans l'historique (robuste même si symptome mal propagé)
+    const isOBDFlow = extracted?.symptome === "code_obd"
+      || /code_obd|code_p20|p2002|p2003|p0471|p2452|p2453|p2463/i.test(JSON.stringify(extracted || {}));
+    const codesInHistory = extractCodesFromHistory(history);
+    const codeToLookup = extracted?.codes?.[0] || codesInHistory[0];
+
+    if ((isOBDFlow || codeToLookup) && codeToLookup) {
+      const codeInfo = OBD_FAP_CODES[codeToLookup]
+        ? { code: codeToLookup, ...OBD_FAP_CODES[codeToLookup] }
+        : { code: codeToLookup, explication: null, lié_fap: null };
+      return { action: "obd_response", codeInfo, extracted: { ...updatedExtracted, symptome: "code_obd" } };
     }
 
     // Flow normal → réponse marque
