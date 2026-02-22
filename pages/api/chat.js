@@ -3730,7 +3730,7 @@ export default async function handler(req, res) {
     // ========================================
     // ========================================
     // FALLBACK CASCADE DÉTERMINISTE
-    // Séquence complète : symptôme → marque → modèle → km → tentatives → expert → closing
+    // Séquence complète : symptôme → marque → modèle → km → tentatives → ville → expert → closing
     // ========================================
     const isOBDFlow = extractCodesFromHistory(history).length > 0;
 
@@ -3761,12 +3761,17 @@ export default async function handler(req, res) {
       return sendResponse(buildPreviousAttemptsQuestion(lastExtracted, metier));
     }
 
-    // 6. Expert orientation si assez d'infos
+    // 6. Pas de ville → demander (avant closing pour orienter correctement)
+    if (!lastExtracted.ville && !lastExtracted.departement && !lastAssistantAskedCity(history) && !everAskedClosing(history)) {
+      return sendResponse(buildVilleQuestion(lastExtracted));
+    }
+
+    // 7. Expert orientation si assez d'infos
     if (hasEnoughForExpertOrientation(lastExtracted) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
       return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
     }
 
-    // 7. Closing
+    // 8. Closing
     if (!everAskedClosing(history)) {
       return sendResponse(buildClosingQuestion(lastExtracted, metier));
     }
