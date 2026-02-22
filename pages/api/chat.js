@@ -608,6 +608,17 @@ function everAskedClosing(history) {
   return false;
 }
 
+function lastAssistantAskedSymptom(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      return content.includes("type de probl") || content.includes("voyant allum") || content.includes("perte de puissance") || content.includes("qu est-ce qui se passe") || content.includes("quel sympt") || content.includes("quel probl");
+    }
+  }
+  return false;
+}
+
 function lastAssistantAskedCity(history) {
   if (!Array.isArray(history)) return false;
   for (let i = history.length - 1; i >= 0; i--) {
@@ -3621,166 +3632,51 @@ export default async function handler(req, res) {
       // llm_obd → passe au Mistral avec prompt simplifié
     }
 
+
     // ========================================
-    // LLM PATH : Mistral — FALLBACK
+    // FALLBACK DÉTERMINISTE — Mistral supprimé
     // ========================================
-    let flowHint = null;
-    if (!lastExtracted.marque && !lastAssistantAskedVehicle(history) && !everAskedModel(history)) {
-      flowHint = "Demande la marque et le modèle du véhicule. UNE SEULE question.";
-    } else if (!lastExtracted.marque && (lastAssistantAskedVehicle(history) || everAskedModel(history))) {
-      flowHint = "L'utilisateur a peut-être déjà mentionné sa marque. Relis l'historique. Sinon, demande-la UNE DERNIÈRE FOIS.";
-    } else if (!lastExtracted.previous_attempts && !everAskedPreviousAttempts(history)) {
-      flowHint = "Demande si l'utilisateur a déjà essayé quelque chose (additif, garage, etc.)";
+
+    // Pas de marque → demander
+    if (!lastExtracted.marque && !lastAssistantAskedVehicle(history)) {
+      return sendResponse(buildVehicleQuestion(lastExtracted));
     }
 
-    const facts = buildFacts(metier, quickData, lastExtracted, flowHint);
-    const isOBDQuery = deterRoute?.action === "llm_obd" || /\bp[0-9]{4}\b|code.*(erreur|obd|defaut)/i.test(message);
-    const mistralSystemPrompt = isOBDQuery
-      ? `Tu es FAPexpert, expert FAP diesel. RÈGLES STRICTES :
-1. Explique ce que signifie le code OBD en 1-2 phrases simples (sans jargon).
-2. Dis si c'est probablement lié au FAP ou non.
-3. Termine TOUJOURS par : "Tu es dans quelle ville ? Je te trouve le centre Re-FAP le plus proche."
-4. JAMAIS de prix, JAMAIS de closing formulaire, JAMAIS de listes.
-5. Maximum 3 phrases.`
-      : SYSTEM_PROMPT + facts;
-
-    const messagesForMistral = [{ role: "system", content: mistralSystemPrompt }];
-    if (Array.isArray(history)) {
-      for (const msg of history) {
-        if (msg.role === "user") {
-          messagesForMistral.push({ role: "user", content: msg.content });
-        } else if (msg.role === "assistant") {
-          const clean = cleanReplyForUI(msg.raw || msg.content);
-          if (clean) messagesForMistral.push({ role: "assistant", content: clean });
-        }
-      }
-    }
-    messagesForMistral.push({ role: "user", content: message });
-
-    const mistralResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.MISTRAL_API_KEY}` },
-      body: JSON.stringify({ model: process.env.MISTRAL_MODEL || "mistral-small-latest", messages: messagesForMistral, temperature: 0.4, max_tokens: 250 }),
-    });
-
-    if (!mistralResponse.ok) {
-      const errText = await mistralResponse.text();
-      return res.status(500).json({ error: "Erreur Mistral API", details: errText });
+    // Marque demandée mais pas reçue → relancer
+    if (!lastExtracted.marque) {
+      return sendResponse(buildVehicleQuestion(lastExtracted));
     }
 
-    const mistralData = await mistralResponse.json();
-    let replyFull = mistralData.choices?.[0]?.message?.content || "";
-    const rawExtracted = extractDataFromReply(replyFull) || DEFAULT_DATA;
-    const extracted = mergeExtractedData(lastExtracted, rawExtracted, message, quickData);
-
-    if (metier.routing && extracted.certitude_fap === "inconnue") {
-      extracted.certitude_fap = metier.routing.certitude_fap;
+    // Pas de symptôme → demander
+    if ((!lastExtracted.symptome || lastExtracted.symptome === "inconnu") && !lastAssistantAskedSymptom(history)) {
+      return sendResponse(buildSymptomeQuestion(lastExtracted));
     }
 
-    let replyClean = cleanReplyForUI(replyFull);
-
-    // v6.3.2 ANTI-BOUCLE : si Mistral génère la même réponse que la précédente → fermeture propre
-    {
-      const lastAssistantMsg = history.filter(h => h.role === "assistant").slice(-1)[0];
-      const lastContent = lastAssistantMsg ? cleanReplyForUI(String(lastAssistantMsg.raw || lastAssistantMsg.content || "")).toLowerCase().trim().slice(0, 60) : "";
-      const currentStem = replyClean.toLowerCase().trim().slice(0, 60);
-      if (lastContent && currentStem && currentStem === lastContent) {
-        return sendResponse(buildDeclinedResponse(lastExtracted));
-      }
+    // Pas de tentatives → demander (une fois)
+    if (lastExtracted.marque && lastExtracted.symptome && lastExtracted.symptome !== "inconnu"
+      && !lastExtracted.previous_attempts && !everAskedPreviousAttempts(history)) {
+      return sendResponse(buildPreviousAttemptsQuestion(lastExtracted, metier));
     }
 
-
-    if (!replyClean || replyClean.length < 5) {
-      if (!extracted.marque) {
-        replyClean = "D'accord. C'est quelle voiture ?";
-        extracted.next_best_action = "demander_vehicule";
-      } else if (extracted.symptome === "inconnu") {
-        replyClean = "Ok. Qu'est-ce qui se passe exactement avec ta voiture ?";
-      } else if (!everAskedClosing(history) && hasEnoughToClose(extracted, history)) {
-        return sendResponse(buildClosingQuestion(extracted, metier));
-      } else if (lastAssistantIsClosing(history)) {
-        replyClean = "Pas de souci ! Si tu as d'autres questions sur ton FAP, n'hésite pas.";
-        extracted.next_best_action = "clore";
-      } else {
-        replyClean = "Si tu as d'autres infos sur le problème (codes erreur, kilométrage...), je peux affiner le diagnostic.";
+    // Assez d'infos → closing ou orientation
+    if (hasEnoughToClose(lastExtracted, history) && !everAskedClosing(history)) {
+      if (!everGaveExpertOrientation(history) && hasEnoughForExpertOrientation(lastExtracted)) {
+        return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
       }
-    }
-    replyFull = `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`;
-
-    // SÉCURITÉ : Bloquer TOUS les closings prématurés de Mistral
-    const isMistralClosing = /on est l[àa] pour t.aider/i.test(replyClean);
-    const isMistralExpertClosing =
-      (/expert re-fap/i.test(replyClean) && (/gratuit/i.test(replyClean) || /sans engagement/i.test(replyClean))) &&
-      !everGaveExpertOrientation(history);
-    const hasRule8Violation = /1500|remplacement/i.test(replyClean);
-    if (isMistralClosing || isMistralExpertClosing) {
-      if (!extracted.marque) {
-        return sendResponse(buildVehicleQuestion(extracted));
-      }
-      if (!extracted.modele && !everAskedModel(history)) {
-        return sendResponse(buildModelQuestion(extracted));
-      }
-      if (!extracted.kilometrage && !everAskedKm(history)) {
-        return sendResponse(buildKmQuestion(extracted));
-      }
-      if (!extracted.previous_attempts && !everAskedPreviousAttempts(history)) {
-        return sendResponse(buildPreviousAttemptsQuestion(extracted, metier));
-      }
-      if (!everGaveExpertOrientation(history) && hasEnoughForExpertOrientation(extracted)) {
-        return sendResponse(withDataRelance(buildExpertOrientation(extracted, metier), history));
-      }
-      return sendResponse(buildClosingQuestion(extracted, metier));
-    }
-    // Nettoyer violations règle 8
-    if (hasRule8Violation) {
-      replyClean = replyClean
-        .replace(/\s*\(?99[- ]?149\s*€?\s*vs\s*1500\s*€?\+?\s*(pour\s+un\s+)?remplacement\)?/gi, "")
-        .replace(/\s*vs\s*1500\s*€?\+?\s*(pour\s+un\s+)?remplacement/gi, "")
-        .replace(/\s*au\s+lieu\s+de\s+1500\s*€?\+?\s*(pour\s+un\s+)?remplacement/gi, "")
-        .replace(/\s*\(bien\s+moins\s+qu.un\s+remplacement\)/gi, "")
-        .trim();
-      replyFull = `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`;
+      return sendResponse(buildClosingQuestion(lastExtracted, metier));
     }
 
-    // Intercepter question multi (moteur+année+km en 1)
-    const asksMultipleThings = /moteur.*ann[eé]e.*kilom[eé]trage|ann[eé]e.*moteur.*km|mod[eè]le.*ann[eé]e.*km/i.test(replyClean);
-    if (asksMultipleThings && extracted.marque) {
-      if (!extracted.modele && !everAskedModel(history)) {
-        return sendResponse(buildModelQuestion(extracted));
-      }
-      if (!extracted.kilometrage && !everAskedKm(history)) {
-        return sendResponse(buildKmQuestion(extracted));
-      }
+    // Pas de ville → demander
+    if (!lastExtracted.ville && !lastExtracted.departement) {
+      return sendResponse(buildVilleQuestion(lastExtracted));
     }
 
-    // Filet de sécurité : closing sans véhicule
-    const looksLikeClosing = /expert re-fap/i.test(replyClean) && (/gratuit/i.test(replyClean) || /sans engagement/i.test(replyClean));
-    if (looksLikeClosing && !extracted.marque) {
-      return sendResponse(buildVehicleQuestion(extracted));
-    }
-
-    // AUTO-CLOSE
-    if (
-      hasEnoughToClose(extracted, history) && !everAskedClosing(history) &&
-      !lastAssistantAskedDemontage(history) && !lastAssistantAskedCity(history) &&
-      !lastAssistantAskedSolutionExplanation(history) && !lastAssistantAskedGarageType(history) &&
-      (everAskedPreviousAttempts(history) || extracted.previous_attempts || userTurns >= 4)
-    ) {
-      if (!everGaveExpertOrientation(history) && hasEnoughForExpertOrientation(extracted)) {
-        return sendResponse(withDataRelance(buildExpertOrientation(extracted, metier), history));
-      } else if (!everGaveExpertOrientation(history) && !extracted.kilometrage && !everAskedKm(history)) {
-        return sendResponse(buildKmQuestion(extracted));
-      } else if (!everGaveExpertOrientation(history)) {
-        // Km demandé mais pas répondu → expert orientation en mode dégradé
-        return sendResponse(withDataRelance(buildExpertOrientation(extracted, metier), history));
-      } else {
-        return sendResponse(buildClosingQuestion(extracted, metier));
-      }
-    }
-
-    // RÉPONSE NORMALE
-    const response = { replyClean, replyFull, extracted };
-    return sendResponse(response);
+    // Fallback générique
+    const fallbackReply = lastExtracted.marque
+      ? `Tu as d'autres infos sur le problème (kilométrage, depuis combien de temps) ?`
+      : `Pour t'aider, c'est quel véhicule ?`;
+    const fallbackData = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "poser_question" };
+    return sendResponse({ replyClean: fallbackReply, replyFull: `${fallbackReply}\nDATA: ${safeJsonStringify(fallbackData)}`, extracted: fallbackData });
 
   } catch (error) {
     console.error("❌ Erreur handler chat:", error);
