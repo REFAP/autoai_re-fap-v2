@@ -2907,6 +2907,65 @@ function buildVilleQuestion(extracted) {
 
 // ---- ROUTEUR DÉTERMINISTE PRINCIPAL ----
 // Retourne une réponse ou null (→ fallback Mistral)
+// ---- TABLE CODES OBD FAP COURANTS ----
+const OBD_FAP_CODES = {
+  "P2002": { label: "Efficacité FAP insuffisante", explication: "Le calculateur a mesuré que le FAP ne filtre plus correctement — il est encrassé (suies + cendres). C'est le code le plus courant avant un nettoyage Re-FAP.", lié_fap: true },
+  "P2003": { label: "Efficacité FAP insuffisante (banque 2)", explication: "Même chose que P2002 sur le 2e banc de cylindres. FAP encrassé, nettoyage nécessaire.", lié_fap: true },
+  "P0471": { label: "Capteur pression différentielle FAP — plage incorrecte", explication: "Le capteur qui mesure la pression avant/après le FAP donne des valeurs anormales. Ça peut être le capteur lui-même ou le FAP trop chargé en cendres qui fausse la mesure.", lié_fap: true },
+  "P0472": { label: "Capteur pression différentielle FAP — signal trop bas", explication: "Le capteur de pression FAP renvoie un signal trop faible — souvent un tuyau de prise de pression bouché ou un FAP trop colmaté.", lié_fap: true },
+  "P0473": { label: "Capteur pression différentielle FAP — signal trop haut", explication: "Pression trop élevée détectée sur le FAP — signe d'un filtre très chargé en cendres.", lié_fap: true },
+  "P2452": { label: "Capteur pression différentielle FAP — circuit défaillant", explication: "Problème électrique sur le capteur de pression du FAP. Peut être le capteur ou le câblage.", lié_fap: true },
+  "P2453": { label: "Capteur pression différentielle FAP — signal erratique", explication: "Le capteur de pression donne des valeurs incohérentes — souvent lié à un FAP très encrassé ou un capteur défaillant.", lié_fap: true },
+  "P2454": { label: "Capteur pression différentielle FAP — signal faible", explication: "Signal trop faible du capteur de pression différentielle, souvent quand le FAP est saturé.", lié_fap: true },
+  "P2455": { label: "Capteur pression différentielle FAP — signal élevé", explication: "Signal trop élevé, FAP très chargé.", lié_fap: true },
+  "P2463": { label: "FAP — dépôt excessif de suies", explication: "Le calculateur confirme que le FAP est saturé en suies et ne peut plus se régénérer seul. Nettoyage professionnel obligatoire.", lié_fap: true },
+  "P244A": { label: "Pression différentielle FAP trop élevée (regen en cours)", explication: "Pression anormalement haute pendant une régénération — FAP trop chargé en cendres pour se régénérer correctement.", lié_fap: true },
+  "P244B": { label: "Pression différentielle FAP trop basse (regen en cours)", explication: "Pression trop basse pendant la régénération — possible fuite ou capteur défaillant.", lié_fap: true },
+  "P0420": { label: "Efficacité catalyseur insuffisante", explication: "Ce code concerne le catalyseur, pas directement le FAP — mais sur les véhicules avec FAP combiné (catalyseur intégré), un nettoyage Re-FAP peut aussi résoudre ce code.", lié_fap: false },
+  "P0401": { label: "EGR — débit insuffisant", explication: "Ce code concerne la vanne EGR (recirculation des gaz), pas le FAP directement. Mais un FAP encrassé peut aggraver l'encrassement EGR.", lié_fap: false },
+};
+
+function lookupOBDCode(message) {
+  const match = message.toUpperCase().match(/\bP[0-9]{4}\b|\bP[0-9A-F]{4}\b/);
+  if (!match) return null;
+  const code = match[0].toUpperCase();
+  return OBD_FAP_CODES[code] ? { code, ...OBD_FAP_CODES[code] } : { code, label: "Code non référencé", explication: null, lié_fap: null };
+}
+
+function extractCodesFromHistory(history) {
+  if (!Array.isArray(history)) return [];
+  const codes = [];
+  for (const h of history) {
+    const content = String(h.content || h.raw || "");
+    const matches = content.toUpperCase().match(/\bP[0-9]{4}\b|\bP[0-9A-F]{4}\b/g);
+    if (matches) codes.push(...matches);
+  }
+  return [...new Set(codes)];
+}
+
+function userAsksCodeMeaning(text) {
+  return /veut?.*(dire|signif)|signif|c.est quoi (ce code|le code)|que (veut|signif)|explication|ça (veut|signif)|c.est grave|dangereux|s[eé]rieux/i.test(text);
+}
+
+function buildOBDResponse(codeInfo, extracted) {
+  const marqueStr = extracted?.marque ? ` sur ta ${extracted.marque}` : "";
+  const data = { ...(extracted || DEFAULT_DATA), symptome: "code_obd", certitude_fap: codeInfo.lié_fap ? "haute" : "moyenne", next_best_action: "demander_ville" };
+
+  let replyClean;
+  if (!codeInfo.explication) {
+    replyClean = `Le code ${codeInfo.code}${marqueStr} n'est pas dans ma base de données. Tu peux me donner plus de détails sur ce que tu observes (voyant, perte de puissance, fumée) ? Tu es dans quelle ville pour qu'on t'oriente ?`;
+  } else {
+    const gravite = codeInfo.lié_fap
+      ? `C'est bien lié au FAP${marqueStr} — un nettoyage en machine Re-FAP règle ça dans la grande majorité des cas.`
+      : `Ce code n'est pas directement lié au FAP mais peut être connexe${marqueStr}.`;
+    replyClean = `**${codeInfo.code} — ${codeInfo.label}**\n\n${codeInfo.explication}\n\n${gravite}\n\nTu es dans quelle ville ? Je te trouve le centre Re-FAP le plus proche.`;
+    // Pas de markdown dans le chat → version texte
+    replyClean = `${codeInfo.code} — ${codeInfo.label}\n\n${codeInfo.explication}\n\n${gravite}\n\nTu es dans quelle ville ? Je te trouve le centre le plus proche.`;
+  }
+
+  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+}
+
 function deterministicRouter(message, extracted, history, metier) {
   const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
@@ -2917,6 +2976,30 @@ function deterministicRouter(message, extracted, history, metier) {
 
   // 2. Détecter symptôme dans le message
   const symptome = detectSymptom(message);
+
+  // Code OBD → lookup déterministe
+  if (symptome === "code_obd") {
+    const codeInfo = lookupOBDCode(message);
+    if (codeInfo) {
+      return { action: "obd_response", codeInfo, extracted: { ...(extracted || DEFAULT_DATA), symptome: "code_obd", codes: [codeInfo.code] } };
+    }
+    // Code non trouvé dans le message (ex: "j'ai un code défaut") → demander le code
+    const replyClean = "Tu as le code affiché quelque part ? (sur un lecteur OBD, ou un garage te l'a lu). Le code commence généralement par P suivi de 4 chiffres (ex: P2002).";
+    const data = { ...(extracted || DEFAULT_DATA), symptome: "code_obd", next_best_action: "demander_details" };
+    return { action: "direct_reply", replyClean, extracted: data };
+  }
+
+  // Question de suivi sur un code OBD mentionné dans l'historique
+  if (userAsksCodeMeaning(message)) {
+    const codesInHistory = extractCodesFromHistory(history);
+    const codeInExtracted = extracted?.codes?.[0];
+    const codeToLookup = codeInExtracted || codesInHistory[0];
+    if (codeToLookup) {
+      const codeInfo = OBD_FAP_CODES[codeToLookup] ? { code: codeToLookup, ...OBD_FAP_CODES[codeToLookup] } : { code: codeToLookup, explication: null, lié_fap: null };
+      return { action: "obd_response", codeInfo, extracted: { ...(extracted || DEFAULT_DATA), symptome: "code_obd" } };
+    }
+  }
+
   if (symptome && symptome !== "code_obd") {
     const updatedExtracted = { ...(extracted || DEFAULT_DATA), symptome };
     // Si marque déjà connue → passer à ville
@@ -3528,11 +3611,14 @@ export default async function handler(req, res) {
       if (deterRoute.action === "ask_ville") {
         return sendResponse(buildVilleQuestion(deterRoute.extracted || lastExtracted));
       }
-      // deterRoute.action === "llm_obd" → passe au LLM avec prompt ciblé
-      if (deterRoute.action === "llm_obd") {
-        // Le LLM recevra un prompt ultra-simplifié pour les codes OBD
-        // (géré dans le bloc Mistral ci-dessous via le flag isOBDQuery)
+      if (deterRoute.action === "obd_response") {
+        return sendResponse(buildOBDResponse(deterRoute.codeInfo, deterRoute.extracted || lastExtracted));
       }
+      if (deterRoute.action === "direct_reply") {
+        const data = deterRoute.extracted || lastExtracted;
+        return sendResponse({ replyClean: deterRoute.replyClean, replyFull: `${deterRoute.replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data });
+      }
+      // llm_obd → passe au Mistral avec prompt simplifié
     }
 
     // ========================================
