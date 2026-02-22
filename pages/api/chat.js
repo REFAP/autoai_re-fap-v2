@@ -3587,23 +3587,7 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // OVERRIDE 9 : Réponse BDD métier
-    // ========================================
-    const metierResponse = buildMetierResponse(quickData, lastExtracted, metier, userTurns, history);
-    if (metierResponse) {
-      return sendResponse(withDataRelance(metierResponse, history));
-    }
-
-    // ========================================
-    // OVERRIDE 10 : Snippet technique
-    // ========================================
-    const snippetResponse = buildSnippetResponse(quickData, lastExtracted, metier);
-    if (snippetResponse) {
-      return sendResponse(snippetResponse);
-    }
-
-    // ========================================
-    // v7.0 MOTEUR DÉTERMINISTE — avant Mistral
+    // v7.0 MOTEUR DÉTERMINISTE — prioritaire sur métier/snippet
     // ========================================
     const deterRoute = deterministicRouter(message, lastExtracted, history, metier);
     if (deterRoute) {
@@ -3630,6 +3614,22 @@ export default async function handler(req, res) {
         return sendResponse({ replyClean: deterRoute.replyClean, replyFull: `${deterRoute.replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data });
       }
       // llm_obd → passe au Mistral avec prompt simplifié
+    }
+
+    // ========================================
+    // OVERRIDE 9 : Réponse BDD métier
+    // ========================================
+    const metierResponse = buildMetierResponse(quickData, lastExtracted, metier, userTurns, history);
+    if (metierResponse) {
+      return sendResponse(withDataRelance(metierResponse, history));
+    }
+
+    // ========================================
+    // OVERRIDE 10 : Snippet technique
+    // ========================================
+    const snippetResponse = buildSnippetResponse(quickData, lastExtracted, metier);
+    if (snippetResponse) {
+      return sendResponse(snippetResponse);
     }
 
 
