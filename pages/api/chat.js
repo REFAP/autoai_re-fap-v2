@@ -2920,19 +2920,17 @@ export default async function handler(req, res) {
 
     // ========================================
     // OVERRIDE RESCUE : Ville + intention garage/CC À TOUT MOMENT
-    // Bug A : "je suis à Besançon propose moi un garage" post-flow
+    // Bug A : "je suis de/à Besançon propose moi un garage" post-flow
     // Bug B : Code postal après "je n'arrive pas à localiser"
+    // Condition : extractDeptFromInput trouve une ville/CP dans n'importe quelle phrase
+    //             + intent garage détecté OU bot avait demandé un CP
     // ========================================
     {
       const rescueDept = extractDeptFromInput(message);
-      const rescueIsCity = looksLikeCityAnswer(message);
       const rescueHasIntent = hasGarageOrLocationIntent(message);
       const rescueAfterLocFailure = lastAssistantAskedPostalCode(history);
 
-      if (rescueDept && (
-        (rescueIsCity && rescueHasIntent) ||
-        (rescueAfterLocFailure)
-      )) {
+      if (rescueDept && (rescueHasIntent || rescueAfterLocFailure)) {
         return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, cleanVilleInput(message), history));
       }
     }
