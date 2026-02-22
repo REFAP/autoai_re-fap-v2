@@ -2720,25 +2720,81 @@ function buildDeclinedResponse(extracted) {
 // FAQ DÉTERMINISTE — questions techniques et commerciales courantes
 // ============================================================
 const FAQ_ENTRIES = [
+  // ---- ALTERNATIVES / COMPARATIFS ----
+  {
+    id: "karcher",
+    patterns: /karcher|haute.?pression|jet.?(eau|pression)|pistolet.?(eau|pression)|laver.*(fap|filtre)|nettoyer.*(eau|jet)/i,
+    reponse: (e) => `Le nettoyage Kärcher (haute pression) sur un FAP, c'est risqué. La céramique à l'intérieur du filtre est très fragile — un jet d'eau trop fort peut fissurer les canaux et rendre le FAP inutilisable.\n\nAutre problème : ça ne retire pas les cendres métalliques, seulement une partie des suies. Le FAP se rebouche en quelques semaines.\n\nLe nettoyage Re-FAP utilise un procédé sous pression contrôlée avec un produit homologué — céramique préservée, cendres retirées, garanti 1 an.\n\nTu as quel véhicule${e?.marque ? " — ta " + e.marque + " ?" : " ?"}`,
+  },
+  {
+    id: "vinaigre_acide",
+    patterns: /vinaigre|acide|produit.?(maison|fait.?maison)|solution.?(maison|diy)|tremper.*(fap|filtre)|bain.*(acide|vinaigre)/i,
+    reponse: (e) => `Le trempage vinaigre ou acide pour un FAP, c'est une mauvaise idée. L'acide attaque la céramique du filtre et peut dissoudre les canaux de filtration — le FAP ne filtre plus rien et ne passe pas le CT.\n\nEn plus, certains FAP contiennent un support catalytique à base de métaux précieux (platine, palladium) qui se dégrade au contact d'acides.\n\nLa seule façon efficace et sans risque : le nettoyage en machine professionnelle sous pression contrôlée.\n\nTu as quel souci sur ton véhicule${e?.marque ? " — ta " + e.marque + " ?" : " ?"}`,
+  },
+  {
+    id: "four_chauffage",
+    patterns: /four|chauffer|cuire|calciner|br[uû]ler.*(fap|filtre)|mettre.*(four|chaleur)/i,
+    reponse: (e) => `Passer un FAP au four pour le nettoyer — ça circule sur les forums, mais c'est inefficace et dangereux. La chaleur brûle les suies légères, mais pas les cendres métalliques qui représentent le vrai problème sur un FAP saturé.\n\nDe plus, les FAP contiennent des matières qui peuvent libérer des vapeurs toxiques à haute température.\n\nLe nettoyage professionnel Re-FAP est la seule solution qui retire suies ET cendres, avec un contrôle avant/après.\n\nTu as quel véhicule${e?.marque ? " — ta " + e.marque + " ?" : " ?"}`,
+  },
+  {
+    id: "rouler_sans_fap",
+    patterns: /rouler.*(sans|sans le) fap|conduire.*(sans|sans le) fap|fap.*(enl[eé]v|pas remis|pas remont)|utiliser.*(sans fap|la voiture sans)/i,
+    reponse: () => `Rouler sans FAP, c'est interdit (Art. L318-3 du Code de la route). Contrôle technique systématiquement refusé. Amende jusqu'à 7 500€.\n\nEn dehors du légal : les suies non filtrées encrassent l'EGR, le turbo et les injecteurs à grande vitesse. À terme ça coûte beaucoup plus cher que le nettoyage.\n\nSi ton FAP est démonté pour nettoyage, le délai Re-FAP est de 48-72h en envoi ou 4h sur place. Tu veux qu'on organise ça ?`,
+  },
+  {
+    id: "additif",
+    patterns: /additif.*(march|fonctionne?|efficace?|sert|vaut|utile|vraiment)|net.?fap|lave.?fap|nettoyant.*(diesel|fap)|produit.*(nettoyer|nettoyage).*(fap|diesel)|dpf.*(cleaner|clean)|eolys|cerine/i,
+    reponse: (e) => `L'additif dissout une partie des suies légères. Il ne touche pas aux cendres métalliques — qui représentent la moitié du colmatage sur un FAP saturé.\n\nRésultat : ça peut faire partir le voyant quelques semaines, mais le FAP se rebouche rapidement. C'est une solution temporaire, pas définitive.\n\nNote spécifique PSA${e?.marque === "Peugeot" || e?.marque === "Citroën" ? " (ta " + e.marque + ")" : ""} : le système Eolys utilise un additif cérine injecté dans le carburant pour abaisser la température de régénération. Ce n'est pas la même chose — ce réservoir d'additif doit être maintenu au niveau, mais ça ne nettoie pas le FAP.\n\nLe nettoyage Re-FAP retire suies ET cendres, garanti 1 an.\n\nTu as déjà essayé un additif${e?.marque ? " sur ta " + e.marque : ""} ?`,
+  },
+  {
+    id: "regeneration_forcee",
+    patterns: /r[eé]g[eé]n[eé]r.*(forc[eé]|valise|outil|diagnost|manuelle)|valise.*(r[eé]g[eé]n|nettoy)|forc.*(r[eé]g[eé]n)/i,
+    reponse: (e) => `La régénération forcée (via valise de diagnostic) peut débloquer un FAP légèrement encrassé — mais uniquement si le FAP n'est pas trop chargé en cendres.\n\nProblème : la regen forcée brûle les suies, pas les cendres. Si le FAP est saturé en cendres (ce qui arrive après 100 000+ km), la regen forcée va se faire, le voyant va s'éteindre, puis revenir quelques jours plus tard.\n\nSi la regen forcée a déjà été faite et que le voyant est revenu — c'est clairement un FAP chargé en cendres. Nettoyage en machine nécessaire.\n\nC'est le cas${e?.marque ? " sur ta " + e.marque : ""} ?`,
+  },
+  // ---- SYMPTÔMES ----
   {
     id: "regeneration",
-    patterns: /r[eé]g[eé]n[eé]r(ation|er|e)\b|auto.?nettoy|se nettoie tout seul/i,
+    patterns: /r[eé]g[eé]n[eé]r(ation|er|e)\b(?!.*(forc|valise|manuelle))|auto.?nettoy|se nettoie tout seul/i,
     reponse: (e) => `La régénération, c'est le processus automatique où le moteur monte en température pour brûler les suies accumulées dans le FAP. Elle se déclenche normalement sur autoroute ou route à vitesse soutenue. En ville ou sur courts trajets, elle ne se fait pas — les suies s'accumulent jusqu'à saturation.\n\nLe problème : la régénération brûle les suies, mais pas les cendres métalliques. Ces cendres s'accumulent à vie et nécessitent un nettoyage en machine.\n\nC'est quel véhicule${e?.marque ? " — ta " + e.marque + " ?" : " ?"}`,
   },
+  {
+    id: "ct_refuse",
+    patterns: /ct.*(rat[eé]|refus|recal|[eé]chou|pas pass)|contr[oô]le.*(rat[eé]|refus|recal)|contre.?visite|opacit[eé]|opacim[eè]tre/i,
+    reponse: (e) => `Un refus au CT pour opacité, c'est le FAP qui n'est plus capable de retenir les particules. Le nettoyage Re-FAP remet les valeurs dans les normes CT — c'est d'ailleurs un des cas où on a les meilleurs résultats.\n\nImportant : le nettoyage doit être fait AVANT de repasser au CT. Le contrôleur mesure l'opacité des fumées au ralenti — un FAP propre passe sans problème.\n\nLe délai Re-FAP est de 48-72h en envoi ou 4h sur place. Largement dans les délais pour une contre-visite.${e?.marque ? "\n\nC'est quel modèle de " + e.marque + " ?" : "\n\nC'est quel véhicule ?"}`,
+    urgence: true,
+  },
+  {
+    id: "mode_degrade",
+    patterns: /mode.?(d[eé]grad[eé]|s[eé]curit[eé]|limp)|brid[eé]|limit[eé].*(vitesse|km|puissance)|bridage|100.*km.*h.*(max|limit|d[eé]passe)/i,
+    reponse: (e) => `Le mode dégradé, c'est le calculateur qui bride le moteur pour se protéger — le FAP est trop chargé et la pression différentielle dépasse le seuil critique.\n\nC'est une urgence relative : le véhicule peut rouler, mais pas à vitesse normale, et le moteur est stressé. Plus tu attends, plus le risque de dommages secondaires (turbo, EGR) augmente.\n\nLa bonne nouvelle : dans 90% des cas, un nettoyage Re-FAP suffit à sortir du mode dégradé définitivement.${e?.marque ? "\n\nC'est quel modèle de " + e.marque + " ?" : "\n\nC'est quel véhicule ?"}`,
+    urgence: true,
+  },
+  {
+    id: "egr",
+    patterns: /egr|recircul.*(gaz|egr)|vanne.*(egr|gaz|echapp)|encrassement.*(admission|egr|int[eé]rieur)/i,
+    reponse: (e) => `L'EGR (recirculation des gaz d'échappement) et le FAP sont liés : quand le FAP est encrassé, il renvoie plus de suies dans l'EGR, qui s'encrasse à son tour.\n\nRe-FAP nettoie le FAP, pas l'EGR. Mais dans beaucoup de cas, nettoyer le FAP réduit l'encrassement EGR à terme.\n\nSi tu as à la fois un problème d'EGR et de FAP, c'est souvent plus économique de les traiter en même temps chez un garagiste. On peut t'orienter vers un garage partenaire qui connaît les deux.\n\nTu as quel problème exactement${e?.marque ? " sur ta " + e.marque : ""} — voyant, perte de puissance, les deux ?`,
+  },
+  {
+    id: "turbo",
+    patterns: /turbo.*(cass[eé]|abim[eé]|hs|bruit|siffle|fum[eé]e)|bruit.*(turbo|souffle|siffle)|siffle.*(turbo|moteur)/i,
+    reponse: (e) => `Un turbo qui siffle ou fait du bruit peut être lié à un FAP encrassé — la contre-pression au niveau du FAP stresse le turbo.\n\nCe n'est pas toujours le cas, mais si tu as aussi un voyant FAP ou une perte de puissance, c'est un signe que les deux sont liés. Nettoyer le FAP d'abord permet souvent de sauver le turbo.\n\nSi le turbo est déjà endommagé, c'est plus complexe — dans ce cas un diagnostic complet chez un garagiste est nécessaire en parallèle.\n\nTu as d'autres symptômes${e?.marque ? " sur ta " + e.marque : ""} (voyant, perte de puissance, fumée) ?`,
+  },
+  // ---- LÉGAL / ASSURANCE ----
+  {
+    id: "legal_defap",
+    patterns: /d[eé]fap|retirer.*(fap|filtre)|supprim.*(fap|filtre)|fap.*(off|supprim|retir)|dpf.*(off|remov|delete)/i,
+    reponse: () => `Le défapage (suppression du FAP) est illégal en France depuis 2012 (Art. L318-3 du Code de la route). Amende jusqu'à 7 500€ + contre-visite CT systématique. En cas d'accident, l'assurance peut refuser l'indemnisation.\n\nLe nettoyage Re-FAP est la seule solution légale et durable : on retire les suies et les cendres sans toucher à la carte moteur. Garanti 1 an, conforme CT.\n\nTu veux qu'on t'oriente sur le nettoyage ?`,
+  },
+  {
+    id: "assurance",
+    patterns: /assurance|garantie.*(vehicule|voiture|auto)|couvert|remboursement|prise.?en.?charge.*(assurance|garantie)/i,
+    reponse: (e) => `Le nettoyage FAP n'est généralement pas couvert par l'assurance auto (c'est de l'entretien, pas un accident).\n\nEn revanche, si ton véhicule est sous garantie constructeur ou garantie étendue, certains contrats couvrent le FAP. Il faut vérifier dans les conditions de ta garantie.\n\nLe nettoyage Re-FAP est garanti 1 an indépendamment — si ça se rebouche dans l'année, on renettoyage sans frais.\n\nTu as quel souci en ce moment${e?.marque ? " sur ta " + e.marque : ""} ?`,
+  },
+  // ---- RE-FAP / SERVICE ----
   {
     id: "fap_vs_cata",
     patterns: /diff[eé]rence.*(fap|cata|catalyseur)|fap.*(c.?est quoi|quoi c.?est|def|definition)|c.?est quoi (le|un) fap|qu.?est.?ce.*(fap|filtre)/i,
     reponse: (e) => `Le FAP (filtre à particules) retient les suies du diesel pour ne pas les rejeter dans l'air. Le catalyseur transforme les gaz nocifs (CO, NOx) en gaz inoffensifs.\n\nSur beaucoup de véhicules récents, les deux sont intégrés dans un seul bloc (FAP combiné) — c'est pour ça que le nettoyage coûte 149€ au lieu de 99€. Sur les moteurs plus anciens (ex: DV6 PSA avant 2010), ils sont séparés.\n\nTu as quel véhicule${e?.marque ? " — ta " + e.marque + " ?" : " ?"}`,
-  },
-  {
-    id: "additif",
-    patterns: /additif.*(march|fonctionne?|efficace?|sert|vaut)|net.?fap|lave.?fap|nettoyant.*(diesel|fap)|produit.*(nettoyer|nettoyage).*(fap|diesel)|dpf.*(cleaner|clean)/i,
-    reponse: (e) => `L'additif dissout une partie des suies légères. Il ne touche pas aux cendres métalliques — qui représentent la moitié du colmatage sur un FAP saturé.\n\nRésultat : ça peut faire partir le voyant quelques semaines, mais le FAP se rebouche rapidement. C'est une solution temporaire, pas définitive.\n\nLe nettoyage Re-FAP en machine retire les suies ET les cendres, c'est pour ça qu'il est garanti 1 an et conforme CT.\n\nTu as déjà essayé un additif${e?.marque ? " sur ta " + e.marque : ""} ?`,
-  },
-  {
-    id: "demontage_oblig",
-    patterns: /oblig.*(d[eé]mont|enlever|retirer)|faut.*(d[eé]mont|enlever|retirer).*(fap|filtre)|d[eé]mont.*(oblig|n[eé]cessaire|impos|éviter)/i,
-    reponse: (e) => `Oui, le FAP doit être démonté pour le nettoyage en machine — c'est incontournable. Le nettoyage se fait par injection sous pression contrôlée, impossible à faire en place sur le véhicule.\n\nDeux options selon ta situation :\n→ Tu as un garagiste de confiance ? Il démonte, dépose au Carter-Cash, on nettoie, il remonte.\n→ Tu veux qu'on trouve un garage partenaire ? On s'occupe de tout de A à Z.\n\nTu es dans quelle région${e?.ville ? " — " + e.ville + " ?" : " ?"}`,
   },
   {
     id: "refap_cest_quoi",
@@ -2746,29 +2802,35 @@ const FAQ_ENTRIES = [
     reponse: () => `Re-FAP est un service spécialisé dans le nettoyage de filtres à particules diesel. On a des machines professionnelles installées dans 4 centres Carter-Cash en France (nettoyage en 4h sur place) et un réseau de 90 Carter-Cash pour envoi postal (48-72h).\n\nLe principe : le FAP est démonté, nettoyé sous pression avec un produit homologué, contrôlé avant et après. Résultat garanti 1 an, conforme contrôle technique.\n\nTarifs : 99€ (FAP simple) ou 149€ (FAP combiné avec catalyseur) + main d'œuvre démontage/remontage.\n\nTu as un problème sur ton véhicule en ce moment ?`,
   },
   {
+    id: "demontage_oblig",
+    patterns: /oblig.*(d[eé]mont|enlever|retirer)|faut.*(d[eé]mont|enlever|retirer).*(fap|filtre)|d[eé]mont.*(oblig|n[eé]cessaire|impos|éviter)/i,
+    reponse: (e) => `Oui, le FAP doit être démonté pour le nettoyage en machine — c'est incontournable. Le nettoyage se fait par injection sous pression contrôlée, impossible à faire en place sur le véhicule.\n\nDeux options :\n→ Tu as un garagiste de confiance ? Il démonte, dépose au Carter-Cash, on nettoie, il remonte.\n→ Tu veux qu'on trouve un garage partenaire ? On s'occupe de tout de A à Z.\n\nTu es dans quelle région${e?.ville ? " — " + e.ville + " ?" : " ?"}`,
+  },
+  {
     id: "duree_garantie",
-    patterns: /garantie?|combien.*(de temps|dure|tient)|tenir|durable|long.?terme|longtemps/i,
-    reponse: (e) => `Le nettoyage Re-FAP est garanti 1 an. Si le FAP se rebouche dans l'année, Re-FAP le renettoyage sans frais supplémentaires.\n\nEn pratique : si les conditions de roulage sont normales (trajets suffisamment longs pour permettre la régénération), le FAP nettoyé tient plusieurs années.\n\nTu as quel souci en ce moment${e?.marque ? " sur ta " + e.marque : ""} ?`,
+    patterns: /garantie?\b(?!.*(vehicule|voiture|auto))|combien.*(de temps|dure|tient)|tenir\b|durable|long.?terme|longtemps/i,
+    reponse: (e) => `Le nettoyage Re-FAP est garanti 1 an. Si le FAP se rebouche dans l'année, Re-FAP le renettoyage sans frais supplémentaires.\n\nEn pratique, si les conditions de roulage sont normales (trajets suffisamment longs pour la régénération), le FAP nettoyé tient plusieurs années.\n\nTu as quel souci en ce moment${e?.marque ? " sur ta " + e.marque : ""} ?`,
   },
   {
     id: "delai",
-    patterns: /d[eé]lai|combien.*(temps|jours?|heures?)|attente|rapide|vite|urgent|quand/i,
+    patterns: /d[eé]lai|combien.*(temps|jours?|heures?)|attente|rapide(?!ment.*(r[eé]pond|contact))|vite\b|urgent\b|quand.*(dispo|possible|fait)/i,
     reponse: (e) => `Deux options selon ta localisation :\n→ Carter-Cash équipé machine : nettoyage en ~4h sur place (dépôt le matin, récupération le soir)\n→ Envoi postal : 48-72h aller-retour (dépôt dans n'importe quel Carter-Cash)\n\nTu es dans quelle ville${e?.ville ? " — aux alentours de " + e.ville + " ?" : " ? Je te trouve le centre le plus proche."}`,
   },
   {
     id: "prix",
-    patterns: /prix|co[uû]t|combien|tarif|€|euro|cher/i,
+    patterns: /prix|co[uû]t|combien.*(co[uû]te?|€|euro)|tarif\b|€|cher\b|moins.?cher|budget/i,
     reponse: (e) => {
       const marqueStr = e?.marque ? ` sur ta ${e.marque}` : "";
       return `Le nettoyage FAP Re-FAP c'est :\n→ 99€ TTC pour un FAP simple (ex: DV6 PSA sans catalyseur intégré)\n→ 149€ TTC pour un FAP combiné avec catalyseur\n→ 199€ TTC en envoi postal (port A/R inclus)\n\nÀ ajouter : la main d'œuvre du garagiste pour le démontage/remontage (varie selon le modèle).\n\nPour te donner le tarif exact${marqueStr}, c'est quel modèle ?`;
     },
   },
   {
-    id: "legal_defap",
-    patterns: /d[eé]fap|retirer.*(fap|filtre)|supprim.*(fap|filtre)|fap.*(off|supprim|retir)|dpf.*(off|remov|delete)/i,
-    reponse: () => `Le défapage (suppression du FAP) est illégal en France depuis 2012 (Art. L318-3 du Code de la route). Amende jusqu'à 7 500€ + contre-visite CT systématique. En cas d'accident, l'assurance peut refuser l'indemnisation.\n\nLe nettoyage Re-FAP est la seule solution légale et durable : on retire les suies et les cendres sans toucher à la carte moteur. Garanti 1 an, conforme CT.\n\nTu veux qu'on t'oriente sur le nettoyage ?`,
+    id: "fap_neuf_occasion",
+    patterns: /fap.*(neuf|occasion|remplac|changer|achet)|remplac.*(fap|filtre)|changer.*(fap|filtre)|nouveau.*(fap|filtre)/i,
+    reponse: (e) => `Remplacer un FAP neuf coûte entre 500€ et 1 500€ pièce + main d'œuvre. Un FAP d'occasion a souvent déjà une charge en cendres importante — tu rachètes un problème à court terme.\n\nLe nettoyage Re-FAP à 99€ ou 149€ remet le FAP d'origine à un niveau de performance proche du neuf. C'est la solution la plus économique dans la grande majorité des cas.\n\nTu as quel véhicule${e?.marque ? " — ta " + e.marque + " ?" : " ?"}`,
   },
 ];
+
 
 function detectFAQ(message) {
   const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -2921,20 +2983,89 @@ function buildSymptomeQuestion(extracted) {
 }
 
 function buildSymptomeResponse(symptome, extracted) {
-  const marqueStr = extracted?.marque ? ` sur ta ${extracted.marque}` : "";
+  const marque = extracted?.marque;
+  const famille = extracted?.famille;
   const data = { ...(extracted || DEFAULT_DATA), symptome, certitude_fap: "moyenne", next_best_action: "demander_vehicule" };
 
-  const responses = {
-    voyant: `Le voyant FAP${marqueStr}, c'est souvent signe que le filtre n'a pas pu faire sa régénération automatique (trajets trop courts en ville). C'est pas une urgence immédiate, mais à traiter rapidement. C'est quel véhicule ?`,
-    perte_puissance: `La perte de puissance avec le mode dégradé, c'est le signe classique d'un FAP saturé${marqueStr} — le calculateur bride le moteur pour se protéger. Un nettoyage en machine règle ça dans la grande majorité des cas. C'est quel véhicule ?`,
-    fumee: `La fumée noire à l'échappement indique une combustion incomplète liée à un FAP bouché${marqueStr}. À ne pas laisser traîner. C'est quel véhicule ?`,
-    ct_refuse: `Un refus au CT pour opacité des fumées, c'est presque toujours un FAP encrassé${marqueStr} — le nettoyage en machine Re-FAP remet les valeurs dans les normes CT. C'est quel véhicule ?`,
-    fap_bouche: `Un FAP bouché${marqueStr}, c'est exactement notre spécialité. Le nettoyage en machine retire les suies ET les cendres (contrairement à l'additif ou la régénération). C'est quel véhicule ?`,
-    code_obd: `Un code OBD lié au FAP${marqueStr}, c'est le signe que le calculateur a détecté un problème sur le filtre. C'est quel code exactement ? (P2002, P0471...) Et c'est quel véhicule ?`,
+  // Matrice marque × symptôme — réponses ultra-contextuelles
+  // Format : [famille][symptome] ou fallback générique par symptôme
+
+  const MATRIX = {
+    psa: {
+      voyant: `Sur Peugeot/Citroën HDi, le voyant FAP s'allume souvent après une période de trajets courts en ville. Le système d'additif cérine (Eolys) peut aussi être vide — à vérifier. Dans tous les cas, un nettoyage Re-FAP règle le problème à la source. C'est quel modèle ?`,
+      perte_puissance: `Sur Peugeot/Citroën HDi/BlueHDi, le mode dégradé avec perte de puissance est quasi-systématiquement lié au FAP saturé. Le calculateur bride le moteur pour se protéger. Le nettoyage Re-FAP remet le véhicule en fonctionnement normal — c'est le cas le plus fréquent qu'on traite. C'est quel modèle ?`,
+      fumee: `La fumée noire sur Peugeot/Citroën diesel indique une combustion incomplète liée au FAP bouché ou à une injection mal calibrée. Si c'est accompagné d'un voyant, c'est presque certainement le FAP. C'est quel modèle ?`,
+      ct_refuse: `Sur Peugeot/Citroën, un refus CT pour opacité se règle dans pratiquement tous les cas par un nettoyage FAP. Le DV6 et le BlueHDi sont bien connus pour ça. On a d'excellents résultats sur ces moteurs. C'est quel modèle ?`,
+      fap_bouche: `FAP bouché sur Peugeot/Citroën, c'est notre cas le plus fréquent. Les moteurs HDi accumulent beaucoup de cendres après 100 000 km. Nettoyage 99€ (DV6 sans cata) ou 149€ (FAP combiné). C'est quel modèle ?`,
+    },
+    renault: {
+      voyant: `Le voyant FAP sur Renault dCi (K9K, R9M, M9R) s'allume souvent après une série de courts trajets. Le R9M (1.6 dCi) est connu pour avoir un FAP qui sature vite en ville. C'est quel modèle ?`,
+      perte_puissance: `La perte de puissance sur Renault dCi est souvent liée au FAP saturé — le calculateur bride le moteur à 90 ou 100 km/h. Sur les Trafic/Master, c'est un souci fréquent en utilisation urbaine. C'est quel modèle ?`,
+      fumee: `Fumée noire sur Renault diesel — souvent un FAP encrassé ou un problème d'injecteurs. Si le voyant FAP est aussi allumé, c'est le FAP en priorité. C'est quel modèle ?`,
+      ct_refuse: `Sur Renault dCi, un CT refusé pour opacité se règle généralement par nettoyage FAP. Les K9K (1.5 dCi) vieillissants sont très concernés. C'est quel modèle ?`,
+      fap_bouche: `FAP bouché sur Renault dCi — fréquent sur les véhicules à usage urbain (Kangoo, Trafic, Clio). Nettoyage efficace dans 9 cas sur 10. C'est quel modèle ?`,
+    },
+    vag: {
+      voyant: `Sur VW/Audi/Seat/Skoda TDI, le voyant DPF (FAP) s'allume souvent après des trajets trop courts. Sur les EA189 (moteur au cœur du scandale Dieselgate), le FAP peut avoir été altéré par les mises à jour logicielles — à signaler si c'est le cas. C'est quel modèle ?`,
+      perte_puissance: `Sur TDI VAG, la perte de puissance avec mode limp est souvent liée au DPF saturé. Sur certains moteurs EA288, un excès d'additif FAP dans le carter huile (huile qui monte) peut accompagner le problème — à vérifier aussi. C'est quel modèle ?`,
+      fumee: `Fumée noire sur TDI — souvent injection ou DPF. Si accompagné d'un code P2002 ou P2463, c'est le FAP. C'est quel modèle ?`,
+      ct_refuse: `Sur TDI VAG, un CT refusé pour opacité se règle bien par nettoyage DPF. Les 2.0 TDI 140/170ch des années 2008-2015 sont très concernés. C'est quel modèle ?`,
+      fap_bouche: `DPF bouché sur TDI — courant sur les moteurs EA189 et EA288. Attention : sur certains VAG, un excès d'additif dans l'huile accompagne le bourrage — à mentionner au garagiste. C'est quel modèle ?`,
+    },
+    ford: {
+      voyant: `Le voyant FAP sur Ford TDCi (1.5, 1.6, 2.0 TDCI) s'allume souvent en usage urbain. Les Transit/Transit Connect sont particulièrement touchés en usage livraison (courts trajets répétés). C'est quel modèle ?`,
+      perte_puissance: `Sur Ford TDCi, la perte de puissance avec mode dégradé est un classique du FAP saturé. Sur les Transit utilitaires, c'est souvent lié à un usage en livraison qui ne permet pas la régénération. C'est quel modèle ?`,
+      ct_refuse: `Ford TDCi et CT refusé pour opacité — le nettoyage FAP règle ça dans la grande majorité des cas. C'est quel modèle ?`,
+      fap_bouche: `FAP bouché sur Ford TDCi — fréquent sur les Focus, Fiesta, Transit en usage urbain. Nettoyage 149€ (FAP combiné). C'est quel modèle ?`,
+    },
+    bmw: {
+      voyant: `Le voyant FAP sur BMW (moteurs N47, B47, M57) s'allume souvent après des trajets courts. Le N47 (2.0d) est particulièrement concerné. Sur les BMW, le FAP est intégré avec le catalyseur d'oxydation — nettoyage 149€. C'est quel modèle ?`,
+      perte_puissance: `Perte de puissance sur BMW diesel — FAP saturé dans la majorité des cas, mais à vérifier aussi avec le swirl flap (volet d'admission) sur les N47. Si le mode limp est actif, c'est urgent à traiter. C'est quel modèle ?`,
+      ct_refuse: `CT refusé sur BMW diesel — le nettoyage FAP remet les valeurs d'opacité dans les normes. Sur les N47/B47, très bon résultat après nettoyage. C'est quel modèle ?`,
+      fap_bouche: `FAP bouché sur BMW — courant sur les N47 (116d, 118d, 120d, 316d, 318d, 320d). Nettoyage 149€ garanti 1 an. C'est quel modèle ?`,
+    },
+    mercedes: {
+      voyant: `Le voyant FAP sur Mercedes CDI (OM651, OM626) s'allume en usage urbain. Les Sprinter en usage livraison sont très touchés. Sur Mercedes, le FAP est souvent accessible sans démontage complexe. C'est quel modèle ?`,
+      perte_puissance: `Perte de puissance sur Mercedes CDI — FAP saturé ou EGR encrassé (les deux sont liés sur ces moteurs). Si c'est le mode limp actif, traiter le FAP en priorité. C'est quel modèle ?`,
+      fap_bouche: `FAP bouché sur Mercedes CDI — fréquent sur les Sprinter utilitaires et les Classe C/E en usage urbain. Nettoyage 149€. C'est quel modèle ?`,
+    },
+    opel: {
+      voyant: `Le voyant FAP sur Opel CDTI (1.3, 1.6, 2.0 CDTI) — souvent après trajets courts. Les Vivaro/Movano en usage utilitaire sont particulièrement concernés. C'est quel modèle ?`,
+      perte_puissance: `Perte de puissance sur Opel CDTI — FAP saturé dans la majorité des cas. Sur les Vivaro/Movano en livraison, c'est un classique. C'est quel modèle ?`,
+      fap_bouche: `FAP bouché sur Opel CDTI — fréquent sur les Vivaro, Movano, Astra, Zafira en usage urbain. C'est quel modèle ?`,
+    },
+    fiat: {
+      voyant: `Le voyant FAP sur Fiat JTD/MultiJet — courant sur les Ducato en usage utilitaire. Le Ducato 2.3 MultiJet est l'un des plus traités. C'est quel modèle ?`,
+      perte_puissance: `Perte de puissance sur Fiat/Alfa JTD — FAP saturé ou turbo à vérifier. Sur les Ducato, c'est souvent lié à un usage livraison. C'est quel modèle ?`,
+      fap_bouche: `FAP bouché sur Fiat JTD/MultiJet — Ducato, Doblo, Bravo sont fréquemment traités. Nettoyage efficace sur ces moteurs. C'est quel modèle ?`,
+    },
   };
 
-  const replyClean = responses[symptome] || `C'est noté. Pour bien t'orienter, c'est quel véhicule ?`;
-  data.next_best_action = "demander_vehicule";
+  // Chercher réponse dans la matrice marque×symptôme
+  const familleKey = extracted?.famille || null;
+  let replyClean;
+
+  if (familleKey && MATRIX[familleKey]?.[symptome]) {
+    replyClean = MATRIX[familleKey][symptome];
+  } else {
+    // Fallback générique par symptôme avec contexte marque si dispo
+    const marqueStr = marque ? ` sur ta ${marque}` : "";
+    const GENERICS = {
+      voyant: `Le voyant FAP${marqueStr}, c'est souvent signe que le filtre n'a pas pu faire sa régénération automatique. À traiter rapidement pour éviter le mode dégradé. C'est quel véhicule ?`,
+      perte_puissance: `La perte de puissance${marqueStr}, c'est le signe classique d'un FAP saturé — le calculateur bride le moteur pour se protéger. Urgent à traiter. C'est quel véhicule ?`,
+      fumee: `La fumée à l'échappement${marqueStr} indique une combustion incomplète, souvent liée au FAP. À ne pas laisser traîner. C'est quel véhicule ?`,
+      ct_refuse: `Un CT refusé pour opacité${marqueStr}, c'est presque toujours un FAP encrassé. Le nettoyage Re-FAP remet les valeurs dans les normes. Délai 48-72h — largement dans les temps pour une contre-visite. C'est quel véhicule ?`,
+      fap_bouche: `FAP bouché${marqueStr}, c'est exactement notre spécialité. Nettoyage en machine, cendres ET suies retirées, garanti 1 an. C'est quel véhicule ?`,
+      code_obd: `Un code OBD lié au FAP${marqueStr} — quel code exactement ? (P2002, P0471...). Et c'est quel véhicule ?`,
+    };
+    replyClean = GENERICS[symptome] || `Noté${marqueStr}. Pour bien t'orienter, c'est quel véhicule ?`;
+  }
+
+  // Urgence CT ou mode dégradé → CTA plus direct
+  if (symptome === "ct_refuse" || symptome === "perte_puissance") {
+    data.certitude_fap = "haute";
+  }
+
   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
 }
 
@@ -2976,6 +3107,54 @@ function buildVehiculeResponse(marqueInfo, extracted) {
   const info = infos[famille] || infos.autre;
   const updatedData = { ...(extracted || DEFAULT_DATA), marque: marque || extracted?.marque || null };
 
+  // Recherche réponse ultra-précise par modèle
+  const MODELE_RESPONSES = {
+    "308": `La Peugeot 308 HDi/BlueHDi a un FAP combiné avec catalyseur — tarif 149€. Sur les 1.6 HDi 92ch (DV6) avant 2010, le FAP est séparé — tarif 99€. Très bons résultats sur ce modèle.`,
+    "207": `La Peugeot 207 1.4/1.6 HDi — FAP souvent séparé sur ces petits moteurs, tarif 99€. Modèle courant en nettoyage.`,
+    "208": `La Peugeot 208 BlueHDi — FAP combiné sur les BlueHDi, tarif 149€. Très fréquent après 80 000 km en usage urbain.`,
+    "3008": `Le Peugeot 3008 HDi/BlueHDi — FAP combiné, tarif 149€. Le 1.6 BlueHDi est particulièrement concerné en usage urbain.`,
+    "partner": `Le Peugeot Partner 1.6 HDi — un des FAP les plus traités en Re-FAP. Usage urbain/livraison → régénération impossible → FAP sature vite. Tarif 99€ (DV6) ou 149€ (BlueHDi combiné).`,
+    "expert": `Le Peugeot Expert 2.0 HDi — FAP combiné, tarif 149€. Très fréquent en usage utilitaire.`,
+    "boxer": `Le Peugeot Boxer 2.2 HDi — FAP combiné, tarif 149€. Usage livraison = FAP sature régulièrement.`,
+    "berlingo": `Le Citroën Berlingo 1.6 HDi — même profil que le Partner, un des FAP les plus traités. Tarif 99€ (DV6) ou 149€ (BlueHDi combiné).`,
+    "jumpy": `Le Citroën Jumpy 2.0 HDi — FAP combiné, tarif 149€. Usage livraison = saturation fréquente.`,
+    "c3": `La Citroën C3 HDi/BlueHDi — FAP séparé sur les 1.4 HDi (99€), combiné sur BlueHDi (149€).`,
+    "c4": `La Citroën C4 HDi/BlueHDi — FAP combiné sur la plupart des versions, tarif 149€. Très fréquent après 100 000 km.`,
+    "kangoo": `Le Renault Kangoo 1.5 dCi — usage livraison = saturation fréquente. Tarif 99€ à 149€. Très traité en Re-FAP.`,
+    "trafic": `Le Renault Trafic 2.0 dCi — FAP combiné, tarif 149€. Usage utilitaire intensif = régénération impossible. Un des modèles les plus traités avec le Partner.`,
+    "master": `Le Renault Master 2.3 dCi — FAP combiné, tarif 149€. Même profil que le Trafic en livraison.`,
+    "clio": `La Renault Clio 1.5 dCi (K9K) — FAP selon version, tarif 99€ à 149€. Le K9K sature vite en ville.`,
+    "megane": `La Renault Mégane 1.5/1.6/2.0 dCi — FAP selon moteur, tarif 99€ à 149€. Modèle très courant en nettoyage.`,
+    "golf": `La VW Golf TDI (1.6/2.0 TDI) — FAP combiné, tarif 149€. Le 2.0 TDI EA189 est l'un des plus traités. Bon résultat après nettoyage.`,
+    "transporter": `Le VW Transporter T5/T6 2.0 TDI — FAP combiné, tarif 149€. Usage utilitaire = saturation fréquente.`,
+    "crafter": `Le VW Crafter 2.0 TDI — FAP combiné, tarif 149€. Usage livraison intensif.`,
+    "transit": `Le Ford Transit 2.2 TDCi — FAP combiné, tarif 149€. Usage livraison = saturation fréquente, très traité en Re-FAP.`,
+    "focus": `La Ford Focus 1.6/2.0 TDCi — FAP combiné, tarif 149€.`,
+    "116": `La BMW 116d (N47) — FAP combiné, tarif 149€. Le N47 sature vite en usage urbain.`,
+    "118": `La BMW 118d (N47/B47) — FAP combiné, tarif 149€. Très bon résultat après nettoyage Re-FAP.`,
+    "120": `La BMW 120d (N47/B47) — FAP combiné, tarif 149€. Un des plus traités de la gamme BMW.`,
+    "320": `La BMW 320d (N47/B47) — FAP combiné, tarif 149€. Très fréquent après 120 000 km.`,
+    "sprinter": `Le Mercedes Sprinter 2.2 CDI (OM651) — FAP combiné, tarif 149€. Usage livraison = saturation systématique. Un des plus traités Re-FAP.`,
+    "vito": `Le Mercedes Vito 2.2 CDI — FAP combiné, tarif 149€. Même profil que le Sprinter.`,
+    "ducato": `Le Fiat Ducato 2.3 MultiJet — FAP combiné, tarif 149€. Un des tops modèles traités Re-FAP avec le Trafic et le Transit.`,
+  };
+
+  // Chercher correspondance modèle
+  const modeleRaw = (extracted?.modele || "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/peugeot|citroen|renault|volkswagen|vw|ford|bmw|mercedes|fiat|opel|alfa|toyota/gi, "")
+    .trim();
+
+  let infoTexte = info; // default famille
+  if (modeleRaw) {
+    for (const [key, val] of Object.entries(MODELE_RESPONSES)) {
+      if (modeleRaw.includes(key) || key.includes(modeleRaw.split(/\s+/)[0])) {
+        infoTexte = val;
+        break;
+      }
+    }
+  }
+
   // Cascade : modèle → km → ville
   let question;
   if (!extracted?.modele) {
@@ -2989,7 +3168,7 @@ function buildVehiculeResponse(marqueInfo, extracted) {
     updatedData.next_best_action = "demander_ville";
   }
 
-  const replyClean = `${info} ${question}`;
+  const replyClean = `${infoTexte} ${question}`;
   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(updatedData)}`, extracted: updatedData };
 }
 
@@ -3005,21 +3184,90 @@ function buildVilleQuestion(extracted) {
 // Retourne une réponse ou null (→ fallback Mistral)
 // ---- TABLE CODES OBD FAP COURANTS ----
 const OBD_FAP_CODES = {
-  "P2002": { label: "Efficacité FAP insuffisante", explication: "Le calculateur a mesuré que le FAP ne filtre plus correctement — il est encrassé (suies + cendres). C'est le code le plus courant avant un nettoyage Re-FAP.", lié_fap: true },
-  "P2003": { label: "Efficacité FAP insuffisante (banque 2)", explication: "Même chose que P2002 sur le 2e banc de cylindres. FAP encrassé, nettoyage nécessaire.", lié_fap: true },
-  "P0471": { label: "Capteur pression différentielle FAP — plage incorrecte", explication: "Le capteur qui mesure la pression avant/après le FAP donne des valeurs anormales. Ça peut être le capteur lui-même ou le FAP trop chargé en cendres qui fausse la mesure.", lié_fap: true },
-  "P0472": { label: "Capteur pression différentielle FAP — signal trop bas", explication: "Le capteur de pression FAP renvoie un signal trop faible — souvent un tuyau de prise de pression bouché ou un FAP trop colmaté.", lié_fap: true },
-  "P0473": { label: "Capteur pression différentielle FAP — signal trop haut", explication: "Pression trop élevée détectée sur le FAP — signe d'un filtre très chargé en cendres.", lié_fap: true },
-  "P2452": { label: "Capteur pression différentielle FAP — circuit défaillant", explication: "Problème électrique sur le capteur de pression du FAP. Peut être le capteur ou le câblage.", lié_fap: true },
-  "P2453": { label: "Capteur pression différentielle FAP — signal erratique", explication: "Le capteur de pression donne des valeurs incohérentes — souvent lié à un FAP très encrassé ou un capteur défaillant.", lié_fap: true },
-  "P2454": { label: "Capteur pression différentielle FAP — signal faible", explication: "Signal trop faible du capteur de pression différentielle, souvent quand le FAP est saturé.", lié_fap: true },
-  "P2455": { label: "Capteur pression différentielle FAP — signal élevé", explication: "Signal trop élevé, FAP très chargé.", lié_fap: true },
-  "P2463": { label: "FAP — dépôt excessif de suies", explication: "Le calculateur confirme que le FAP est saturé en suies et ne peut plus se régénérer seul. Nettoyage professionnel obligatoire.", lié_fap: true },
-  "P244A": { label: "Pression différentielle FAP trop élevée (regen en cours)", explication: "Pression anormalement haute pendant une régénération — FAP trop chargé en cendres pour se régénérer correctement.", lié_fap: true },
-  "P244B": { label: "Pression différentielle FAP trop basse (regen en cours)", explication: "Pression trop basse pendant la régénération — possible fuite ou capteur défaillant.", lié_fap: true },
-  "P0420": { label: "Efficacité catalyseur insuffisante", explication: "Ce code concerne le catalyseur, pas directement le FAP — mais sur les véhicules avec FAP combiné (catalyseur intégré), un nettoyage Re-FAP peut aussi résoudre ce code.", lié_fap: false },
-  "P0401": { label: "EGR — débit insuffisant", explication: "Ce code concerne la vanne EGR (recirculation des gaz), pas le FAP directement. Mais un FAP encrassé peut aggraver l'encrassement EGR.", lié_fap: false },
+  // ---- EFFICACITÉ FAP ----
+  "P2002": { label: "Efficacité FAP insuffisante", lié_fap: true,
+    explication: "Le calculateur a mesuré que le FAP ne filtre plus correctement — il est encrassé (suies + cendres). C'est le code le plus courant avant un nettoyage Re-FAP.",
+    modeles: "Très fréquent sur Peugeot 307/308/407 HDi, Citroën C4/C5, VW Golf/Passat TDI, Renault Laguna/Mégane dCi." },
+  "P2003": { label: "Efficacité FAP insuffisante (banque 2)", lié_fap: true,
+    explication: "Même diagnostic que P2002 sur le 2e banc de cylindres. FAP encrassé, nettoyage nécessaire.",
+    modeles: "Moteurs V6 diesel : BMW 335d, Audi A6 3.0 TDI, Mercedes CDI V6." },
+  "P2263": { label: "Efficacité FAP insuffisante — pression différentielle hors plage", lié_fap: true,
+    explication: "Variante de P2002 utilisée sur certains constructeurs. FAP encrassé ou capteur de pression défaillant.",
+    modeles: "Fréquent sur Ford Focus/Transit TDCi, Volvo D-series." },
+
+  // ---- CAPTEUR PRESSION DIFFÉRENTIELLE FAP ----
+  "P0471": { label: "Capteur pression différentielle FAP — plage incorrecte", lié_fap: true,
+    explication: "Le capteur qui mesure la pression avant/après le FAP donne des valeurs anormales. Peut être le capteur lui-même ou le FAP trop chargé en cendres qui fausse la mesure.",
+    modeles: "Commun sur Peugeot/Citroën HDi, Renault dCi." },
+  "P0472": { label: "Capteur pression différentielle FAP — signal trop bas", lié_fap: true,
+    explication: "Le capteur de pression FAP renvoie un signal trop faible — souvent un tuyau de prise de pression bouché ou un FAP trop colmaté.",
+    modeles: "BMW N47, Opel CDTI 2.0." },
+  "P0473": { label: "Capteur pression différentielle FAP — signal trop haut", lié_fap: true,
+    explication: "Pression trop élevée détectée sur le FAP — signe d'un filtre très chargé en cendres.",
+    modeles: "Courant sur Ford TDCi, Renault Master/Trafic dCi." },
+  "P2452": { label: "Capteur pression différentielle FAP — circuit défaillant", lié_fap: true,
+    explication: "Problème électrique sur le capteur de pression du FAP. Peut être le capteur ou le câblage.",
+    modeles: "Fréquent sur BMW 1/3-Series N47, Mercedes Sprinter CDI." },
+  "P2453": { label: "Capteur pression différentielle FAP — signal erratique", lié_fap: true,
+    explication: "Le capteur de pression donne des valeurs incohérentes — souvent lié à un FAP très encrassé ou un capteur défaillant.",
+    modeles: "VW Crafter TDI, Audi A4/A6 TDI." },
+  "P2454": { label: "Capteur pression différentielle FAP — signal faible", lié_fap: true,
+    explication: "Signal trop faible du capteur, souvent quand le FAP est saturé.",
+    modeles: "Peugeot Expert/Partner, Citroën Berlingo/Jumpy." },
+  "P2455": { label: "Capteur pression différentielle FAP — signal élevé", lié_fap: true,
+    explication: "Signal trop élevé, FAP très chargé en cendres.",
+    modeles: "Renault Kangoo/Trafic dCi, Nissan Primastar." },
+
+  // ---- SATURATION EN SUIES / CENDRES ----
+  "P2463": { label: "FAP — dépôt excessif de suies", lié_fap: true,
+    explication: "Le calculateur confirme que le FAP est saturé en suies et ne peut plus se régénérer seul. Nettoyage professionnel obligatoire.",
+    modeles: "Très fréquent sur Peugeot 308/3008 BlueHDi, Citroën C3/C4 BlueHDi après 80 000 km." },
+  "P244A": { label: "Pression différentielle FAP trop élevée (régénération en cours)", lié_fap: true,
+    explication: "Pression anormalement haute pendant une régénération — FAP trop chargé en cendres pour se régénérer correctement.",
+    modeles: "BMW 1/3/5-Series N47/B47, Mini Cooper D." },
+  "P244B": { label: "Pression différentielle FAP trop basse (régénération en cours)", lié_fap: true,
+    explication: "Pression trop basse pendant la régénération — possible fuite ou capteur défaillant.",
+    modeles: "Ford Focus/C-Max TDCi, Volvo V40/V60 D." },
+  "P2459": { label: "Fréquence de régénération FAP trop élevée", lié_fap: true,
+    explication: "Le FAP tente de se régénérer trop souvent — signe que les régénérations n'aboutissent pas (trajets trop courts, FAP trop chargé en cendres).",
+    modeles: "Renault Mégane/Scénic dCi 1.5, Nissan Juke/Qashqai." },
+
+  // ---- TEMPÉRATURE RÉGÉNÉRATION ----
+  "P246C": { label: "Température régénération FAP insuffisante", lié_fap: true,
+    explication: "La température pendant la régénération n'atteint pas le seuil requis pour brûler les suies. Usage urbain trop intense ou FAP trop chargé.",
+    modeles: "BMW 118d/120d/320d N47, Toyota Avensis/Auris D-4D." },
+  "P246D": { label: "Capteur température FAP — circuit ouvert", lié_fap: true,
+    explication: "Le capteur de température en amont du FAP est défaillant ou déconnecté. Peut indiquer aussi une surchauffe lors d'une régénération difficile.",
+    modeles: "Mercedes C/E-Class CDI, Sprinter 2.2." },
+
+  // ---- CATALYSEUR (lié FAP combiné) ----
+  "P0420": { label: "Efficacité catalyseur insuffisante (banque 1)", lié_fap: false,
+    explication: "Ce code concerne le catalyseur. Sur les véhicules avec FAP combiné (catalyseur intégré), un nettoyage Re-FAP peut résoudre ce code en même temps.",
+    modeles: "Très commun sur tous moteurs diesel avec FAP combiné après 150 000 km." },
+  "P0421": { label: "Efficacité catalyseur insuffisante (banque 1, chaud)", lié_fap: false,
+    explication: "Variante chaud du P0420. Même diagnostic — catalyseur dégradé, souvent avec FAP encrassé sur FAP combiné.",
+    modeles: "Peugeot/Citroën BlueHDi, Renault dCi récents." },
+
+  // ---- EGR / ADJACENT ----
+  "P0401": { label: "EGR — débit insuffisant", lié_fap: false,
+    explication: "Ce code concerne la vanne EGR (recirculation des gaz), pas le FAP directement. Mais un FAP encrassé aggrave l'encrassement EGR — les deux sont souvent liés.",
+    modeles: "Renault Clio/Mégane 1.5 dCi K9K, Peugeot 208/308 1.6 HDi." },
+  "P0402": { label: "EGR — débit excessif", lié_fap: false,
+    explication: "La vanne EGR laisse passer trop de gaz. Pas directement lié au FAP, mais à traiter en parallèle si le FAP est aussi encrassé.",
+    modeles: "VW Golf/Passat TDI, Ford Focus TDCi." },
+  "P0403": { label: "EGR — circuit défaillant", lié_fap: false,
+    explication: "Problème électrique sur la commande EGR. Pas de lien direct avec le FAP mais peut coexister.",
+    modeles: "Courant sur tous moteurs diesel Euro 5/6." },
+
+  // ---- INJECTEUR ADDITIF FAP (PSA Eolys) ----
+  "P1462": { label: "Injecteur additif FAP — circuit défaillant", lié_fap: true,
+    explication: "Le système d'injection d'additif cérine (Eolys) pour la régénération est défaillant. Spécifique PSA — le réservoir d'additif est peut-être vide.",
+    modeles: "Peugeot 307/308/407/607, Citroën C5/C6, Xsara Picasso — moteurs HDi 1.6/2.0 avant 2012." },
+  "P1463": { label: "Injecteur additif FAP — niveau bas", lié_fap: true,
+    explication: "Réservoir d'additif cérine (Eolys) presque vide. À remplir chez un garage PSA ou Citroën. Ne pas confondre avec le nettoyage FAP.",
+    modeles: "Peugeot 307/308/407, Citroën C4/C5 — moteurs HDi avant 2012." },
 };
+
 
 function lookupOBDCode(message) {
   const match = message.toUpperCase().match(/\bP[0-9]{4}\b|\bP[0-9A-F]{4}\b/);
@@ -3060,7 +3308,8 @@ function buildOBDResponse(codeInfo, extracted) {
     ? `C'est bien lié au FAP${marqueStr} — un nettoyage en machine Re-FAP règle ça dans la grande majorité des cas.`
     : `Ce code n'est pas directement lié au FAP mais peut être connexe${marqueStr}.`;
 
-  const explication = `${codeInfo.code} — ${codeInfo.label}\n\n${codeInfo.explication}\n\n${gravite}`;
+  const noteModele = codeInfo.modeles ? `\n\nVéhicules concernés : ${codeInfo.modeles}` : "";
+  const explication = `${codeInfo.code} — ${codeInfo.label}\n\n${codeInfo.explication}${noteModele}\n\n${gravite}`;
 
   // Tour 1 : pas de marque → explication + demande véhicule SEULEMENT
   if (!marque) {
