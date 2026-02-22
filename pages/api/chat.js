@@ -2038,10 +2038,43 @@ function cleanVilleInput(message) {
     .replace(/[.!?]+$/, "")
     .trim();
 
-  if (ville.length > 30) {
+  // Chercher le nom de ville reconnu dans la phrase (CITY_TO_DEPT) — pour messages longs ET courts ambigus
+  const tNorm = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
+  const hasNonCityWords = /\b(garage|cherche|besoin|propose|suis|habite|centre|fap|carter|demonter|nettoyer)\b/i.test(ville);
+
+  if (ville.length > 30 || hasNonCityWords) {
+    // Code postal en priorité
     const postalMatch = ville.match(/\b([a-zA-ZÀ-ÿ\-]+(?:\s+[a-zA-ZÀ-ÿ\-]+)*)\s+(\d{5})\b/);
     if (postalMatch) return postalMatch[1] + " " + postalMatch[2];
-    return ville.split(/\s+/).slice(0, 3).join(" ");
+
+    // CP seul dans la phrase
+    const cpAlone = message.match(/\b(\d{5})\b/);
+    if (cpAlone) return cpAlone[1];
+
+    // Ville reconnue dans CITY_TO_DEPT
+    for (const city of Object.keys(CITY_TO_DEPT)) {
+      const cityNorm = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ").toLowerCase();
+      if (cityNorm.length >= 4 && tNorm.includes(cityNorm)) {
+        return capitalizeVille(city.replace(/-/g, " "));
+      }
+    }
+    // Ville reconnue dans CARTER_CASH_LIST
+    for (const cc of CARTER_CASH_LIST) {
+      const ccCity = cc.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
+      if (ccCity.length >= 4 && tNorm.includes(ccCity)) {
+        return capitalizeVille(cc.city);
+      }
+    }
+
+    // Fallback : premier mot long qui n'est pas un mot fonctionnel
+    if (ville.length > 30) {
+      const words = ville.split(/\s+/);
+      for (const w of words) {
+        if (w.length > 3 && !/^(suis|habite|cherche|veux|besoin|pour|dans|avec|garage|centre|fap|aide|moi|j'ai|jai|j'habite)$/i.test(w)) {
+          return capitalizeVille(w);
+        }
+      }
+    }
   }
 
   return ville || message.trim();
