@@ -1,7 +1,15 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 6.3 (geo patch février 2026)
-// Bot d'orientation : qualifier → personnaliser → closer → capturer data marché
-// CHANGELOG v6.2:
+// FAPexpert Re-FAP — VERSION 6.3.2
+// CHANGELOG v6.3.2:
+//   - Override RESCUE : ville+intent garage/CC à TOUT moment du flow (Bug A)
+//   - Fix CP follow-up : CP après échec localisation → orientation (Bug B)
+//   - Anti-boucle : Mistral même réponse 2x → fermeture propre (Bug C)
+//   - Override 2 élargi : "pas d'autres choses", "c'est bon", "merci" → fermeture
+//   - lastAssistantAskedClosingQuestion : détecte "Autre chose à signaler ?"
+// CHANGELOG v6.3:
+//   - Re-FAP Clermont-Ferrand : isRefapCenter, full-service, dépose directe, nettoyage 4h
+//   - Tarif DV6 sans catalyseur : 99€ (vs 149€ avec)
+//   - Mention démontage optionnel si client à Clermont
 //   - GPS Haversine : 94 CC avec lat/lng, calcul distance réelle
 //   - 457 villes → département (toutes préfectures + sous-préfectures)
 //   - 96 centroïdes départementaux pour fallback
@@ -466,7 +474,9 @@ function lastAssistantAskedClosingQuestion(history) {
       if (
         (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement") || content.includes("te rappelle"))) ||
         (content.includes("qu'on te rappelle")) ||
-        (content.includes("tu veux qu'un expert"))
+        (content.includes("tu veux qu'un expert")) ||
+        content.includes("autre chose à signaler") ||
+        content.includes("autre chose que tu veux")
       ) {
         return true;
       }
@@ -610,6 +620,23 @@ function lastAssistantAskedCity(history) {
     }
   }
   return false;
+}
+
+// v6.3.2 PATCH — Détecte quand le bot a demandé un code postal (après échec localisation)
+function lastAssistantAskedPostalCode(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]?.role === "assistant") {
+      const content = String(history[i].raw || history[i].content || "").toLowerCase();
+      return content.includes("code postal") || content.includes("localiser") || content.includes("numéro de département");
+    }
+  }
+  return false;
+}
+
+// v6.3.2 PATCH — Détecte une intention garage/CC/localisation dans le message
+function hasGarageOrLocationIntent(text) {
+  return /garage|carter[- ]?cash|centre.*(nettoie|nettoy|re-?fap)|o[uù]\s+(est|y\s*a|se\s*trouve|trouver)|propose[rz]?\s*moi|cherche\s*(un|le)|besoin\s*d.un|je\s+suis\s+[àa]\s|donne[rz]?\s*moi/i.test(text);
 }
 
 function lastAssistantAskedDemontage(history) {
@@ -2892,6 +2919,25 @@ export default async function handler(req, res) {
     }
 
     // ========================================
+    // OVERRIDE RESCUE : Ville + intention garage/CC À TOUT MOMENT
+    // Bug A : "je suis à Besançon propose moi un garage" post-flow
+    // Bug B : Code postal après "je n'arrive pas à localiser"
+    // ========================================
+    {
+      const rescueDept = extractDeptFromInput(message);
+      const rescueIsCity = looksLikeCityAnswer(message);
+      const rescueHasIntent = hasGarageOrLocationIntent(message);
+      const rescueAfterLocFailure = lastAssistantAskedPostalCode(history);
+
+      if (rescueDept && (
+        (rescueIsCity && rescueHasIntent) ||
+        (rescueAfterLocFailure)
+      )) {
+        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, cleanVilleInput(message), history));
+      }
+    }
+
+    // ========================================
     // OVERRIDE 1a : Question diagnostic ("tu veux que je te détaille ?")
     // ========================================
     if (lastAssistantAskedSolutionExplanation(history)) {
@@ -3015,9 +3061,10 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // OVERRIDE 2 : NON → Poli
+    // OVERRIDE 2 : NON → Poli (inclut "pas d'autres", "c'est bon", "merci", "bonne journée")
     // ========================================
-    if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history) || lastAssistantAskedSolutionExplanation(history)) && userSaysNo(message)) {
+    if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history) || lastAssistantAskedSolutionExplanation(history))
+      && (userSaysNo(message) || /\b(pas d.autres?|rien d.autre|c.est bon|c.est tout|au revoir|bonne journ[eé]e|salut|bye|ciao)\b/i.test(message) || /^merci\.?$/i.test(message.trim()))) {
       return sendResponse(buildDeclinedResponse(lastExtracted));
     }
 
@@ -3208,7 +3255,17 @@ export default async function handler(req, res) {
 
     let replyClean = cleanReplyForUI(replyFull);
 
-   // FALLBACK si réponse vide
+    // v6.3.2 ANTI-BOUCLE : si Mistral génère la même réponse que la précédente → fermeture propre
+    {
+      const lastAssistantMsg = history.filter(h => h.role === "assistant").slice(-1)[0];
+      const lastContent = lastAssistantMsg ? cleanReplyForUI(String(lastAssistantMsg.raw || lastAssistantMsg.content || "")).toLowerCase().trim().slice(0, 60) : "";
+      const currentStem = replyClean.toLowerCase().trim().slice(0, 60);
+      if (lastContent && currentStem && currentStem === lastContent) {
+        return sendResponse(buildDeclinedResponse(lastExtracted));
+      }
+    }
+
+
     if (!replyClean || replyClean.length < 5) {
       if (!extracted.marque) {
         replyClean = "D'accord. C'est quelle voiture ?";
@@ -3306,20 +3363,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
