@@ -2616,9 +2616,9 @@ function buildClosingQuestion(extracted, metier) {
 function buildVehicleQuestion(extracted) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_vehicule" };
   const variants = [
-    "Pas de panique, c'est souvent réparable. C'est quelle voiture ?",
-    "D'accord, on va regarder ça. Tu roules en quoi ?",
-    "Compris. C'est quoi comme véhicule ?",
+    "🚗 C'est quelle voiture ?",
+    "🔧 Tu roules en quoi ?",
+    "🚘 C'est quoi comme véhicule ?",
   ];
   const replyClean = variants[Math.floor(Math.random() * variants.length)];
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
@@ -2628,7 +2628,7 @@ function buildVehicleQuestion(extracted) {
 function buildModelQuestion(extracted) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_modele" };
   const marque = extracted?.marque || "ta voiture";
-  const replyClean = `Ok, sur une ${marque} c'est un souci qu'on voit souvent. C'est quel modèle exactement et quelle année ? Ça me permet de vérifier s'il y a un souci connu sur cette version.`;
+  const replyClean = `🚗 Sur une ${marque}, c'est un souci qu'on voit souvent. C'est quel modèle exactement ? (et l'année si tu l'as)`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
@@ -2636,14 +2636,14 @@ function buildModelQuestion(extracted) {
 function buildKmQuestion(extracted) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_km" };
   const vehicleStr = extracted?.marque ? `ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}` : "ton véhicule";
-  const replyClean = `Et ${vehicleStr}, elle a combien de km à peu près ? C'est important pour évaluer l'état du FAP.`;
+  const replyClean = `📏 ${vehicleStr.charAt(0).toUpperCase() + vehicleStr.slice(1)}, elle est à combien de km environ ?`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
 
 function buildPreviousAttemptsQuestion(extracted, metier) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_deja_essaye" };
-  const replyClean = `Avant de t'orienter : tu as déjà essayé quelque chose pour régler ça ? Additif, régénération, passage garage, ou rien du tout ?`;
+  const replyClean = `🔍 Tu as déjà essayé quelque chose pour régler ça ?`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return {
     replyClean, replyFull, extracted: data,
@@ -2807,7 +2807,7 @@ const FAQ_ENTRIES = [
   {
     id: "demontage_oblig",
     patterns: /oblig.*(d[eé]mont|enlever|retirer)|faut.*(d[eé]mont|enlever|retirer).*(fap|filtre)|d[eé]mont.*(oblig|n[eé]cessaire|impos|éviter)/i,
-    reponse: (e) => `Oui, le FAP doit être démonté pour le nettoyage en machine — c'est incontournable. Le nettoyage se fait par injection sous pression contrôlée, impossible à faire en place sur le véhicule.\n\nDeux options :\n→ Tu as un garagiste de confiance ? Il démonte, dépose au Carter-Cash, on nettoie, il remonte.\n→ Tu veux qu'on trouve un garage partenaire ? On s'occupe de tout de A à Z.\n\nTu es dans quelle région${e?.ville ? " — " + e.ville + " ?" : " ?"}`,
+    reponse: (e) => `Oui, le FAP doit être démonté pour le nettoyage en machine — c'est incontournable. Le nettoyage se fait par injection sous pression contrôlée, impossible à faire en place sur le véhicule.\n\nDeux options :\n🔧 Tu as un garagiste de confiance ? Il démonte, dépose au Carter-Cash, on nettoie, il remonte.\n📍 Tu veux qu'on trouve un garage partenaire ? On s'occupe de tout de A à Z.\n\nTu es dans quelle région${e?.ville ? " — " + e.ville + " ?" : " ?"}`,
   },
   {
     id: "duree_garantie",
@@ -2817,14 +2817,14 @@ const FAQ_ENTRIES = [
   {
     id: "delai",
     patterns: /d[eé]lai|combien.*(temps|jours?|heures?)|attente|rapide(?!ment.*(r[eé]pond|contact))|vite\b|urgent\b|quand.*(dispo|possible|fait)/i,
-    reponse: (e) => `Deux options selon ta localisation :\n→ Carter-Cash équipé machine : nettoyage en ~4h sur place (dépôt le matin, récupération le soir)\n→ Envoi postal : 48-72h aller-retour (dépôt dans n'importe quel Carter-Cash)\n\nTu es dans quelle ville${e?.ville ? " — aux alentours de " + e.ville + " ?" : " ? Je te trouve le centre le plus proche."}`,
+    reponse: (e) => `Deux options selon ta localisation :\n🏪 Carter-Cash équipé machine : nettoyage en ~4h sur place (dépôt le matin, récupération le soir)\n📦 Envoi postal : 48-72h aller-retour (dépôt dans n'importe quel Carter-Cash)\n\nTu es dans quelle ville${e?.ville ? " — aux alentours de " + e.ville + " ?" : " ? Je te trouve le centre le plus proche."}`,
   },
   {
     id: "prix",
     patterns: /prix|co[uû]t|combien.*(co[uû]te?|€|euro)|tarif\b|€|cher\b|moins.?cher|budget/i,
     reponse: (e) => {
       const marqueStr = e?.marque ? ` sur ta ${e.marque}` : "";
-      return `Le nettoyage FAP Re-FAP c'est :\n→ 99€ TTC pour un FAP simple (ex: DV6 PSA sans catalyseur intégré)\n→ 149€ TTC pour un FAP combiné avec catalyseur\n→ 199€ TTC en envoi postal (port A/R inclus)\n\nÀ ajouter : la main d'œuvre du garagiste pour le démontage/remontage (varie selon le modèle).\n\nPour te donner le tarif exact${marqueStr}, c'est quel modèle ?`;
+      return `Le nettoyage FAP Re-FAP c'est :\n💶 99€ TTC pour un FAP simple (ex: DV6 PSA sans catalyseur intégré)\n💶 149€ TTC pour un FAP combiné avec catalyseur\n📦 199€ TTC en envoi postal (port A/R inclus)\n\nÀ ajouter : la main d'œuvre du garagiste pour le démontage/remontage (varie selon le modèle).\n\nPour te donner le tarif exact${marqueStr}, c'est quel modèle ?`;
     },
   },
   {
@@ -2981,15 +2981,33 @@ function detectCurrentState(extracted) {
 // ---- RÉPONSES SYMPTÔME ----
 function buildSymptomeQuestion(extracted) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "poser_question" };
-  const replyClean = `C'est quel type de problème sur ton véhicule ? (voyant allumé, perte de puissance, fumée, contrôle technique refusé, code erreur OBD...)`;
+  const replyClean = `⚠️ C'est quel type de problème ?
+
+🔆 Voyant allumé
+💨 Perte de puissance / mode dégradé
+💨 Fumée à l'échappement
+🔧 Contrôle technique refusé
+📟 Code erreur OBD (P2002...)`;
   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
 }
 
 function buildVoyantQualifyingQuestion(extracted) {
   const marqueStr = extracted?.marque ? ` sur ta ${extracted.marque}` : "";
   const data = { ...(extracted || DEFAULT_DATA), symptome: "voyant_moteur_seul", next_best_action: "poser_question" };
-  const replyClean = `Pour mieux t'orienter${marqueStr} : c'est quel type de voyant allumé ?\n\n→ Voyant FAP / filtre à particules (symbole avec des points ou pot d'échappement)\n→ Voyant moteur générique (clé à molette, moteur, triangle...)\n→ Les deux en même temps\n→ Je ne sais pas exactement`;
-  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+  const replyClean = `💡 C'est quel voyant allumé${marqueStr} ?
+
+🔶 Voyant FAP / filtre à particules (symbole avec des points ou pot d'échappement)
+🔴 Voyant moteur générique (clé à molette, moteur, triangle...)
+🔴🔶 Les deux en même temps
+❓ Je ne sais pas exactement`;
+  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data,
+    suggested_replies: [
+      { label: "🔶 Voyant FAP", value: "voyant fap filtre à particules" },
+      { label: "🔴 Voyant moteur", value: "voyant moteur générique" },
+      { label: "🔴🔶 Les deux", value: "les deux en même temps" },
+      { label: "❓ Je sais pas", value: "je ne sais pas exactement" },
+    ],
+  };
 }
 
 function buildSymptomeResponse(symptome, extracted) {
@@ -3186,7 +3204,7 @@ function buildVehiculeResponse(marqueInfo, extracted) {
 function buildVilleQuestion(extracted) {
   const marqueStr = extracted?.marque ? ` pour ta ${extracted.marque}` : "";
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_ville" };
-  const replyClean = `Tu es dans quelle ville${marqueStr} ? Je te trouve le centre Re-FAP ou Carter-Cash le plus proche.`;
+  const replyClean = `📍 Tu es dans quelle ville${marqueStr} ? Je te trouve le centre Re-FAP ou Carter-Cash le plus proche.`;
   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
 }
 
