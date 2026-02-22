@@ -572,7 +572,10 @@ function lastAssistantAskedQualifyingQuestion(history) {
         (content.includes("fumée noire") && content.includes("blanche") && content.includes("?")) ||
         (content.includes("liquide de refroidissement") && content.includes("?")) ||
         (content.includes("quel genre de voyant") && content.includes("?")) ||
-        (content.includes("décrire le voyant") && content.includes("?"))
+        (content.includes("décrire le voyant") && content.includes("?")) ||
+        (content.includes("quel type de voyant") && content.includes("?")) ||
+        (content.includes("fap / filtre") && content.includes("?")) ||
+        (content.includes("symbole avec des points") && content.includes("?"))
       ) {
         return true;
       }
@@ -2982,6 +2985,13 @@ function buildSymptomeQuestion(extracted) {
   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
 }
 
+function buildVoyantQualifyingQuestion(extracted) {
+  const marqueStr = extracted?.marque ? ` sur ta ${extracted.marque}` : "";
+  const data = { ...(extracted || DEFAULT_DATA), symptome: "voyant_moteur_seul", next_best_action: "poser_question" };
+  const replyClean = `Pour mieux t'orienter${marqueStr} : c'est quel type de voyant allumé ?\n\n→ Voyant FAP / filtre à particules (symbole avec des points ou pot d'échappement)\n→ Voyant moteur générique (clé à molette, moteur, triangle...)\n→ Les deux en même temps\n→ Je ne sais pas exactement`;
+  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+}
+
 function buildSymptomeResponse(symptome, extracted) {
   const marque = extracted?.marque;
   const famille = extracted?.famille;
@@ -3349,6 +3359,13 @@ function deterministicRouter(message, extracted, history, metier) {
 
   // 2. Détecter symptôme dans le message
   const symptome = detectSymptom(message);
+
+  // Voyant générique → qualification avant d'avancer
+  // Seulement si le bot n'a pas déjà posé la question de qualification
+  if (symptome === "voyant" && !lastAssistantAskedQualifyingQuestion(history)) {
+    const updatedExtracted = { ...(extracted || DEFAULT_DATA), symptome: "voyant_moteur_seul" };
+    return { action: "voyant_qualifying", extracted: updatedExtracted };
+  }
 
   // Code OBD → lookup déterministe
   if (symptome === "code_obd") {
@@ -3892,9 +3909,42 @@ export default async function handler(req, res) {
     // ========================================
     // OVERRIDE 4c : Question qualifier confirmée
     // ========================================
-    if (lastAssistantAskedQualifyingQuestion(history) && !lastExtracted.marque && !everAskedClosing(history)) {
+    if (lastAssistantAskedQualifyingQuestion(history) && !everAskedClosing(history)) {
       const lastBotMsg = (getLastAssistantMessage(history) || "").toLowerCase();
 
+      // Qualification voyant FAP vs moteur générique (4 choix)
+      if (lastBotMsg.includes("quel type de voyant") || lastBotMsg.includes("fap / filtre") || lastBotMsg.includes("symbole avec des points")) {
+        const isFAPVoyant = /voyant.*(fap|filtre|particule|dpf)|fap|filtre|points|pot.*(echapp|exhaust)|symbole.*(filtre|fap)|1[^2-9]|premi/i.test(message);
+        const isMoteurVoyant = /moteur|cl[eé]|triangle|g[eé]n[eé]rique|orange|check|2[^0-9]|deuxi/i.test(message);
+        const isBoth = /deux|both|les.?deux|aussi|en.?m[eê]me|combo|et.*(moteur|fap)/i.test(message);
+        const isUnknown = /sai[st]|sais pas|pas s[uû]r|incertain|exact|lequel|ne sait/i.test(message) || userSaysNo(message);
+
+        if (isBoth) {
+          lastExtracted.symptome = "voyant_fap_puissance";
+          lastExtracted.certitude_fap = "haute";
+          const data = { ...lastExtracted };
+          const replyClean = `Les deux voyants allumés en même temps, c'est typiquement un FAP saturé qui a déclenché le mode dégradé — certitude haute. On va trouver la solution.${lastExtracted.marque ? "" : " C'est quel véhicule ?"}`;
+          return sendResponse({ replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data });
+        }
+        if (isFAPVoyant || (!isMoteurVoyant && !isUnknown)) {
+          lastExtracted.symptome = "voyant_fap";
+          lastExtracted.certitude_fap = "haute";
+          return sendResponse(buildVehicleQuestion(lastExtracted));
+        }
+        if (isMoteurVoyant) {
+          lastExtracted.symptome = "voyant_moteur_seul";
+          lastExtracted.certitude_fap = "moyenne";
+          const data = { ...lastExtracted };
+          const replyClean = `Un voyant moteur générique peut être lié au FAP ou à autre chose (EGR, capteur, turbo...). Pour affiner, tu as aussi une perte de puissance ou un mode dégradé ?`;
+          return sendResponse({ replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data });
+        }
+        // Inconnu / "je sais pas" → montrer description visuelle
+        const data = { ...lastExtracted };
+        const replyClean = `Pas de souci — regarde sur le tableau de bord :\n→ Si tu vois un symbole avec des petits points (comme un filtre) ou un pot d'échappement avec de la fumée : c'est le voyant FAP\n→ Si c'est une clé à molette, un moteur stylisé ou un triangle : c'est le voyant moteur\n\nTu vois lequel des deux ?`;
+        return sendResponse({ replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data });
+      }
+
+      // Handlers existants
       if (lastBotMsg.includes("pot d'échappement") || lastBotMsg.includes("pot d\u2019échappement") || lastBotMsg.includes("petits points") || lastBotMsg.includes("autre symbole")) {
         if (userSaysYes(message)) {
           lastExtracted.symptome = "voyant_fap";
@@ -3928,6 +3978,17 @@ export default async function handler(req, res) {
         return sendResponse(buildVehicleQuestion(lastExtracted));
       }
 
+      // Voyant moteur + perte de puissance en suivi
+      if (lastBotMsg.includes("perte de puissance") || lastBotMsg.includes("mode dégradé")) {
+        if (userSaysYes(message)) {
+          lastExtracted.symptome = "voyant_fap_puissance";
+          lastExtracted.certitude_fap = "haute";
+        } else {
+          lastExtracted.certitude_fap = "moyenne";
+        }
+        return sendResponse(buildVehicleQuestion(lastExtracted));
+      }
+
       return sendResponse(buildVehicleQuestion(lastExtracted));
     }
     // ========================================
@@ -3937,6 +3998,10 @@ export default async function handler(req, res) {
     // ========================================
     const deterRoute = deterministicRouter(message, lastExtracted, history, metier);
     if (deterRoute) {
+      if (deterRoute.action === "voyant_qualifying") {
+        if (deterRoute.extracted) lastExtracted = { ...lastExtracted, ...deterRoute.extracted };
+        return sendResponse(buildVoyantQualifyingQuestion(lastExtracted));
+      }
       if (deterRoute.action === "faq") {
         return sendResponse(buildFAQResponse(deterRoute.faqEntry, lastExtracted));
       }
