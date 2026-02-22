@@ -2950,7 +2950,7 @@ function buildVehiculeQuestion(extracted) {
 
 function buildVehiculeResponse(marqueInfo, extracted) {
   const { marque, famille } = marqueInfo;
-  const marqueDisplay = marque || "ton véhicule";
+  const marqueDisplay = marque || extracted?.marque || "ton véhicule";
 
   // Info technique par famille (sans question finale — on l'ajoute selon la cascade)
   const infos = {
@@ -3165,22 +3165,28 @@ function deterministicRouter(message, extracted, history, metier) {
   // 4. Détecter marque dans le message
   const marqueInfo = detectMarque(message);
   if (marqueInfo && marqueInfo.famille !== "diesel_generique") {
-    const updatedExtracted = { ...(extracted || DEFAULT_DATA), marque: marqueInfo.marque };
+    const updatedExtracted = {
+      ...(extracted || DEFAULT_DATA),
+      // Garder la marque déjà connue si plus précise (ex: "Peugeot" > "Peugeot/Citroën")
+      marque: extracted?.marque && !extracted.marque_brute ? extracted.marque : (marqueInfo.marque || extracted?.marque),
+    };
 
-    // Flow OBD actif → chercher le code dans l'historique (robuste même si symptome mal propagé)
-    const isOBDFlow = extracted?.symptome === "code_obd"
-      || /code_obd|code_p20|p2002|p2003|p0471|p2452|p2453|p2463/i.test(JSON.stringify(extracted || {}));
+    // Flow OBD actif → chercher le code dans l'historique
     const codesInHistory = extractCodesFromHistory(history);
     const codeToLookup = extracted?.codes?.[0] || codesInHistory[0];
-
-    if ((isOBDFlow || codeToLookup) && codeToLookup) {
+    if (codeToLookup) {
       const codeInfo = OBD_FAP_CODES[codeToLookup]
         ? { code: codeToLookup, ...OBD_FAP_CODES[codeToLookup] }
         : { code: codeToLookup, explication: null, lié_fap: null };
       return { action: "obd_response", codeInfo, extracted: { ...updatedExtracted, symptome: "code_obd" } };
     }
 
-    // Flow normal → réponse marque
+    // Marque déjà connue → juste mettre à jour et laisser le fallback cascade gérer
+    if (extracted?.marque && !extracted.marque_brute) {
+      return { action: "direct_reply", replyClean: null, extracted: updatedExtracted, passthrough: true };
+    }
+
+    // Nouvelle marque → réponse marque avec info technique
     return { action: "marque_response", marqueInfo, extracted: updatedExtracted };
   }
 
@@ -3703,9 +3709,13 @@ export default async function handler(req, res) {
       if (deterRoute.action === "obd_response") {
         return sendResponse(buildOBDResponse(deterRoute.codeInfo, deterRoute.extracted || lastExtracted));
       }
-      if (deterRoute.action === "direct_reply") {
+      if (deterRoute.action === "direct_reply" && !deterRoute.passthrough) {
         const data = deterRoute.extracted || lastExtracted;
         return sendResponse({ replyClean: deterRoute.replyClean, replyFull: `${deterRoute.replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data });
+      }
+      if (deterRoute.action === "direct_reply" && deterRoute.passthrough) {
+        // Mise à jour silencieuse de lastExtracted → continue vers le fallback cascade
+        if (deterRoute.extracted) lastExtracted = { ...lastExtracted, ...deterRoute.extracted };
       }
       // llm_obd → passe au Mistral avec prompt simplifié
     }
@@ -3734,7 +3744,7 @@ export default async function handler(req, res) {
     // ========================================
     const isOBDFlow = extractCodesFromHistory(history).length > 0;
 
-    // 1. Pas de symptôme → demander
+    // 1. Pas de symptôme → demander EN PREMIER
     if (!lastExtracted.symptome || lastExtracted.symptome === "inconnu") {
       if (!lastAssistantAskedSymptom(history)) {
         return sendResponse(buildSymptomeQuestion(lastExtracted));
@@ -3761,7 +3771,7 @@ export default async function handler(req, res) {
       return sendResponse(buildPreviousAttemptsQuestion(lastExtracted, metier));
     }
 
-    // 6. Pas de ville → demander (avant closing pour orienter correctement)
+    // 6. Pas de ville → demander
     if (!lastExtracted.ville && !lastExtracted.departement && !lastAssistantAskedCity(history) && !everAskedClosing(history)) {
       return sendResponse(buildVilleQuestion(lastExtracted));
     }
