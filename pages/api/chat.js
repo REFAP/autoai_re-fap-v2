@@ -639,6 +639,26 @@ function hasGarageOrLocationIntent(text) {
   return /garage|carter[- ]?cash|centre.*(nettoie|nettoy|re-?fap)|o[uù]\s+(est|y\s*a|se\s*trouve|trouver)|propose[rz]?\s*moi|cherche\s*(un|le)|besoin\s*d.un|je\s+suis\s+[àa]\s|donne[rz]?\s*moi/i.test(text);
 }
 
+// v6.3.2 PATCH — Détecte une demande d'adresse
+function userAsksForAddress(text) {
+  return /\b(adresse|addresse|coord[oa]nn[eé]e|o[uù]\s+(se\s+trouve|c.est|sont[- ]ils|est.il)|comment\s+(y aller|trouver|accéder|acceder)|num[eé]ro|t[eé]l[eé]phone|t[eé]l\.?|appeler)\b/i.test(text);
+}
+
+// Retrouve la dernière ville/centre mentionné dans les messages du bot
+function getLastKnownCenterFromHistory(history) {
+  if (!Array.isArray(history)) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const h = history[i];
+    if (h?.role !== "assistant") continue;
+    const c = String(h.raw || h.content || "");
+    // Re-FAP Clermont mentionné ?
+    if (/re-?fap clermont|27 rue desaymard|0473|04 73/i.test(c)) {
+      return { type: "REFAP", name: "Re-FAP Clermont-Ferrand", address: "27 Rue Desaymard, 63000 Clermont-Ferrand", phone: "04 73 37 88 21", website: "https://re-fap.fr/re-fap-clermont-ferrand/" };
+    }
+  }
+  return null;
+}
+
 function lastAssistantAskedDemontage(history) {
   if (!Array.isArray(history)) return false;
   for (let i = history.length - 1; i >= 0; i--) {
@@ -719,7 +739,7 @@ function userNeedsGarage(msg) {
 // 🆕 Détecte les insultes
 function userIsInsulting(text) {
   const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return /\b(con|conne|connard|connasse|enculer?|putain|merde|salaud|salope|idiot|idiote|abruti|abrutie|nul|nulle|incompetent|incompetente|batard|batarde|fdp|ntm|ta gueule|ferme la|va te faire|casse.?toi|je m.en fous|c.est nul|c.est con|rien a foutre)\b/i.test(t);
+  return /\b(con|conne|connard|connasse|enculer?|putain|merde|salaud|salope|idiot|idiote|abruti|abrutie|debile|naze|cretin|cretine|imbecile|stupide|nul|nulle|incompetent|incompetente|batard|batarde|fdp|ntm|ta gueule|ferme la|va te faire|casse.?toi|je m.en fous|c.est nul|c.est con|rien a foutre)\b/i.test(t);
 }
 
 // 🆕 Détecte un numéro de téléphone ou email donné par l'utilisateur
@@ -1937,6 +1957,15 @@ function extractDeptFromInput(input) {
   const t = input.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
   if (/^\d{6,}$/.test(t)) return null;
   if (/^\d{5}$/.test(t) && parseInt(t) >= 99000) return null;
+
+  // Abréviations et cas spéciaux — avant tout le reste
+  if (/\bclermont[- ]f(d|errand)?\b/i.test(t)) return "63"; // "clermont fd", "clermont f", "clermont-ferrand"
+  if (/\bclermont\b/i.test(t) && !/\boise\b/i.test(t)) return "63"; // "clermont" seul → Clermont-Ferrand par défaut
+  if (/\bst[- ]etienne\b|saint[- ]etienne\b/i.test(t)) return "42";
+  if (/\bst[- ]nazaire\b|saint[- ]nazaire\b/i.test(t)) return "44";
+  if (/\bst[- ]maur\b/i.test(t)) return "94";
+  if (/\bparis\b/i.test(t)) return "75";
+
   const postalMatch = t.match(/\b(\d{5})\b/);
   if (postalMatch) {
     const cp = postalMatch[1];
@@ -1962,8 +1991,10 @@ function extractDeptFromInput(input) {
   if (NOT_CITIES.includes(t)) return null;
   // Normaliser tirets↔espaces pour matcher "nogent sur marne" = "nogent-sur-marne"
   const tSpaced = t.replace(/-/g, " ");
-  // CITY_TO_DEPT en premier (457 villes, match exact = plus fiable)
-  for (const [city, dept] of Object.entries(CITY_TO_DEPT)) {
+  // CITY_TO_DEPT en premier — trier par longueur décroissante pour que "Clermont-Ferrand"
+  // matche avant "Clermont" (évite les faux positifs sur villes courtes)
+  const cityEntries = Object.entries(CITY_TO_DEPT).sort((a, b) => b[0].length - a[0].length);
+  for (const [city, dept] of cityEntries) {
     const cityNorm = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
     if (tSpaced.includes(cityNorm)) return dept;
   }
@@ -2949,6 +2980,24 @@ export default async function handler(req, res) {
     // ========================================
     if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history)) && userSaysYes(message)) {
       return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: `https://auto.re-fap.fr/?cid=${conversationId}#devis` });
+    }
+
+    // ========================================
+    // OVERRIDE ADRESSE : "donne moi leur adresse" / "l'adresse de re-fap"
+    // Retourne les coordonnées du centre mentionné dans l'historique
+    // ========================================
+    if (userAsksForAddress(message)) {
+      const knownCenter = getLastKnownCenterFromHistory(history);
+      if (knownCenter) {
+        const replyClean = `📍 ${knownCenter.name}\n${knownCenter.address}\n📞 ${knownCenter.phone}\n🌐 ${knownCenter.website}`;
+        const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "clore" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      }
+      // Centre inconnu → demander ville
+      const replyClean = "Pour te donner l'adresse du centre le plus proche, tu es dans quelle ville ?";
+      const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
+      return sendResponse({ replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data });
     }
 
     // ========================================
