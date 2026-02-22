@@ -2959,21 +2959,40 @@ function userAsksCodeMeaning(text) {
 }
 
 function buildOBDResponse(codeInfo, extracted) {
-  const marqueStr = extracted?.marque ? ` sur ta ${extracted.marque}` : "";
-  const data = { ...(extracted || DEFAULT_DATA), symptome: "code_obd", certitude_fap: codeInfo.lié_fap ? "haute" : "moyenne", next_best_action: "demander_ville" };
+  const marque = extracted?.marque;
+  const km = extracted?.kilometrage;
+  const marqueStr = marque ? ` sur ta ${marque}` : "";
+  const data = { ...(extracted || DEFAULT_DATA), symptome: "code_obd", certitude_fap: codeInfo.lié_fap ? "haute" : "moyenne" };
 
-  let replyClean;
+  let explication = "";
+  let suite = "";
+
   if (!codeInfo.explication) {
-    replyClean = `Le code ${codeInfo.code}${marqueStr} n'est pas dans ma base de données. Tu peux me donner plus de détails sur ce que tu observes (voyant, perte de puissance, fumée) ? Tu es dans quelle ville pour qu'on t'oriente ?`;
-  } else {
-    const gravite = codeInfo.lié_fap
-      ? `C'est bien lié au FAP${marqueStr} — un nettoyage en machine Re-FAP règle ça dans la grande majorité des cas.`
-      : `Ce code n'est pas directement lié au FAP mais peut être connexe${marqueStr}.`;
-    replyClean = `**${codeInfo.code} — ${codeInfo.label}**\n\n${codeInfo.explication}\n\n${gravite}\n\nTu es dans quelle ville ? Je te trouve le centre Re-FAP le plus proche.`;
-    // Pas de markdown dans le chat → version texte
-    replyClean = `${codeInfo.code} — ${codeInfo.label}\n\n${codeInfo.explication}\n\n${gravite}\n\nTu es dans quelle ville ? Je te trouve le centre le plus proche.`;
+    // Code inconnu → demander détails + véhicule
+    data.next_best_action = "demander_vehicule";
+    const replyClean = `Le code ${codeInfo.code}${marqueStr} n'est pas dans ma base. Tu observes quoi d'autre (voyant, perte de puissance, fumée) ? Et c'est quel véhicule ?`;
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
   }
 
+  const gravite = codeInfo.lié_fap
+    ? `C'est bien lié au FAP${marqueStr} — un nettoyage en machine Re-FAP règle ça dans la grande majorité des cas.`
+    : `Ce code n'est pas directement lié au FAP mais peut être connexe${marqueStr}.`;
+
+  explication = `${codeInfo.code} — ${codeInfo.label}\n\n${codeInfo.explication}\n\n${gravite}`;
+
+  // Collecter dans l'ordre : marque → km → ville
+  if (!marque) {
+    data.next_best_action = "demander_vehicule";
+    suite = "C'est quel véhicule et quel kilométrage approximatif ?";
+  } else if (!km) {
+    data.next_best_action = "demander_details";
+    suite = `Ton ${marque}, il est à combien de kilomètres environ ?`;
+  } else {
+    data.next_best_action = "demander_ville";
+    suite = "Tu es dans quelle ville ? Je te trouve le centre le plus proche.";
+  }
+
+  const replyClean = `${explication}\n\n${suite}`;
   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
 }
 
@@ -3008,6 +3027,30 @@ function deterministicRouter(message, extracted, history, metier) {
     if (codeToLookup) {
       const codeInfo = OBD_FAP_CODES[codeToLookup] ? { code: codeToLookup, ...OBD_FAP_CODES[codeToLookup] } : { code: codeToLookup, explication: null, lié_fap: null };
       return { action: "obd_response", codeInfo, extracted: { ...(extracted || DEFAULT_DATA), symptome: "code_obd" } };
+    }
+  }
+
+  // Réponse km dans un flow OBD actif (bot vient de demander le km)
+  if (extracted?.symptome === "code_obd" && extracted?.marque && !extracted?.kilometrage) {
+    const { extractKmFromMessage } = { extractKmFromMessage: (t) => {
+      const m = t.match(/(\d[\d\s.]{1,7})\s*(km|kilometre|kilo)/i);
+      return m ? m[1].replace(/[\s.]/g, "") + " km" : null;
+    }};
+    const kmDetected = extractKmFromMessage(message);
+    if (kmDetected) {
+      const codesInHistory = extractCodesFromHistory([...history, { role: "user", content: message }]);
+      const codeToLookup = extracted?.codes?.[0] || codesInHistory[0];
+      if (codeToLookup) {
+        const codeInfo = OBD_FAP_CODES[codeToLookup] ? { code: codeToLookup, ...OBD_FAP_CODES[codeToLookup] } : null;
+        if (codeInfo) {
+          const updatedExtracted = { ...(extracted || DEFAULT_DATA), kilometrage: kmDetected };
+          return { action: "obd_response", codeInfo, extracted: updatedExtracted };
+        }
+      }
+      // Km reçu → demander ville
+      const updatedExtracted = { ...(extracted || DEFAULT_DATA), kilometrage: kmDetected, next_best_action: "demander_ville" };
+      const replyClean = `Noté, ${kmDetected}. Tu es dans quelle ville ? Je te trouve le centre Re-FAP le plus proche.`;
+      return { action: "direct_reply", replyClean, extracted: updatedExtracted };
     }
   }
 
