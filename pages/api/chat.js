@@ -3375,6 +3375,20 @@ function deterministicRouter(message, extracted, history, metier) {
   const isTalkingAboutCar = /\b(voiture|vehicule|auto|car|moteur|cylindre)\b/i.test(t);
   if (nonDieselKeywords.test(t) && isTalkingAboutCar) return { action: "non_diesel" };
 
+  // ---- INTENT : "près de chez moi" → sauter directement à la ville ----
+  if (/pr[eè]s.*(chez|moi|maison)|autour.*(moi|chez)|[àa] proximit[eé]|le plus proche|trouver.*(centre|carter|garage)|faire nettoyer.*(fap|filtre)/i.test(t)) {
+    const data = { ...(extracted || DEFAULT_DATA), intention: "localisation", next_best_action: "demander_ville" };
+    const replyClean = `📍 Pas de problème ! Tu es dans quelle ville ? Je te trouve le centre Re-FAP ou Carter-Cash le plus proche.`;
+    return { action: "direct_reply", replyClean, extracted: data };
+  }
+
+  // ---- INTENT : "garage tout-en-un" → dépose + nettoyage + repose ----
+  if (/garage.*(g[eè]re|tout|d[eé]pose|repose|complet|int[eé]gral|cl[eé]s.*(en|en) main)|d[eé]pose.*(nettoyage|fap).*repose|tout.*(g[eè]re|inclus|pris.*(en|en) charge)/i.test(t)) {
+    const data = { ...(extracted || DEFAULT_DATA), intention: "garage_partner", demontage: "garage_partner", next_best_action: "demander_ville" };
+    const replyClean = `🔧 On a un réseau de 800+ garages partenaires qui gèrent tout — dépose, nettoyage Re-FAP, et repose. Tu es dans quelle ville ?`;
+    return { action: "direct_reply", replyClean, extracted: data };
+  }
+
   // 2. Détecter symptôme dans le message
   const symptome = detectSymptom(message);
 
