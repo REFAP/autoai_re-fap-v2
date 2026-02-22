@@ -2716,6 +2716,74 @@ function buildDeclinedResponse(extracted) {
   return { replyClean, replyFull, extracted: data };
 }
 
+// ============================================================
+// FAQ DÉTERMINISTE — questions techniques et commerciales courantes
+// ============================================================
+const FAQ_ENTRIES = [
+  {
+    id: "regeneration",
+    patterns: /r[eé]g[eé]n[eé]r(ation|er|e)\b|auto.?nettoy|se nettoie tout seul/i,
+    reponse: (e) => `La régénération, c'est le processus automatique où le moteur monte en température pour brûler les suies accumulées dans le FAP. Elle se déclenche normalement sur autoroute ou route à vitesse soutenue. En ville ou sur courts trajets, elle ne se fait pas — les suies s'accumulent jusqu'à saturation.\n\nLe problème : la régénération brûle les suies, mais pas les cendres métalliques. Ces cendres s'accumulent à vie et nécessitent un nettoyage en machine.\n\nC'est quel véhicule${e?.marque ? " — ta " + e.marque + " ?" : " ?"}`,
+  },
+  {
+    id: "fap_vs_cata",
+    patterns: /diff[eé]rence.*(fap|cata|catalyseur)|fap.*(c.?est quoi|quoi c.?est|def|definition)|c.?est quoi (le|un) fap|qu.?est.?ce.*(fap|filtre)/i,
+    reponse: (e) => `Le FAP (filtre à particules) retient les suies du diesel pour ne pas les rejeter dans l'air. Le catalyseur transforme les gaz nocifs (CO, NOx) en gaz inoffensifs.\n\nSur beaucoup de véhicules récents, les deux sont intégrés dans un seul bloc (FAP combiné) — c'est pour ça que le nettoyage coûte 149€ au lieu de 99€. Sur les moteurs plus anciens (ex: DV6 PSA avant 2010), ils sont séparés.\n\nTu as quel véhicule${e?.marque ? " — ta " + e.marque + " ?" : " ?"}`,
+  },
+  {
+    id: "additif",
+    patterns: /additif.*(march|fonctionne?|efficace?|sert|vaut)|net.?fap|lave.?fap|nettoyant.*(diesel|fap)|produit.*(nettoyer|nettoyage).*(fap|diesel)|dpf.*(cleaner|clean)/i,
+    reponse: (e) => `L'additif dissout une partie des suies légères. Il ne touche pas aux cendres métalliques — qui représentent la moitié du colmatage sur un FAP saturé.\n\nRésultat : ça peut faire partir le voyant quelques semaines, mais le FAP se rebouche rapidement. C'est une solution temporaire, pas définitive.\n\nLe nettoyage Re-FAP en machine retire les suies ET les cendres, c'est pour ça qu'il est garanti 1 an et conforme CT.\n\nTu as déjà essayé un additif${e?.marque ? " sur ta " + e.marque : ""} ?`,
+  },
+  {
+    id: "demontage_oblig",
+    patterns: /oblig.*(d[eé]mont|enlever|retirer)|faut.*(d[eé]mont|enlever|retirer).*(fap|filtre)|d[eé]mont.*(oblig|n[eé]cessaire|impos|éviter)/i,
+    reponse: (e) => `Oui, le FAP doit être démonté pour le nettoyage en machine — c'est incontournable. Le nettoyage se fait par injection sous pression contrôlée, impossible à faire en place sur le véhicule.\n\nDeux options selon ta situation :\n→ Tu as un garagiste de confiance ? Il démonte, dépose au Carter-Cash, on nettoie, il remonte.\n→ Tu veux qu'on trouve un garage partenaire ? On s'occupe de tout de A à Z.\n\nTu es dans quelle région${e?.ville ? " — " + e.ville + " ?" : " ?"}`,
+  },
+  {
+    id: "refap_cest_quoi",
+    patterns: /c.?est quoi re.?fap|re.?fap.*(c.?est quoi|qui|comment|marche|fonctionne)|comment.*(marche|fonctionne).*(re.?fap|nettoyage)/i,
+    reponse: () => `Re-FAP est un service spécialisé dans le nettoyage de filtres à particules diesel. On a des machines professionnelles installées dans 4 centres Carter-Cash en France (nettoyage en 4h sur place) et un réseau de 90 Carter-Cash pour envoi postal (48-72h).\n\nLe principe : le FAP est démonté, nettoyé sous pression avec un produit homologué, contrôlé avant et après. Résultat garanti 1 an, conforme contrôle technique.\n\nTarifs : 99€ (FAP simple) ou 149€ (FAP combiné avec catalyseur) + main d'œuvre démontage/remontage.\n\nTu as un problème sur ton véhicule en ce moment ?`,
+  },
+  {
+    id: "duree_garantie",
+    patterns: /garantie?|combien.*(de temps|dure|tient)|tenir|durable|long.?terme|longtemps/i,
+    reponse: (e) => `Le nettoyage Re-FAP est garanti 1 an. Si le FAP se rebouche dans l'année, Re-FAP le renettoyage sans frais supplémentaires.\n\nEn pratique : si les conditions de roulage sont normales (trajets suffisamment longs pour permettre la régénération), le FAP nettoyé tient plusieurs années.\n\nTu as quel souci en ce moment${e?.marque ? " sur ta " + e.marque : ""} ?`,
+  },
+  {
+    id: "delai",
+    patterns: /d[eé]lai|combien.*(temps|jours?|heures?)|attente|rapide|vite|urgent|quand/i,
+    reponse: (e) => `Deux options selon ta localisation :\n→ Carter-Cash équipé machine : nettoyage en ~4h sur place (dépôt le matin, récupération le soir)\n→ Envoi postal : 48-72h aller-retour (dépôt dans n'importe quel Carter-Cash)\n\nTu es dans quelle ville${e?.ville ? " — aux alentours de " + e.ville + " ?" : " ? Je te trouve le centre le plus proche."}`,
+  },
+  {
+    id: "prix",
+    patterns: /prix|co[uû]t|combien|tarif|€|euro|cher/i,
+    reponse: (e) => {
+      const marqueStr = e?.marque ? ` sur ta ${e.marque}` : "";
+      return `Le nettoyage FAP Re-FAP c'est :\n→ 99€ TTC pour un FAP simple (ex: DV6 PSA sans catalyseur intégré)\n→ 149€ TTC pour un FAP combiné avec catalyseur\n→ 199€ TTC en envoi postal (port A/R inclus)\n\nÀ ajouter : la main d'œuvre du garagiste pour le démontage/remontage (varie selon le modèle).\n\nPour te donner le tarif exact${marqueStr}, c'est quel modèle ?`;
+    },
+  },
+  {
+    id: "legal_defap",
+    patterns: /d[eé]fap|retirer.*(fap|filtre)|supprim.*(fap|filtre)|fap.*(off|supprim|retir)|dpf.*(off|remov|delete)/i,
+    reponse: () => `Le défapage (suppression du FAP) est illégal en France depuis 2012 (Art. L318-3 du Code de la route). Amende jusqu'à 7 500€ + contre-visite CT systématique. En cas d'accident, l'assurance peut refuser l'indemnisation.\n\nLe nettoyage Re-FAP est la seule solution légale et durable : on retire les suies et les cendres sans toucher à la carte moteur. Garanti 1 an, conforme CT.\n\nTu veux qu'on t'oriente sur le nettoyage ?`,
+  },
+];
+
+function detectFAQ(message) {
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  for (const entry of FAQ_ENTRIES) {
+    if (entry.patterns.test(t)) return entry;
+  }
+  return null;
+}
+
+function buildFAQResponse(faqEntry, extracted) {
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_vehicule" };
+  const replyClean = faqEntry.reponse(extracted);
+  return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+}
+
 function buildOffTopicResponse() {
   const data = { ...DEFAULT_DATA };
   const replyClean = `Je suis FAPexpert, spécialisé dans les problèmes de filtre à particules diesel. Si tu as un souci de voyant, perte de puissance, fumée ou contrôle technique sur ton véhicule, je peux t'aider !`;
@@ -2999,6 +3067,14 @@ function buildOBDResponse(codeInfo, extracted) {
 
 function deterministicRouter(message, extracted, history, metier) {
   const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  // 0. FAQ technique — avant tout le reste
+  // Exclure si message très court (mot seul) ou si c'est une réponse à une question (oui/non/ville/km)
+  const isFAQCandidate = message.length > 12 && !/^\s*(oui|non|si|ok|voil[aà]|exactement|c.?est.?[cç]a|\d+)\s*$/i.test(message);
+  if (isFAQCandidate) {
+    const faqEntry = detectFAQ(message);
+    if (faqEntry) return { action: "faq", faqEntry };
+  }
 
   // 1. Hors-sujet évident (pas diesel, pas FAP)
   const nonDieselKeywords = /\b(essence|gpl|electrique|hybride|electric|ev\b|sans.?diesel)\b/i;
@@ -3583,68 +3659,15 @@ export default async function handler(req, res) {
       return sendResponse(buildVehicleQuestion(lastExtracted));
     }
     // ========================================
-    // OVERRIDE 5 : FORMULAIRE SÉQUENTIEL
-    // ========================================
+    // (Overrides 5-8 supprimés — gérés par fallback déterministe)
 
-    // 5a : Marque, PAS modèle → demander modèle (sauf flow OBD → géré par déterministe)
-    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && !lastExtracted.modele && !everAskedModel(history) && !everAskedClosing(history) && extractCodesFromHistory(history).length === 0) {
-      return sendResponse(buildModelQuestion(lastExtracted));
-    }
-
-    // 5b : Marque + modèle, PAS km → demander km (sauf flow OBD)
-    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && (lastExtracted.modele || everAskedModel(history)) && !lastExtracted.kilometrage && !everAskedKm(history) && !everAskedClosing(history) && extractCodesFromHistory(history).length === 0) {
-      return sendResponse(buildKmQuestion(lastExtracted));
-    }
-
-    // 5c : Marque + modèle + km, PAS tentatives → demander tentatives (sauf flow OBD)
-    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && (lastExtracted.modele || everAskedModel(history)) && (lastExtracted.kilometrage || everAskedKm(history)) && !lastExtracted.previous_attempts && !everAskedPreviousAttempts(history) && !everAskedClosing(history) && extractCodesFromHistory(history).length === 0) {
-      return sendResponse(buildPreviousAttemptsQuestion(lastExtracted, metier));
-    }
-
-    // ========================================
-    // OVERRIDE 6 : Tour 3+ sans véhicule
-    // ========================================
-    if (userTurns >= 2 && !lastExtracted.marque && lastAssistantAskedVehicle(history) && message.trim().length >= 3) {
-      const rawMarque = capitalizeVille(message.trim().split(/\s+/)[0]);
-      lastExtracted.marque = rawMarque;
-      lastExtracted.marque_brute = true;
-      return sendResponse(buildModelQuestion(lastExtracted));
-    }
-    if (userTurns >= 3 && !lastExtracted.marque && !lastAssistantAskedVehicle(history) && !everAskedClosing(history)) {
-      return sendResponse(buildVehicleQuestion(lastExtracted));
-    }
-
-    // ========================================
-    // OVERRIDE 7 : Expert orientation
-    // ========================================
-    if (hasEnoughForExpertOrientation(lastExtracted) && (everAskedPreviousAttempts(history) || lastExtracted.previous_attempts) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
-      return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
-    }
-
-    // ========================================
-    // OVERRIDE 7b : Contexte manquant pour expert orientation → demander km
-    // On a marque+symptôme+tentatives mais le gate bloque (pas de km/ancienneté/code)
-    // ========================================
-    if (lastExtracted.marque && lastExtracted.symptome !== "inconnu" && (lastExtracted.previous_attempts || everAskedPreviousAttempts(history)) && !hasEnoughForExpertOrientation(lastExtracted) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
-      if (!lastExtracted.kilometrage && !everAskedKm(history)) {
-        return sendResponse(buildKmQuestion(lastExtracted));
-      }
-      // Si km déjà demandé mais pas répondu, tenter expert orientation quand même (mode dégradé)
-      return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
-    }
-
-    // ========================================
-    // OVERRIDE 8 : Closing forcé tour 5+
-    // ========================================
-    if (userTurns >= MAX_USER_TURNS && lastExtracted.marque && !everAskedClosing(history) && !lastAssistantAskedDemontage(history) && !lastAssistantAskedCity(history) && !lastAssistantAskedSolutionExplanation(history) && !lastAssistantAskedGarageType(history)) {
-      return sendResponse(buildClosingQuestion(lastExtracted, metier));
-    }
-
-    // ========================================
     // v7.0 MOTEUR DÉTERMINISTE — prioritaire sur métier/snippet
     // ========================================
     const deterRoute = deterministicRouter(message, lastExtracted, history, metier);
     if (deterRoute) {
+      if (deterRoute.action === "faq") {
+        return sendResponse(buildFAQResponse(deterRoute.faqEntry, lastExtracted));
+      }
       if (deterRoute.action === "non_diesel") {
         return sendResponse(buildNonDieselResponse(lastExtracted));
       }
@@ -3688,48 +3711,52 @@ export default async function handler(req, res) {
 
 
     // ========================================
-    // FALLBACK DÉTERMINISTE — Mistral supprimé
     // ========================================
+    // FALLBACK CASCADE DÉTERMINISTE
+    // Séquence complète : symptôme → marque → modèle → km → tentatives → expert → closing
+    // ========================================
+    const isOBDFlow = extractCodesFromHistory(history).length > 0;
 
-    // Pas de marque → demander
-    if (!lastExtracted.marque && !lastAssistantAskedVehicle(history)) {
-      return sendResponse(buildVehicleQuestion(lastExtracted));
+    // 1. Pas de symptôme → demander
+    if (!lastExtracted.symptome || lastExtracted.symptome === "inconnu") {
+      if (!lastAssistantAskedSymptom(history)) {
+        return sendResponse(buildSymptomeQuestion(lastExtracted));
+      }
     }
 
-    // Marque demandée mais pas reçue → relancer
+    // 2. Pas de marque → demander
     if (!lastExtracted.marque) {
       return sendResponse(buildVehicleQuestion(lastExtracted));
     }
 
-    // Pas de symptôme → demander
-    if ((!lastExtracted.symptome || lastExtracted.symptome === "inconnu") && !lastAssistantAskedSymptom(history)) {
-      return sendResponse(buildSymptomeQuestion(lastExtracted));
+    // 3. Pas de modèle → demander (sauf flow OBD)
+    if (!isOBDFlow && !lastExtracted.modele && !everAskedModel(history) && !everAskedClosing(history)) {
+      return sendResponse(buildModelQuestion(lastExtracted));
     }
 
-    // Pas de tentatives → demander (une fois)
-    if (lastExtracted.marque && lastExtracted.symptome && lastExtracted.symptome !== "inconnu"
-      && !lastExtracted.previous_attempts && !everAskedPreviousAttempts(history)) {
+    // 4. Pas de km → demander
+    if (!lastExtracted.kilometrage && !everAskedKm(history) && !everAskedClosing(history)) {
+      return sendResponse(buildKmQuestion(lastExtracted));
+    }
+
+    // 5. Pas de tentatives → demander
+    if (!lastExtracted.previous_attempts && !everAskedPreviousAttempts(history) && !everAskedClosing(history)) {
       return sendResponse(buildPreviousAttemptsQuestion(lastExtracted, metier));
     }
 
-    // Assez d'infos → closing ou orientation
-    if (hasEnoughToClose(lastExtracted, history) && !everAskedClosing(history)) {
-      if (!everGaveExpertOrientation(history) && hasEnoughForExpertOrientation(lastExtracted)) {
-        return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
-      }
+    // 6. Expert orientation si assez d'infos
+    if (hasEnoughForExpertOrientation(lastExtracted) && !everGaveExpertOrientation(history) && !everAskedClosing(history)) {
+      return sendResponse(withDataRelance(buildExpertOrientation(lastExtracted, metier), history));
+    }
+
+    // 7. Closing
+    if (!everAskedClosing(history)) {
       return sendResponse(buildClosingQuestion(lastExtracted, metier));
     }
 
-    // Pas de ville → demander
-    if (!lastExtracted.ville && !lastExtracted.departement) {
-      return sendResponse(buildVilleQuestion(lastExtracted));
-    }
-
-    // Fallback générique
-    const fallbackReply = lastExtracted.marque
-      ? `Tu as d'autres infos sur le problème (kilométrage, depuis combien de temps) ?`
-      : `Pour t'aider, c'est quel véhicule ?`;
-    const fallbackData = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "poser_question" };
+    // 8. Fallback générique absolu (ne devrait jamais arriver)
+    const fallbackReply = `Si tu as d'autres questions sur ton FAP, je suis là.`;
+    const fallbackData = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "clore" };
     return sendResponse({ replyClean: fallbackReply, replyFull: `${fallbackReply}\nDATA: ${safeJsonStringify(fallbackData)}`, extracted: fallbackData });
 
   } catch (error) {
