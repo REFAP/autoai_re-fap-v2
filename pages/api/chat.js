@@ -2964,11 +2964,8 @@ function buildOBDResponse(codeInfo, extracted) {
   const marqueStr = marque ? ` sur ta ${marque}` : "";
   const data = { ...(extracted || DEFAULT_DATA), symptome: "code_obd", certitude_fap: codeInfo.lié_fap ? "haute" : "moyenne" };
 
-  let explication = "";
-  let suite = "";
-
+  // Code inconnu → demander détails + véhicule
   if (!codeInfo.explication) {
-    // Code inconnu → demander détails + véhicule
     data.next_best_action = "demander_vehicule";
     const replyClean = `Le code ${codeInfo.code}${marqueStr} n'est pas dans ma base. Tu observes quoi d'autre (voyant, perte de puissance, fumée) ? Et c'est quel véhicule ?`;
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
@@ -2978,21 +2975,25 @@ function buildOBDResponse(codeInfo, extracted) {
     ? `C'est bien lié au FAP${marqueStr} — un nettoyage en machine Re-FAP règle ça dans la grande majorité des cas.`
     : `Ce code n'est pas directement lié au FAP mais peut être connexe${marqueStr}.`;
 
-  explication = `${codeInfo.code} — ${codeInfo.label}\n\n${codeInfo.explication}\n\n${gravite}`;
+  const explication = `${codeInfo.code} — ${codeInfo.label}\n\n${codeInfo.explication}\n\n${gravite}`;
 
-  // Collecter dans l'ordre : marque → km → ville
+  // Tour 1 : pas de marque → explication + demande véhicule SEULEMENT
   if (!marque) {
     data.next_best_action = "demander_vehicule";
-    suite = "C'est quel véhicule et quel kilométrage approximatif ?";
-  } else if (!km) {
-    data.next_best_action = "demander_details";
-    suite = `Ton ${marque}, il est à combien de kilomètres environ ?`;
-  } else {
-    data.next_best_action = "demander_ville";
-    suite = "Tu es dans quelle ville ? Je te trouve le centre le plus proche.";
+    const replyClean = `${explication}\n\nC'est quel véhicule ?`;
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
   }
 
-  const replyClean = `${explication}\n\n${suite}`;
+  // Tour 2 : marque connue, pas de km → demander km
+  if (!km) {
+    data.next_best_action = "demander_details";
+    const replyClean = `Ta ${marque}, elle est à combien de kilomètres environ ?`;
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+  }
+
+  // Tour 3 : marque + km → demander ville
+  data.next_best_action = "demander_ville";
+  const replyClean = `Tu es dans quelle ville ? Je te trouve le centre Re-FAP le plus proche.`;
   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
 }
 
@@ -3072,11 +3073,20 @@ function deterministicRouter(message, extracted, history, metier) {
   const marqueInfo = detectMarque(message);
   if (marqueInfo && marqueInfo.famille !== "diesel_generique") {
     const updatedExtracted = { ...(extracted || DEFAULT_DATA), marque: marqueInfo.marque };
-    // Si symptôme déjà connu → répondre avec info marque + demander ville
-    if (extracted?.symptome && extracted.symptome !== "inconnu") {
-      return { action: "marque_response", marqueInfo, extracted: updatedExtracted };
+
+    // Flow OBD actif → demander km via buildOBDResponse
+    if (extracted?.symptome === "code_obd") {
+      const codesInHistory = extractCodesFromHistory(history);
+      const codeToLookup = extracted?.codes?.[0] || codesInHistory[0];
+      if (codeToLookup) {
+        const codeInfo = OBD_FAP_CODES[codeToLookup]
+          ? { code: codeToLookup, ...OBD_FAP_CODES[codeToLookup] }
+          : { code: codeToLookup, explication: null, lié_fap: null };
+        return { action: "obd_response", codeInfo, extracted: updatedExtracted };
+      }
     }
-    // Sinon → répondre avec info marque + demander symptôme
+
+    // Flow normal → réponse marque
     return { action: "marque_response", marqueInfo, extracted: updatedExtracted };
   }
 
