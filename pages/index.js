@@ -41,9 +41,10 @@ function getTrackingParams() {
 // ============================================================
 const QUICK_REPLIES_CONFIG = {
   initial: [
-    { label: "Voyant allumé", value: "J'ai un voyant allumé sur le tableau de bord" },
-    { label: "Perte de puissance", value: "Ma voiture a perdu de la puissance" },
-    { label: "Fumée anormale", value: "Ma voiture fume anormalement" },
+    { label: "⚠️ J'ai un problème (voyant, puissance...)", value: "J'ai un problème sur mon véhicule" },
+    { label: "📍 Faire nettoyer mon FAP près de chez moi", value: "Je veux faire nettoyer mon FAP près de chez moi" },
+    { label: "🔧 Garage qui gère tout (dépose + nettoyage + repose)", value: "Je cherche un garage qui gère tout, dépose et repose du FAP inclus" },
+    { label: "💶 Combien ça coûte ?", value: "Combien coûte le nettoyage FAP ?" },
   ],
   vehicule: [
     { label: "Peugeot", value: "C'est une Peugeot" },
