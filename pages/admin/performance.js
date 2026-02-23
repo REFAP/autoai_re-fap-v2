@@ -176,12 +176,12 @@ export default function PerformanceDashboard() {
   const [token, setToken] = useState("");
   const [authed, setAuthed] = useState(false);
 
-  const load = async (tok) => {
+  const load = async (tok = "") => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/admin/baseline?token=${tok}`);
-      if (res.status === 401) { setError("Token invalide"); setLoading(false); return; }
+      if (res.status === 401) { setError("Accès refusé"); setLoading(false); return; }
       const json = await res.json();
       setData(json);
       setAuthed(true);
@@ -191,32 +191,12 @@ export default function PerformanceDashboard() {
     setLoading(false);
   };
 
-  if (!authed) {
+  useEffect(() => { load(TOKEN); }, []);
+
+  if (!authed && error) {
     return (
       <div style={{ background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui" }}>
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 40, width: 320 }}>
-          <div style={{ color: C.accent, fontSize: 24, fontWeight: 800, marginBottom: 4 }}>Re-FAP</div>
-          <div style={{ color: C.sub, fontSize: 13, marginBottom: 24 }}>Dashboard Performance Chatbot</div>
-          <input
-            type="password" placeholder="Token admin"
-            value={token} onChange={e => setToken(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && load(token)}
-            style={{
-              width: "100%", background: C.bg, border: `1px solid ${C.border}`,
-              borderRadius: 8, padding: "10px 14px", color: C.text, fontSize: 14,
-              outline: "none", boxSizing: "border-box", marginBottom: 12,
-            }}
-          />
-          {error && <div style={{ color: C.accent, fontSize: 12, marginBottom: 8 }}>{error}</div>}
-          <button
-            onClick={() => load(token)}
-            style={{
-              width: "100%", background: C.accent, color: "#fff", border: "none",
-              borderRadius: 8, padding: "10px 0", fontSize: 14, fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >Accéder</button>
-        </div>
+        <div style={{ color: C.accent, fontSize: 16 }}>{error}</div>
       </div>
     );
   }
