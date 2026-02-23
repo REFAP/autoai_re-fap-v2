@@ -1,5 +1,5 @@
 // /pages/admin/magasins.js
-// Dashboard Magasins Re-FAP — v3.1
+// Dashboard Magasins Re-FAP — v3.2
 // Onglets: Carter-Cash | Garages partenaires
 // Sources: 🤖 Bot / 👤 Opérateur / 📞 Téléphone
 
@@ -354,12 +354,13 @@ function MagasinsDashboard() {
                         <th style={thStyle}>R\u00e9seau</th>
                         <th style={thStyle}>Ville</th>
                         <th style={thStyle}>Orientations</th>
+                        <th style={thStyle}>Source</th>
                         <th style={thStyle}>Orient\u00e9 par</th>
                       </tr>
                     </thead>
                     <tbody>
                       {garagesList.length === 0 && (
-                        <tr><td colSpan={6} style={{ padding: "32px", textAlign: "center", color: "#94a3b8" }}>Aucune orientation garage sur cette p\u00e9riode.</td></tr>
+                        <tr><td colSpan={7} style={{ padding: "32px", textAlign: "center", color: "#94a3b8" }}>Aucune orientation garage sur cette p\u00e9riode.</td></tr>
                       )}
                       {garagesList.map((g, i) => (
                         <tr key={i} style={{ borderBottom: "1px solid #f8fafc" }}>
@@ -368,6 +369,7 @@ function MagasinsDashboard() {
                           <td style={tdStyle}><ReseauBadge reseau={g.reseau} /></td>
                           <td style={tdStyle}>{g.ville || "\u2014"}</td>
                           <td style={{ ...tdStyle, fontWeight: 700, fontSize: "15px" }}>{g.orientations}</td>
+                          <td style={tdStyle}><SourceBadges bySource={g.by_source} /></td>
                           <td style={tdStyle}><OperatorList operators={g.operators} /></td>
                         </tr>
                       ))}
@@ -388,7 +390,7 @@ function MagasinsDashboard() {
             </div>
 
             <div style={{ marginTop: "20px", textAlign: "center", fontSize: "11px", color: "#94a3b8" }}>
-              Re-FAP \u2014 Dashboard v3.1 \u00b7 P\u00e9riode : {period === "1" ? "24h" : period === "365" ? "1 an" : period + " jours"} \u00b7 {new Date().toLocaleDateString("fr-FR")}
+              Re-FAP \u2014 Dashboard v3.2 \u00b7 P\u00e9riode : {period === "1" ? "24h" : period === "365" ? "1 an" : period + " jours"} \u00b7 {new Date().toLocaleDateString("fr-FR")}
             </div>
           </>
         )}
