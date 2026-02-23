@@ -111,11 +111,6 @@ function analyse(enrichments, messages) {
 }
 
 export default async function handler(req, res) {
-  const token = req.headers["x-admin-token"] || req.query.token;
-  if (token !== process.env.ADMIN_DASHBOARD_TOKEN) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
   const supabase = getSupabase();
   const cutoverEnd = CUTOVER_DATE + "T00:00:00Z";
   const cutoverStart = new Date(new Date(cutoverEnd).getTime() - BASELINE_DAYS * 86400000).toISOString();
