@@ -1,5 +1,5 @@
 // /pages/admin/magasins.js
-// Dashboard Magasins Re-FAP — v3.0
+// Dashboard Magasins Re-FAP — v3.1
 // Onglets: Carter-Cash | Garages partenaires
 // Sources: 🤖 Bot / 👤 Opérateur / 📞 Téléphone
 
@@ -277,7 +277,7 @@ function MagasinsDashboard() {
                         <th style={thStyle}>Type</th>
                         <th style={thStyle}>Orient.</th>
                         <th style={thStyle}>Source</th>
-                        {!isCC && <th style={thStyle}>Orient\u00e9 par</th>}
+                        <th style={thStyle}>Orient\u00e9 par</th>
                         <th style={thStyle}>Leads</th>
                         {!isCC && <th style={thStyle}>Raison</th>}
                         <th style={thStyle}>Prestas</th>
@@ -285,7 +285,7 @@ function MagasinsDashboard() {
                     </thead>
                     <tbody>
                       {magasins.length === 0 && (
-                        <tr><td colSpan={isCC ? 7 : 9} style={{ padding: "32px", textAlign: "center", color: "#94a3b8" }}>Aucune orientation sur cette p\u00e9riode.</td></tr>
+                        <tr><td colSpan={isCC ? 8 : 9} style={{ padding: "32px", textAlign: "center", color: "#94a3b8" }}>Aucune orientation sur cette p\u00e9riode.</td></tr>
                       )}
                       {magasins.map((m, i) => {
                         const topReason = m.reasons ? Object.entries(m.reasons).sort((a, b) => b[1] - a[1])[0]?.[0] || "\u2014" : "\u2014";
@@ -299,7 +299,7 @@ function MagasinsDashboard() {
                             <td style={tdStyle}><Badge type={m.type} /></td>
                             <td style={{ ...tdStyle, fontWeight: 700, fontSize: "15px", color: m.assignments > 0 ? "#0f172a" : "#cbd5e1" }}>{m.assignments}</td>
                             <td style={tdStyle}><SourceBadges bySource={m.by_source} /></td>
-                            {!isCC && <td style={tdStyle}><OperatorList operators={m.operators} /></td>}
+                            <td style={tdStyle}><OperatorList operators={m.operators} /></td>
                             <td style={tdStyle}>
                               {(m.leads || 0) > 0 ? (
                                 <span style={{ fontWeight: 700, color: "#3b82f6" }}>
@@ -388,7 +388,7 @@ function MagasinsDashboard() {
             </div>
 
             <div style={{ marginTop: "20px", textAlign: "center", fontSize: "11px", color: "#94a3b8" }}>
-              Re-FAP \u2014 Dashboard v3.0 \u00b7 P\u00e9riode : {period === "1" ? "24h" : period === "365" ? "1 an" : period + " jours"} \u00b7 {new Date().toLocaleDateString("fr-FR")}
+              Re-FAP \u2014 Dashboard v3.1 \u00b7 P\u00e9riode : {period === "1" ? "24h" : period === "365" ? "1 an" : period + " jours"} \u00b7 {new Date().toLocaleDateString("fr-FR")}
             </div>
           </>
         )}
