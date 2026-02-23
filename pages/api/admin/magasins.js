@@ -1,6 +1,6 @@
 // /pages/api/admin/magasins.js
 // Dashboard API — Magasins Re-FAP
-// v3.1 — Fix: garage+CC comptés indépendamment (plus de if/else exclusif)
+// v3.2 — Fix: by_source et operators alimentés pour les garages
 import { createClient } from "@supabase/supabase-js";
 
 function getSupabase() {
@@ -79,10 +79,10 @@ export default async function handler(req, res) {
     const garageStats = {};
     let totalGarageOrientations = 0;
 
-    // v3.1 — Deux if indépendants : un assignment peut compter dans garage ET dans CC
+    // v3.2 — Deux if indépendants : un assignment peut compter dans garage ET dans CC
     for (const a of assignments || []) {
 
-      // Garage — compter si garage_partenaire_id présent (quel que soit centre_type)
+      // Garage — compter si garage_partenaire_id présent
       if (a.garage_partenaire_id) {
         totalGarageOrientations++;
         const g = garageMap[a.garage_partenaire_id];
@@ -93,16 +93,21 @@ export default async function handler(req, res) {
             nom: a.garage_name || (g ? g.nom : "Inconnu"),
             reseau: g ? g.reseau : "INDEPENDANT",
             ville: g ? g.ville : null,
-            orientations: 0, operators: {},
+            orientations: 0,
+            by_source: {},   // ← AJOUT
+            operators: {},
           };
         }
         garageStats[gId].orientations++;
+        // Source (bot, opérateur, téléphone...)
+        const src = a.assigned_by || "UNKNOWN";   // ← AJOUT
+        garageStats[gId].by_source[src] = (garageStats[gId].by_source[src] || 0) + 1;  // ← AJOUT
         if (a.operator_name) {
           garageStats[gId].operators[a.operator_name] = (garageStats[gId].operators[a.operator_name] || 0) + 1;
         }
       }
 
-      // CC — compter si assigned_centre_id présent (peut être EN PLUS d'un garage)
+      // CC — compter si assigned_centre_id présent
       if (a.assigned_centre_id) {
         const m = ensureMagasin(a.assigned_centre_id);
         if (m) {
