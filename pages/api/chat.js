@@ -257,7 +257,7 @@ function quickExtract(text) {
     result.symptome_key = "voyant_fap";
   } else if (hasModeDegrade) {
     result.symptome_key = "mode_degrade";
-  } else if (/fap\b.*?(bouch|colmat|encras|satur|block)/i.test(t) || /filtre.*(bouch|colmat)/i.test(t)) {
+  } else if (/fap\b.*?(bouch|colmat|encras|satur|block)/i.test(t) || /filtre.*(bouch|colmat)/i.test(t) || /(colmat|risque.*(colmat|fap)|message.*(fap|colmat))/i.test(t)) {
     result.symptome_key = "fap_bouche_declare";
   } else if (/ct\s*(refus|recal|pas\s*pass)|contre.?visite|controle\s*technique.*(refus|pollution)|recal[eé].*contr[oô]le|recal[eé].*ct\b|opacit[eé]/i.test(t)) {
     result.symptome_key = "ct_refuse";
@@ -779,6 +779,24 @@ function lastAssistantAskedGarageType(history) {
 function userWantsPartnerGarage(msg) {
   const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
   return /cherche|trouve|partenaire|pas de garage|j en ai pas|j ai pas de|connais pas|aucun garage|non j ai pas|non pas de/.test(t);
+}
+
+// P1 FIX: Détecte les questions logistiques sur le démontage
+function userAsksLogisticsQuestion(text) {
+  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /(faut|dois|doit|faut.?il|je dois|il faut|est.?ce que.*demonte|obligé.*demonte|necessaire.*demonte|demonte.*moi.?meme|moi.?meme.*demonte|qui.*(demonte|enleve|retire))/i.test(t)
+    && /(fap|filtre|demonte)/i.test(t);
+}
+
+function buildLogisticsResponse(extracted) {
+  const data = { ...(extracted || DEFAULT_DATA) };
+  const replyClean = `Pas forcément. Si tu choisis un garage partenaire, il s'occupe de tout — démontage, envoi, remontage. Si tu veux faire moins cher, tu peux démonter toi-même et déposer le FAP directement au Carter-Cash.`;
+  // Reprendre le flow : demander la ville si pas encore connue
+  if (!extracted?.ville && !extracted?.departement) {
+    data.next_best_action = "demander_ville";
+  }
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
 }
 
 function userHasOwnGarage(msg) {
@@ -2908,8 +2926,8 @@ function detectSymptom(message) {
   if (/fum[eé]e?|fume|fumig|noire?.*echapp|echapp.*noir|fumee.*(noire|blanche|bleue)/i.test(t)) return "fumee";
   // Contrôle technique
   if (/contr[oô]le.?technique|ct |ct$|opacite|opacimetre|visite technique|contre.?visite|emission|pollution.*ct/i.test(t)) return "ct_refuse";
-  // FAP bouché explicite
-  if (/fap.*(bouch[eé]|colmat|satur|plein|encras)|bouch[eé].*(fap|filtre)|filtre.*(bouch[eé]|colmat|satur)/i.test(t)) return "fap_bouche";
+  // FAP bouché explicite (inclut "risque de colmatage", "message colmatage FAP")
+  if (/fap.*(bouch[eé]|colmat|satur|plein|encras)|bouch[eé].*(fap|filtre)|filtre.*(bouch[eé]|colmat|satur)|colmat.*(fap|filtre)|risque.*(colmat|fap)|message.*(fap|colmat)/i.test(t)) return "fap_bouche";
   // Voyant + puissance (combo)
   if (/voyant.*puissance|puissance.*voyant/i.test(t)) return "perte_puissance";
   return null;
@@ -3469,10 +3487,20 @@ function deterministicRouter(message, extracted, history, metier) {
   // 4. Détecter marque dans le message
   const marqueInfo = detectMarque(message);
   if (marqueInfo && marqueInfo.famille !== "diesel_generique") {
+    // P4 FIX: Extraire aussi modèle, motorisation, année du même message
+    const msgModele = extractModelFromMessage(message);
+    const msgMoto = extractMotorisationFromMessage(message);
+    const msgAnnee = extractYearFromMessage(message);
+    const msgKm = extractKmFromMessage(message);
     const updatedExtracted = {
       ...(extracted || DEFAULT_DATA),
       // Garder la marque déjà connue si plus précise (ex: "Peugeot" > "Peugeot/Citroën")
       marque: extracted?.marque && !extracted.marque_brute ? extracted.marque : (marqueInfo.marque || extracted?.marque),
+      // P4 FIX: capturer modèle+moteur+année en une seule passe
+      modele: extracted?.modele || msgModele || null,
+      motorisation: extracted?.motorisation || msgMoto || null,
+      annee: extracted?.annee || msgAnnee || null,
+      kilometrage: extracted?.kilometrage || msgKm || null,
     };
 
     // Flow OBD actif → chercher le code dans l'historique
@@ -3749,8 +3777,17 @@ export default async function handler(req, res) {
 
     // ========================================
     // OVERRIDE 1 : Closing question + OUI → Formulaire
+    // P3 FIX: Si un résumé de rappel a déjà été envoyé, ne pas le renvoyer
     // ========================================
     if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history)) && userSaysYes(message)) {
+      // P3 FIX: Vérifier si un FormCTA (résumé rappel) a déjà été envoyé
+      const alreadySentFormCTA = history.some(h => h?.role === "assistant" && /résumé de ta situation|un expert re-fap te rappelle/i.test(String(h.raw || h.content || "")));
+      if (alreadySentFormCTA) {
+        const replyClean = "C'est noté, tu seras rappelé dans les meilleurs délais !";
+        const data = { ...(lastExtracted || DEFAULT_DATA), intention: "rdv", next_best_action: "clore" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      }
       return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: `https://auto.re-fap.fr/?cid=${conversationId}#devis` });
     }
 
@@ -3770,6 +3807,28 @@ export default async function handler(req, res) {
       const replyClean = "Pour te donner l'adresse du centre le plus proche, tu es dans quelle ville ?";
       const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
       return sendResponse({ replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data });
+    }
+
+    // ========================================
+    // OVERRIDE P2 : Détection clôture ("merci", "au revoir", "bonne journée")
+    // à tout moment du flow — ne pas relancer la conversation
+    // ========================================
+    {
+      const tCloture = message.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const isClosureMessage = /^(merci|ok merci|merci beaucoup|merci bien|merci bcp|bonne journ[eé]e|au revoir|bye|ciao|bonsoir|a bientot|a\+|salut|c.est bon merci|ok c.est bon|super merci|parfait merci|top merci)[\s!.]*$/i.test(tCloture);
+      if (isClosureMessage) {
+        const replyClean = "Avec plaisir ! Si tu as d'autres questions sur ton FAP, n'hésite pas.";
+        const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "clore" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      }
+    }
+
+    // ========================================
+    // OVERRIDE P1 : Question logistique démontage à tout moment
+    // ========================================
+    if (userAsksLogisticsQuestion(message)) {
+      return sendResponse(buildLogisticsResponse(lastExtracted));
     }
 
     // ========================================
@@ -3879,6 +3938,11 @@ export default async function handler(req, res) {
       if (userIsInsulting(message)) {
         return sendResponse(buildInsultResponse(lastExtracted));
       }
+      // P1 FIX: Détecter les questions logistiques ("je dois démonter le FAP ?")
+      // avant de dire "je n'ai pas bien saisi"
+      if (userAsksLogisticsQuestion(message)) {
+        return sendResponse(buildLogisticsResponse(lastExtracted));
+      }
       if (!looksLikeCityAnswer(message)) {
         const replyClean = "Je n'ai pas bien saisi. Tu es dans quelle ville ou quel département ?";
         const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
@@ -3922,8 +3986,16 @@ export default async function handler(req, res) {
 
     // ========================================
     // OVERRIDE 3 : Demande explicite RDV
+    // P3 FIX: Si un résumé de rappel a déjà été envoyé, ne pas le renvoyer
     // ========================================
     if (userWantsFormNow(message)) {
+      const alreadySentFormCTA2 = history.some(h => h?.role === "assistant" && /résumé de ta situation|un expert re-fap te rappelle/i.test(String(h.raw || h.content || "")));
+      if (alreadySentFormCTA2) {
+        const replyClean = "C'est noté, tu seras rappelé dans les meilleurs délais !";
+        const data = { ...(lastExtracted || DEFAULT_DATA), intention: "rdv", next_best_action: "clore" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      }
       return sendResponse(buildFormCTA(lastExtracted), { type: "OPEN_FORM", url: `https://auto.re-fap.fr/?cid=${conversationId}#devis` });
     }
 
@@ -4101,6 +4173,11 @@ export default async function handler(req, res) {
       if (!lastAssistantAskedSymptom(history)) {
         return sendResponse(buildSymptomeQuestion(lastExtracted));
       }
+      // P0 FIX: Si le bot a déjà demandé le symptôme et l'utilisateur a répondu
+      // avec un texte libre non reconnu, capturer comme symptôme générique FAP
+      // pour ne plus boucler entre symptôme et marque
+      lastExtracted.symptome = "fap_bouche_declare";
+      lastExtracted.certitude_fap = "moyenne";
     }
 
     // 2. Pas de marque → demander
