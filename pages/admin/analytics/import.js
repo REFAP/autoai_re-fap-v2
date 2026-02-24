@@ -32,7 +32,7 @@ const SOURCES = [
   { key: "tiktok", label: "TikTok", icon: "\u266A", color: C.cyan, type: "csv", desc: "CSV avec colonnes: date, views, reach, engagement_rate, followers, likes, comments" },
   { key: "meta", label: "Meta / Instagram", icon: "f", color: "#1877f2", type: "csv", desc: "CSV avec colonnes: date, reach_organic, reach_paid, engagement, spend, clicks" },
   { key: "email", label: "Brevo (Email/SMS)", icon: "\u2709", color: C.green, type: "csv", desc: "CSV avec colonnes: date, channel, campaign_name, sends, opens, clicks" },
-  { key: "cc_pdf", label: "Carter-Cash (PDF)", icon: "CC", color: C.orange, type: "pdf", desc: "PDF avec donnees ventes FAP par magasin. Extraction automatique." },
+  { key: "cc_sync", label: "Carter-Cash (Ventes FAP)", icon: "CC", color: C.orange, type: "sync", desc: "Synchronise les ventes FAP par magasin depuis dashboard.php (auto.re-fap.fr). Donnees mensuelles par centre : date, magasin, ventes_fap, ca_fap." },
 ];
 
 const NAV_ITEMS = [
@@ -124,6 +124,24 @@ export default function AnalyticsImport() {
     setUploading(u => ({ ...u, [source.key]: false }));
   }, [pdfDate]);
 
+  const handleSync = useCallback(async (source) => {
+    setUploading(u => ({ ...u, [source.key]: true }));
+    setResults(r => ({ ...r, [source.key]: null }));
+    try {
+      const resp = await fetch(`/api/admin/analytics-import?token=${encodeURIComponent(getToken())}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: source.key }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || `Erreur ${resp.status}`);
+      setResults(r => ({ ...r, [source.key]: { ok: true, msg: `${json.inserted} lignes synchronisees`, data: json.data } }));
+    } catch (err) {
+      setResults(r => ({ ...r, [source.key]: { ok: false, msg: err.message } }));
+    }
+    setUploading(u => ({ ...u, [source.key]: false }));
+  }, []);
+
   return (
     <>
       <Head><title>Import Analytics — Re-FAP</title></Head>
@@ -190,6 +208,7 @@ export default function AnalyticsImport() {
                 loading={uploading[source.key]}
                 onUpload={(file) => handleUpload(source, file, false)}
                 onPurgeUpload={(file) => handleUpload(source, file, true)}
+                onSync={() => handleSync(source)}
                 pdfDate={pdfDate}
                 onPdfDateChange={setPdfDate}
               />
@@ -248,8 +267,9 @@ export default function AnalyticsImport() {
   );
 }
 
-function SourceCard({ source, result, loading, onUpload, onPurgeUpload, pdfDate, onPdfDateChange }) {
+function SourceCard({ source, result, loading, onUpload, onPurgeUpload, onSync, pdfDate, onPdfDateChange }) {
   const isGsc = source.key === "gsc_main" || source.key === "gsc_cc";
+  const isSync = source.type === "sync";
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -276,7 +296,9 @@ function SourceCard({ source, result, loading, onUpload, onPurgeUpload, pdfDate,
         }}>{source.icon}</div>
         <div>
           <div style={{ fontWeight: 600, fontSize: 15 }}>{source.label}</div>
-          <div style={{ color: C.sub, fontSize: 12 }}>{source.type === "csv" ? "Import CSV" : "Import PDF"}</div>
+          <div style={{ color: C.sub, fontSize: 12 }}>
+            {source.type === "csv" ? "Import CSV" : isSync ? "Sync auto" : "Import PDF"}
+          </div>
         </div>
       </div>
 
@@ -285,62 +307,67 @@ function SourceCard({ source, result, loading, onUpload, onPurgeUpload, pdfDate,
         {source.desc}
       </div>
 
-      {/* PDF date picker */}
-      {source.key === "cc_pdf" && (
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 12, color: C.sub, display: "block", marginBottom: 4 }}>Date du rapport :</label>
-          <input
-            type="date"
-            value={pdfDate}
-            onChange={(e) => onPdfDateChange(e.target.value)}
-            style={{
-              background: "#1a2234", border: `1px solid ${C.border}`, color: C.text,
-              padding: "6px 12px", borderRadius: 6, fontSize: 13, fontFamily: "inherit",
-            }}
-          />
-        </div>
-      )}
-
       {/* Buttons */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        {/* Normal upload */}
-        <label style={{
-          display: "inline-flex", alignItems: "center", gap: 8,
-          background: loading ? C.muted + "44" : `${source.color}22`,
-          border: `1px solid ${source.color}44`,
-          color: loading ? C.sub : source.color,
-          padding: "10px 20px", borderRadius: 8, cursor: loading ? "wait" : "pointer",
-          fontSize: 13, fontWeight: 600, transition: "all 0.2s",
-        }}>
-          {loading ? "Import en cours..." : `Choisir un fichier ${source.type === "csv" ? "CSV" : "TXT/PDF"}`}
-          <input
-            type="file"
-            accept={source.type === "csv" ? ".csv,.tsv,.txt" : ".txt,.csv"}
-            onChange={handleFile}
+        {isSync ? (
+          /* Sync button (Carter-Cash dashboard) */
+          <button
+            onClick={onSync}
             disabled={loading}
-            style={{ display: "none" }}
-          />
-        </label>
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              background: loading ? C.muted + "44" : `${source.color}22`,
+              border: `1px solid ${source.color}44`,
+              color: loading ? C.sub : source.color,
+              padding: "10px 20px", borderRadius: 8, cursor: loading ? "wait" : "pointer",
+              fontSize: 13, fontWeight: 600, transition: "all 0.2s",
+              fontFamily: "inherit",
+            }}
+          >
+            {loading ? "Synchronisation..." : "Sync depuis dashboard.php"}
+          </button>
+        ) : (
+          <>
+            {/* Normal upload */}
+            <label style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              background: loading ? C.muted + "44" : `${source.color}22`,
+              border: `1px solid ${source.color}44`,
+              color: loading ? C.sub : source.color,
+              padding: "10px 20px", borderRadius: 8, cursor: loading ? "wait" : "pointer",
+              fontSize: 13, fontWeight: 600, transition: "all 0.2s",
+            }}>
+              {loading ? "Import en cours..." : `Choisir un fichier CSV`}
+              <input
+                type="file"
+                accept=".csv,.tsv,.txt"
+                onChange={handleFile}
+                disabled={loading}
+                style={{ display: "none" }}
+              />
+            </label>
 
-        {/* Purge + re-import (GSC only) */}
-        {isGsc && (
-          <label style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            background: loading ? C.muted + "44" : `${C.red}15`,
-            border: `1px solid ${C.red}44`,
-            color: loading ? C.sub : C.red,
-            padding: "10px 20px", borderRadius: 8, cursor: loading ? "wait" : "pointer",
-            fontSize: 13, fontWeight: 600, transition: "all 0.2s",
-          }}>
-            {loading ? "..." : "Vider et reimporter"}
-            <input
-              type="file"
-              accept=".csv,.tsv,.txt"
-              onChange={handlePurgeFile}
-              disabled={loading}
-              style={{ display: "none" }}
-            />
-          </label>
+            {/* Purge + re-import (GSC only) */}
+            {isGsc && (
+              <label style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                background: loading ? C.muted + "44" : `${C.red}15`,
+                border: `1px solid ${C.red}44`,
+                color: loading ? C.sub : C.red,
+                padding: "10px 20px", borderRadius: 8, cursor: loading ? "wait" : "pointer",
+                fontSize: 13, fontWeight: 600, transition: "all 0.2s",
+              }}>
+                {loading ? "..." : "Vider et reimporter"}
+                <input
+                  type="file"
+                  accept=".csv,.tsv,.txt"
+                  onChange={handlePurgeFile}
+                  disabled={loading}
+                  style={{ display: "none" }}
+                />
+              </label>
+            )}
+          </>
         )}
       </div>
 
@@ -355,7 +382,7 @@ function SourceCard({ source, result, loading, onUpload, onPurgeUpload, pdfDate,
           {result.ok ? "\u2713" : "\u2717"} {result.msg}
           {result.data && (
             <div style={{ marginTop: 8, fontSize: 12, color: C.sub }}>
-              Magasins : {result.data.map(d => d.magasin).join(", ")}
+              Magasins : {[...new Set(result.data.map(d => d.magasin))].join(", ")}
             </div>
           )}
         </div>

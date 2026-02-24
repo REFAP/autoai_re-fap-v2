@@ -1,6 +1,6 @@
 // /pages/api/admin/analytics-import.js
 // Import CSV/PDF data into analytics tables
-// POST { source, rows[] } or { source: "cc_pdf", text, date }
+// POST { source, rows[] } or { source: "cc_pdf", text, date } or { source: "cc_sync" }
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -210,6 +210,92 @@ export default async function handler(req, res) {
       if (error) throw error;
 
       return res.status(200).json({ status: "ok", source, inserted: parsed.length, data: parsed });
+    }
+
+    // Carter-Cash dashboard sync: fetch & parse https://auto.re-fap.fr/dashboard.php
+    if (source === "cc_sync") {
+      const DASH_URL = "https://auto.re-fap.fr/dashboard.php";
+      const DASH_PWD = process.env.CC_DASH_PASSWORD || "re_fap1972";
+
+      // 1. Authenticate (POST password → session cookie)
+      const loginResp = await fetch(DASH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `pwd=${encodeURIComponent(DASH_PWD)}`,
+        redirect: "manual",
+      });
+      const setCookie = loginResp.headers.get("set-cookie");
+      if (!setCookie) throw new Error("Echec auth dashboard.php — pas de cookie session");
+      const sessionCookie = setCookie.split(";")[0];
+
+      // 2. Fetch authenticated page
+      const pageResp = await fetch(DASH_URL, { headers: { Cookie: sessionCookie } });
+      if (!pageResp.ok) throw new Error(`dashboard.php HTTP ${pageResp.status}`);
+      const html = await pageResp.text();
+
+      // 3. Extract JS data arrays embedded in <script> (d801, d065, d003, d006, dautres, dca)
+      const extractArr = (name) => {
+        const m = html.match(new RegExp(`(?:const|var)\\s+${name}\\s*=\\s*(\\[.*?\\])`));
+        return m ? JSON.parse(m[1]) : [];
+      };
+      const d801 = extractArr("d801");
+      const d065 = extractArr("d065");
+      const d003 = extractArr("d003");
+      const d006 = extractArr("d006");
+      const dautres = extractArr("dautres");
+      const dca = extractArr("dca");
+
+      if (d801.length === 0) throw new Error("Aucune donnee FAP trouvee dans dashboard.php — verifiez l'authentification");
+
+      // 4. Extract month+year labels from HTML table cells (e.g. "Oct 2025", "Jan 2026")
+      const mMap = { Jan:"01", Fev:"02", Mar:"03", Avr:"04", Mai:"05", Juin:"06", Juil:"07", Aou:"08", Sep:"09", Oct:"10", Nov:"11", Dec:"12" };
+      const monthRx = />(Jan|Fev|Mar|Avr|Mai|Juin|Juil|Aou|Sep|Oct|Nov|Dec)\s+(\d{4})/g;
+      const seen = new Set();
+      const months = [];
+      let mx;
+      while ((mx = monthRx.exec(html)) !== null) {
+        const key = `${mx[1]} ${mx[2]}`;
+        if (!seen.has(key)) { seen.add(key); months.push({ name: mx[1], year: mx[2] }); }
+      }
+      if (months.length === 0) throw new Error("Aucune date trouvee dans dashboard.php");
+
+      // 5. Build rows per centre x month
+      const centres = [
+        { arr: d801, magasin: "Thiais (94)" },
+        { arr: d065, magasin: "Lambres (59)" },
+        { arr: d003, magasin: "Villeneuve d'Ascq (59)" },
+        { arr: d006, magasin: "Sarcelles (95)" },
+        { arr: dautres, magasin: "Autres CC" },
+      ];
+
+      const parsed2 = [];
+      for (let i = 0; i < months.length && i < d801.length; i++) {
+        const dateStr = `${months[i].year}-${mMap[months[i].name]}-01`;
+        const totalFap = (d801[i]||0) + (d065[i]||0) + (d003[i]||0) + (d006[i]||0) + (dautres[i]||0);
+        const ca = dca[i] || 0;
+
+        for (const c of centres) {
+          const fap = c.arr[i] || 0;
+          if (fap <= 0) continue;
+          const caShare = totalFap > 0 ? Math.round((fap / totalFap) * ca * 100) / 100 : 0;
+          parsed2.push({
+            date: dateStr,
+            magasin: c.magasin,
+            ventes_fap: fap,
+            ca_fap: caShare,
+            ventes_total: totalFap,
+            ca_total: ca,
+            panier_moyen: fap > 0 ? Math.round((caShare / fap) * 100) / 100 : 0,
+          });
+        }
+      }
+
+      if (parsed2.length === 0) throw new Error("Aucune donnee extraite de dashboard.php");
+
+      const { error: syncErr } = await supabase.from("analytics_cc_pdf").upsert(parsed2, { onConflict: "magasin,date" });
+      if (syncErr) throw syncErr;
+
+      return res.status(200).json({ status: "ok", source: "cc_sync", inserted: parsed2.length, data: parsed2 });
     }
 
     // CSV sources
