@@ -26,7 +26,8 @@ const C = {
 };
 
 const SOURCES = [
-  { key: "gsc", label: "Google Search Console", icon: "G", color: C.blue, type: "csv", desc: "CSV avec colonnes: date, query, page, clicks, impressions, CTR, position" },
+  { key: "gsc_main", label: "GSC \u2014 re-fap.fr (Site principal)", icon: "G", color: C.blue, type: "csv", desc: "CSV export GSC pour re-fap.fr. Colonnes: date, query, page, clicks, impressions, CTR, position" },
+  { key: "gsc_cc", label: "GSC \u2014 auto.re-fap.fr (Carter-Cash)", icon: "G", color: "#4285f4", type: "csv", desc: "CSV export GSC pour auto.re-fap.fr (co-brande Carter-Cash). Memes colonnes que le site principal." },
   { key: "youtube", label: "YouTube Analytics", icon: "\u25B6", color: "#ff0000", type: "csv", desc: "CSV avec colonnes: date, video_title, views, watch_time, likes, comments, shares" },
   { key: "tiktok", label: "TikTok", icon: "\u266A", color: C.cyan, type: "csv", desc: "CSV avec colonnes: date, views, reach, engagement_rate, followers, likes, comments" },
   { key: "meta", label: "Meta / Instagram", icon: "f", color: "#1877f2", type: "csv", desc: "CSV avec colonnes: date, reach_organic, reach_paid, engagement, spend, clicks" },

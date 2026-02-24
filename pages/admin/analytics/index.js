@@ -28,7 +28,8 @@ const C = {
 };
 
 const CHANNEL_CONFIG = {
-  gsc: { label: "SEO (GSC)", color: C.blue, icon: "G" },
+  gsc_main: { label: "SEO re-fap.fr", color: C.blue, icon: "G" },
+  gsc_cc: { label: "SEO auto.re-fap.fr", color: "#4285f4", icon: "G" },
   youtube: { label: "YouTube", color: C.youtube, icon: "\u25B6" },
   tiktok: { label: "TikTok", color: C.cyan, icon: "\u266A" },
   meta: { label: "Meta/IG", color: C.meta, icon: "f" },
@@ -75,7 +76,7 @@ export default function AnalyticsDashboard() {
   const exportBrief = () => {
     if (!data) return;
     const t = data.totals;
-    const lags = { gsc: "3j", youtube: "5j", tiktok: "5j", meta: "5j", email: "3j", leads: "1j", chatbot: "1j" };
+    const lags = { gsc_main: "3j", gsc_cc: "3j", youtube: "5j", tiktok: "5j", meta: "5j", email: "3j", leads: "1j", chatbot: "1j" };
     const now = new Date().toISOString().slice(0, 16).replace("T", " ");
     const lines = [
       "════════════════════════════════════════════════════════════",
@@ -99,11 +100,17 @@ export default function AnalyticsDashboard() {
       "  1. KPIS PAR SOURCE",
       "════════════════════════════════════════════════════════════",
       "",
-      "--- SEO (Google Search Console) ---",
-      `  Clicks       : ${fmt(t.gsc.clicks)}`,
-      `  Impressions  : ${fmt(t.gsc.impressions)}`,
-      `  CTR moyen    : ${t.gsc.ctr}%`,
-      `  Position moy.: ${t.gsc.avgPosition}`,
+      "--- SEO re-fap.fr (Site principal) ---",
+      `  Clicks       : ${fmt(t.gsc_main.clicks)}`,
+      `  Impressions  : ${fmt(t.gsc_main.impressions)}`,
+      `  CTR moyen    : ${t.gsc_main.ctr}%`,
+      `  Position moy.: ${t.gsc_main.avgPosition}`,
+      "",
+      "--- SEO auto.re-fap.fr (Carter-Cash co-brande) ---",
+      `  Clicks       : ${fmt(t.gsc_cc.clicks)}`,
+      `  Impressions  : ${fmt(t.gsc_cc.impressions)}`,
+      `  CTR moyen    : ${t.gsc_cc.ctr}%`,
+      `  Position moy.: ${t.gsc_cc.avgPosition}`,
       "",
       "--- YouTube ---",
       `  Vues            : ${fmt(t.youtube.views)}`,
@@ -289,17 +296,21 @@ export default function AnalyticsDashboard() {
             {/* ═══════ SECTION 1: VUE SYNTHESE ═══════ */}
             <SectionTitle title={`Vue synthese \u2014 ${days} jours`} />
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-              <KpiCard label="SEO Clicks" value={fmt(data.totals.gsc.clicks)} sub={`${fmt(data.totals.gsc.impressions)} impr.`} color={C.blue} icon="G" />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 16 }}>
+              <KpiCard label="SEO re-fap.fr" value={fmt(data.totals.gsc_main.clicks)} sub={`${fmt(data.totals.gsc_main.impressions)} impr. \u2022 CTR ${data.totals.gsc_main.ctr}%`} color={C.blue} icon="G" />
+              <KpiCard label="SEO auto.re-fap.fr" value={fmt(data.totals.gsc_cc.clicks)} sub={`${fmt(data.totals.gsc_cc.impressions)} impr. \u2022 CTR ${data.totals.gsc_cc.ctr}%`} color={"#4285f4"} icon="G" />
               <KpiCard label="YouTube Vues" value={fmt(data.totals.youtube.views)} sub={`${Number(data.totals.youtube.watchTimeH).toFixed(0)}h watch`} color={C.youtube} icon={"\u25B6"} />
               <KpiCard label="TikTok Vues" value={fmt(data.totals.tiktok.views)} sub={`${fmt(data.totals.tiktok.reach)} reach`} color={C.cyan} icon={"\u266A"} />
-              <KpiCard label="Meta Reach" value={fmt(data.totals.meta.reachOrganic + data.totals.meta.reachPaid)} sub={`${fmt(data.totals.meta.spend)}\u20AC depense`} color={C.meta} icon="f" />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
+              <KpiCard label="Meta Reach" value={fmt(data.totals.meta.reachOrganic + data.totals.meta.reachPaid)} sub={`${fmt(data.totals.meta.spend)}\u20AC depense`} color={C.meta} icon="f" />
               <KpiCard label="Email Envois" value={fmt(data.totals.email.sends)} sub={`${fmtPct(data.totals.email.avgOpenRate)} ouverture`} color={C.green} icon={"\u2709"} />
               <KpiCard label="Ventes FAP" value={fmt(data.totals.cc.ventesFap)} sub={`${fmt(data.totals.cc.caFap)}\u20AC CA`} color={C.orange} icon="CC" />
               <KpiCard label="Leads CRM" value={fmt(data.totals.leads.total)} sub="depuis Supabase" color={C.purple} icon="L" />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
               <KpiCard label="Conversations Bot" value={fmt(data.totals.chatbot.conversations)} sub="depuis Supabase" color={C.pink} icon="B" />
             </div>
 
@@ -326,7 +337,7 @@ export default function AnalyticsDashboard() {
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {Object.entries(data.correlations).map(([key, val]) => {
                   const cfg = CHANNEL_CONFIG[key];
-                  const lags = { gsc: "-3j", youtube: "-5j", tiktok: "-5j", meta: "-5j", email: "-3j", leads: "-1j", chatbot: "-1j" };
+                  const lags = { gsc_main: "-3j", gsc_cc: "-3j", youtube: "-5j", tiktok: "-5j", meta: "-5j", email: "-3j", leads: "-1j", chatbot: "-1j" };
                   const corr = val.correlation;
                   const corrColor = corr > 0.5 ? C.green : corr > 0.2 ? C.yellow : corr > 0 ? C.orange : C.red;
                   return (
@@ -507,7 +518,8 @@ function OverlayChart({ data }) {
   // Series definitions
   const series = [
     { key: "ventes_fap", label: "Ventes FAP", color: C.orange, yAxis: "left" },
-    { key: "gsc_clicks", label: "SEO Clicks", color: C.blue, yAxis: "right" },
+    { key: "gsc_main_clicks", label: "SEO re-fap.fr", color: C.blue, yAxis: "right" },
+    { key: "gsc_cc_clicks", label: "SEO auto.re-fap.fr", color: "#4285f4", yAxis: "right" },
     { key: "leads", label: "Leads", color: C.purple, yAxis: "left" },
     { key: "chatbot", label: "Chatbot", color: C.pink, yAxis: "left" },
   ];

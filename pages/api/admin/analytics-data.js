@@ -78,8 +78,9 @@ export default async function handler(req, res) {
     const since = dateDaysAgo(days);
 
     // Fetch all sources in parallel
-    const [gscRes, ytRes, tiktokRes, metaRes, emailRes, ccRes, leadsRes, chatbotRes] = await Promise.all([
-      supabase.from("analytics_gsc").select("*").gte("date", since).order("date"),
+    const [gscMainRes, gscCcRes, ytRes, tiktokRes, metaRes, emailRes, ccRes, leadsRes, chatbotRes] = await Promise.all([
+      supabase.from("analytics_gsc").select("*").eq("source", "refap-main").gte("date", since).order("date"),
+      supabase.from("analytics_gsc").select("*").eq("source", "refap-cc").gte("date", since).order("date"),
       supabase.from("analytics_youtube").select("*").gte("date", since).order("date"),
       supabase.from("analytics_tiktok").select("*").gte("date", since).order("date"),
       supabase.from("analytics_meta").select("*").gte("date", since).order("date"),
@@ -89,7 +90,8 @@ export default async function handler(req, res) {
       supabase.from("messages").select("id, conversation_id, created_at, role").gte("created_at", since + "T00:00:00").order("created_at"),
     ]);
 
-    const gsc = gscRes.data || [];
+    const gscMain = gscMainRes.data || [];
+    const gscCc = gscCcRes.data || [];
     const yt = ytRes.data || [];
     const tiktok = tiktokRes.data || [];
     const meta = metaRes.data || [];
@@ -100,16 +102,24 @@ export default async function handler(req, res) {
 
     // === AGGREGATIONS ===
 
-    // GSC daily
-    const gscDaily = aggregateByDate(gsc, ["clicks", "impressions"]);
-    const gscTotals = { clicks: 0, impressions: 0, avgPosition: 0 };
-    for (const r of gsc) {
-      gscTotals.clicks += r.clicks || 0;
-      gscTotals.impressions += r.impressions || 0;
-      gscTotals.avgPosition += Number(r.position) || 0;
+    // Helper: compute GSC totals for a given array
+    function computeGscTotals(rows) {
+      const totals = { clicks: 0, impressions: 0, avgPosition: 0 };
+      for (const r of rows) {
+        totals.clicks += r.clicks || 0;
+        totals.impressions += r.impressions || 0;
+        totals.avgPosition += Number(r.position) || 0;
+      }
+      if (rows.length > 0) totals.avgPosition = Math.round((totals.avgPosition / rows.length) * 10) / 10;
+      totals.ctr = totals.impressions > 0 ? Math.round((totals.clicks / totals.impressions) * 10000) / 100 : 0;
+      return totals;
     }
-    if (gsc.length > 0) gscTotals.avgPosition = Math.round((gscTotals.avgPosition / gsc.length) * 10) / 10;
-    gscTotals.ctr = gscTotals.impressions > 0 ? Math.round((gscTotals.clicks / gscTotals.impressions) * 10000) / 100 : 0;
+
+    // GSC daily — split by source
+    const gscMainDaily = aggregateByDate(gscMain, ["clicks", "impressions"]);
+    const gscCcDaily = aggregateByDate(gscCc, ["clicks", "impressions"]);
+    const gscMainTotals = computeGscTotals(gscMain);
+    const gscCcTotals = computeGscTotals(gscCc);
 
     // YouTube daily
     const ytDaily = aggregateByDate(yt, ["views", "watch_time_hours", "likes", "shares"]);
@@ -204,8 +214,10 @@ export default async function handler(req, res) {
     }
 
     // Build signal maps
-    const gscSignal = {};
-    for (const r of gscDaily) gscSignal[r.date] = r.clicks;
+    const gscMainSignal = {};
+    for (const r of gscMainDaily) gscMainSignal[r.date] = r.clicks;
+    const gscCcSignal = {};
+    for (const r of gscCcDaily) gscCcSignal[r.date] = r.clicks;
     const ytSignal = {};
     for (const r of ytDaily) ytSignal[r.date] = r.views;
     const tiktokSignal = {};
@@ -218,7 +230,8 @@ export default async function handler(req, res) {
     const chatbotSignal = { ...chatbotConvByDay };
 
     const correlations = {
-      gsc: applyLag(gscSignal, salesByDate, 3),
+      gsc_main: applyLag(gscMainSignal, salesByDate, 3),
+      gsc_cc: applyLag(gscCcSignal, salesByDate, 3),
       youtube: applyLag(ytSignal, salesByDate, 5),
       tiktok: applyLag(tiktokSignal, salesByDate, 5),
       meta: applyLag(metaSignal, salesByDate, 5),
@@ -239,7 +252,8 @@ export default async function handler(req, res) {
     // === ATTRIBUTION SCORE ===
     // Weighted: correlation strength * signal volume (normalized)
     const volumes = {
-      gsc: gscTotals.clicks,
+      gsc_main: gscMainTotals.clicks,
+      gsc_cc: gscCcTotals.clicks,
       youtube: ytTotals.views,
       tiktok: tiktokTotals.views,
       meta: metaTotals.reachOrganic + metaTotals.reachPaid,
@@ -262,7 +276,8 @@ export default async function handler(req, res) {
 
     // === OVERLAY DATA (ventes vs signaux) ===
     const allDates = new Set();
-    gscDaily.forEach(r => allDates.add(r.date));
+    gscMainDaily.forEach(r => allDates.add(r.date));
+    gscCcDaily.forEach(r => allDates.add(r.date));
     ytDaily.forEach(r => allDates.add(r.date));
     ccDaily.forEach(r => allDates.add(r.date));
     Object.keys(leadsDaily).forEach(d => allDates.add(d));
@@ -272,7 +287,8 @@ export default async function handler(req, res) {
     const overlay = sortedDates.map(d => ({
       date: d,
       ventes_fap: salesByDate[d] || 0,
-      gsc_clicks: gscSignal[d] || 0,
+      gsc_main_clicks: gscMainSignal[d] || 0,
+      gsc_cc_clicks: gscCcSignal[d] || 0,
       yt_views: ytSignal[d] || 0,
       meta_reach: metaSignal[d] || 0,
       leads: leadsDaily[d] || 0,
@@ -283,7 +299,8 @@ export default async function handler(req, res) {
       generated_at: new Date().toISOString(),
       days,
       totals: {
-        gsc: gscTotals,
+        gsc_main: gscMainTotals,
+        gsc_cc: gscCcTotals,
         youtube: ytTotals,
         tiktok: tiktokTotals,
         meta: metaTotals,
@@ -293,7 +310,8 @@ export default async function handler(req, res) {
         chatbot: { conversations: seenConvs.size },
       },
       daily: {
-        gsc: gscDaily,
+        gsc_main: gscMainDaily,
+        gsc_cc: gscCcDaily,
         youtube: ytDaily,
         tiktok: tiktokDaily,
         meta: metaDaily,
