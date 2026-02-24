@@ -64,16 +64,39 @@ function parseCCPdfText(text, date) {
 
 // Column mapping per source
 function gscMap(sourceTag) {
-  return (row) => ({
-    date: row.date || row.Date,
-    source: sourceTag,
-    query: row.query || row.Query || row["Top queries"] || row.requete,
-    page: row.page || row.Page || row.URL,
-    clicks: parseInt(row.clicks || row.Clicks || row.Clics || 0),
-    impressions: parseInt(row.impressions || row.Impressions || 0),
-    ctr: parseFloat(String(row.ctr || row.CTR || "0").replace("%", "").replace(",", ".")) / 100 || 0,
-    position: parseFloat(String(row.position || row.Position || "0").replace(",", ".")) || 0,
-  });
+  return (row) => {
+    // Query: EN + FR GSC headers
+    const query = row.query || row.Query || row["Top queries"]
+      || row.requete || row["Requêtes principales"] || row["Requête"]
+      || row["Requetes principales"] || row["Requete"]
+      || null;
+
+    // Page: EN + FR GSC headers
+    const page = row.page || row.Page || row.URL
+      || row["Pages les plus populaires"] || row["Page de destination"]
+      || null;
+
+    // Clicks: handle FR "Clics", thousand separators, comma decimals
+    const clicksRaw = row.clicks ?? row.Clicks ?? row.Clics ?? "0";
+    const clicks = parseInt(String(clicksRaw).replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
+
+    // Impressions: same cleanup
+    const impRaw = row.impressions ?? row.Impressions ?? "0";
+    const impressions = parseInt(String(impRaw).replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
+
+    // CTR: handle "3,75 %" and "3.75%" formats
+    const ctrRaw = row.ctr ?? row.CTR ?? "0";
+    const ctr = parseFloat(String(ctrRaw).replace(/[\s\u00A0%]/g, "").replace(",", ".")) / 100 || 0;
+
+    // Position: handle "4,2" comma format
+    const posRaw = row.position ?? row.Position ?? "0";
+    const position = parseFloat(String(posRaw).replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
+
+    // Date: GSC exports sometimes lack a date column; fallback to today
+    const date = row.date || row.Date || new Date().toISOString().split("T")[0];
+
+    return { date, source: sourceTag, query, page, clicks, impressions, ctr, position };
+  };
 }
 
 const COLUMN_MAP = {

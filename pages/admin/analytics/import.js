@@ -46,7 +46,9 @@ const NAV_ITEMS = [
 
 // Simple CSV parser
 function parseCSV(text) {
-  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  // Strip BOM (common in GSC exports)
+  const clean = text.replace(/^\uFEFF/, "");
+  const lines = clean.split("\n").map(l => l.trim()).filter(Boolean);
   if (lines.length < 2) return [];
 
   // Detect separator
