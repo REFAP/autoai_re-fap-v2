@@ -1,11 +1,10 @@
 // /pages/admin/analytics/index.js
-// Dashboard Analytics Multi-Sources — Vue synthese + Correlations + Attribution + IA
+// Dashboard Analytics Multi-Sources — Vue synthese + Correlations + Attribution + Export brief
 // Dark theme coherent avec le reste de l'admin
 
 import { useState, useEffect, useCallback } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
 
 const TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN || "";
 
@@ -55,8 +54,6 @@ export default function AnalyticsDashboard() {
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [aiRecs, setAiRecs] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
 
   const getToken = () => TOKEN || (typeof window !== "undefined" ? localStorage.getItem("fapexpert_admin_token") || "" : "");
 
@@ -75,23 +72,146 @@ export default function AnalyticsDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const fetchAI = async () => {
+  const exportBrief = () => {
     if (!data) return;
-    setAiLoading(true);
-    try {
-      const summary = buildAISummary(data);
-      const resp = await fetch(`/api/admin/analytics-ai?token=${encodeURIComponent(getToken())}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ summary }),
-      });
-      if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || `Erreur ${resp.status}`);
-      const json = await resp.json();
-      setAiRecs(json.recommendations);
-    } catch (e) {
-      setAiRecs(`Erreur: ${e.message}`);
+    const t = data.totals;
+    const lags = { gsc: "3j", youtube: "5j", tiktok: "5j", meta: "5j", email: "3j", leads: "1j", chatbot: "1j" };
+    const now = new Date().toISOString().slice(0, 16).replace("T", " ");
+    const lines = [
+      "════════════════════════════════════════════════════════════",
+      "  BRIEF ANALYTIQUE RE-FAP — Export automatique",
+      "════════════════════════════════════════════════════════════",
+      "",
+      `Date d'export : ${now}`,
+      `Periode analysee : ${data.days} jours`,
+      "",
+      "────────────────────────────────────────────────────────────",
+      "  CONTEXTE RE-FAP",
+      "────────────────────────────────────────────────────────────",
+      "",
+      "Activite : Nettoyage de filtre a particules (FAP) diesel",
+      "Reseau : Carter-Cash (CC) — centres auto en France",
+      "Objectif strategique : 10 centres actifs d'ici juillet 2026",
+      "Positionnement : Alternative au remplacement FAP (1500-3000EUR)",
+      "  via nettoyage professionnel (250-400EUR)",
+      "",
+      "════════════════════════════════════════════════════════════",
+      "  1. KPIS PAR SOURCE",
+      "════════════════════════════════════════════════════════════",
+      "",
+      "--- SEO (Google Search Console) ---",
+      `  Clicks       : ${fmt(t.gsc.clicks)}`,
+      `  Impressions  : ${fmt(t.gsc.impressions)}`,
+      `  CTR moyen    : ${t.gsc.ctr}%`,
+      `  Position moy.: ${t.gsc.avgPosition}`,
+      "",
+      "--- YouTube ---",
+      `  Vues            : ${fmt(t.youtube.views)}`,
+      `  Watch time      : ${Number(t.youtube.watchTimeH).toFixed(0)}h`,
+      `  Abonnes gagnes  : ${fmt(t.youtube.subscribers)}`,
+      "",
+      "--- TikTok ---",
+      `  Vues   : ${fmt(t.tiktok.views)}`,
+      `  Reach  : ${fmt(t.tiktok.reach)}`,
+      "",
+      "--- Meta / Instagram ---",
+      `  Reach organique : ${fmt(t.meta.reachOrganic)}`,
+      `  Reach payant    : ${fmt(t.meta.reachPaid)}`,
+      `  Engagement      : ${fmt(t.meta.engagement)}`,
+      `  Depense ads     : ${fmt(t.meta.spend)} EUR`,
+      "",
+      "--- Email / SMS ---",
+      `  Envois          : ${fmt(t.email.sends)}`,
+      `  Taux ouverture  : ${fmtPct(t.email.avgOpenRate)}`,
+      `  Taux clic       : ${fmtPct(t.email.avgClickRate)}`,
+      "",
+      "--- Ventes Terrain Carter-Cash ---",
+      `  Ventes FAP : ${fmt(t.cc.ventesFap)}`,
+      `  CA FAP     : ${fmt(t.cc.caFap)} EUR`,
+      "",
+      "--- Leads CRM ---",
+      `  Total leads : ${fmt(t.leads.total)}`,
+      "",
+      "--- Chatbot ---",
+      `  Conversations : ${fmt(t.chatbot.conversations)}`,
+      "",
+      "════════════════════════════════════════════════════════════",
+      "  2. CORRELATIONS AVEC VENTES TERRAIN",
+      "════════════════════════════════════════════════════════════",
+      "",
+      "Methode : Coefficient de Pearson avec lag temporel",
+      "(lag = decalage en jours entre signal digital et vente)",
+      "",
+    ];
+
+    for (const [k, v] of Object.entries(data.correlations)) {
+      const cfg = CHANNEL_CONFIG[k];
+      const corr = v.correlation;
+      const strength = corr > 0.5 ? "FORT" : corr > 0.2 ? "Modere" : corr > 0 ? "Faible" : "Negatif";
+      lines.push(`  ${cfg.label.padEnd(16)} | lag ${(lags[k] || "?").padEnd(3)} | r = ${corr > 0 ? "+" : ""}${corr.toFixed(3)} | ${v.dataPoints} pts | ${strength}`);
     }
-    setAiLoading(false);
+
+    lines.push(
+      "",
+      "════════════════════════════════════════════════════════════",
+      "  3. SCORE D'ATTRIBUTION PAR CANAL",
+      "════════════════════════════════════════════════════════════",
+      "",
+      "Methode : correlation x volume, normalise a 100%",
+      "",
+    );
+
+    const sortedAttr = Object.entries(data.attribution).sort((a, b) => b[1] - a[1]);
+    for (const [k, pct] of sortedAttr) {
+      const cfg = CHANNEL_CONFIG[k];
+      const bar = "\u2588".repeat(Math.round(pct / 2));
+      lines.push(`  ${cfg.label.padEnd(16)} ${pct.toFixed(1).padStart(5)}%  ${bar}`);
+    }
+
+    if (data.ccMagasins?.length > 0) {
+      lines.push(
+        "",
+        "════════════════════════════════════════════════════════════",
+        "  4. TOP MAGASINS CARTER-CASH",
+        "════════════════════════════════════════════════════════════",
+        "",
+      );
+      for (const [i, m] of data.ccMagasins.slice(0, 15).entries()) {
+        lines.push(`  ${String(i + 1).padStart(2)}. ${m.magasin.padEnd(30)} ${String(m.ventes_fap).padStart(4)} ventes  ${fmt(m.ca_fap).padStart(8)} EUR`);
+      }
+    }
+
+    lines.push(
+      "",
+      "════════════════════════════════════════════════════════════",
+      "  CONTEXTE STRATEGIQUE POUR ANALYSE",
+      "════════════════════════════════════════════════════════════",
+      "",
+      "- Re-FAP cible les proprietaires de vehicules diesel avec",
+      "  voyant FAP allume ou perte de puissance",
+      "- Le reseau Carter-Cash (CC) est le canal de vente principal",
+      "- Objectif : passer de la phase pilote a 10 centres actifs",
+      "  d'ici juillet 2026",
+      "- Canaux digitaux : SEO (blog fap-expert.fr), YouTube (tutos),",
+      "  TikTok (awareness), Meta/IG (retargeting), Email (nurturing)",
+      "- Les correlations avec lag indiquent le delai moyen entre",
+      "  l'exposition digitale et la visite en centre",
+      "",
+      "════════════════════════════════════════════════════════════",
+      `  Genere le ${now} — Re-FAP Analytics v1.0`,
+      "════════════════════════════════════════════════════════════",
+    );
+
+    const content = lines.join("\n");
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `brief-analytique-refap-${data.days}j-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -310,50 +430,25 @@ export default function AnalyticsDashboard() {
               </>
             )}
 
-            {/* ═══════ SECTION 6: RECOMMANDATIONS IA ═══════ */}
-            <SectionTitle title="Recommandations IA" />
+            {/* ═══════ SECTION 6: EXPORT BRIEF ═══════ */}
+            <SectionTitle title="Export brief analytique" />
 
             <div style={{
               background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
               padding: 24, marginBottom: 32,
             }}>
-              {!aiRecs && !aiLoading && (
-                <div style={{ textAlign: "center", padding: "24px 0" }}>
-                  <div style={{ color: C.sub, fontSize: 13, marginBottom: 16 }}>
-                    Analysez vos donnees avec Claude pour obtenir des recommandations actionnables
-                  </div>
-                  <button onClick={fetchAI} style={{
-                    background: `${C.purple}22`, border: `1px solid ${C.purple}44`, color: C.purple,
-                    padding: "12px 28px", borderRadius: 10, cursor: "pointer",
-                    fontSize: 14, fontWeight: 700, fontFamily: "inherit",
-                  }}>
-                    Generer les recommandations IA
-                  </button>
+              <div style={{ textAlign: "center", padding: "24px 0" }}>
+                <div style={{ color: C.sub, fontSize: 13, marginBottom: 16 }}>
+                  Telecharger un brief .txt structuree avec toutes les KPIs, correlations, attribution et contexte Re-FAP
                 </div>
-              )}
-
-              {aiLoading && (
-                <div style={{ textAlign: "center", padding: "32px 0", color: C.purple }}>
-                  Analyse en cours par Claude...
-                </div>
-              )}
-
-              {aiRecs && (
-                <div style={{
-                  fontSize: 14, lineHeight: 1.7, color: C.text,
+                <button onClick={exportBrief} style={{
+                  background: `${C.green}22`, border: `1px solid ${C.green}44`, color: C.green,
+                  padding: "12px 28px", borderRadius: 10, cursor: "pointer",
+                  fontSize: 14, fontWeight: 700, fontFamily: "inherit",
                 }}>
-                  <div className="ai-recs-content" style={{ maxWidth: 800 }}>
-                    <ReactMarkdown>{aiRecs}</ReactMarkdown>
-                  </div>
-                  <button onClick={fetchAI} disabled={aiLoading} style={{
-                    marginTop: 16, background: "#1a2234", border: `1px solid ${C.border}`,
-                    color: C.sub, padding: "8px 16px", borderRadius: 8, cursor: "pointer",
-                    fontSize: 12, fontFamily: "inherit",
-                  }}>
-                    Regenerer
-                  </button>
-                </div>
-              )}
+                  Exporter le brief analytique
+                </button>
+              </div>
             </div>
 
             <div style={{ textAlign: "center", fontSize: 11, color: C.muted, marginTop: 24 }}>
@@ -362,24 +457,6 @@ export default function AnalyticsDashboard() {
           </main>
         )}
 
-        <style jsx global>{`
-          .ai-recs-content h1, .ai-recs-content h2, .ai-recs-content h3 {
-            color: ${C.text};
-            margin: 16px 0 8px;
-          }
-          .ai-recs-content h2 { font-size: 16px; color: ${C.purple}; }
-          .ai-recs-content h3 { font-size: 14px; }
-          .ai-recs-content strong { color: ${C.yellow}; }
-          .ai-recs-content ul, .ai-recs-content ol { padding-left: 20px; }
-          .ai-recs-content li { margin-bottom: 6px; }
-          .ai-recs-content code {
-            background: #1a2234;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-            color: ${C.green};
-          }
-        `}</style>
       </div>
     </>
   );
@@ -580,41 +657,3 @@ function AttributionDonut({ attribution }) {
   );
 }
 
-// ═══════ HELPERS ═══════
-
-function buildAISummary(data) {
-  const t = data.totals;
-  const lines = [
-    `Periode: ${data.days} jours`,
-    ``,
-    `SEO (GSC): ${t.gsc.clicks} clicks, ${t.gsc.impressions} impressions, CTR ${t.gsc.ctr}%, position moy. ${t.gsc.avgPosition}`,
-    `YouTube: ${t.youtube.views} vues, ${t.youtube.watchTimeH.toFixed(0)}h watch time, ${t.youtube.subscribers} abonnes gagnes`,
-    `TikTok: ${t.tiktok.views} vues, ${t.tiktok.reach} reach`,
-    `Meta/Instagram: reach organique ${t.meta.reachOrganic}, reach payant ${t.meta.reachPaid}, engagement ${t.meta.engagement}, depense ${t.meta.spend}EUR`,
-    `Email/SMS: ${t.email.sends} envois, taux ouverture ${t.email.avgOpenRate}%, taux clic ${t.email.avgClickRate}%`,
-    `Ventes terrain Carter-Cash: ${t.cc.ventesFap} ventes FAP, ${t.cc.caFap}EUR CA FAP`,
-    `Leads CRM: ${t.leads.total} leads`,
-    `Chatbot: ${t.chatbot.conversations} conversations`,
-    ``,
-    `Correlations (Pearson, avec lag temporel) :`,
-  ];
-
-  for (const [k, v] of Object.entries(data.correlations)) {
-    const lags = { gsc: "3j", youtube: "5j", tiktok: "5j", meta: "5j", email: "3j", leads: "1j", chatbot: "1j" };
-    lines.push(`- ${k} (lag ${lags[k]}): r=${v.correlation.toFixed(3)}, ${v.dataPoints} points`);
-  }
-
-  lines.push("", "Attribution par canal :");
-  for (const [k, v] of Object.entries(data.attribution)) {
-    lines.push(`- ${k}: ${v.toFixed(1)}%`);
-  }
-
-  if (data.ccMagasins?.length > 0) {
-    lines.push("", "Top magasins :");
-    for (const m of data.ccMagasins.slice(0, 5)) {
-      lines.push(`- ${m.magasin}: ${m.ventes_fap} ventes, ${m.ca_fap}EUR`);
-    }
-  }
-
-  return lines.join("\n");
-}
