@@ -78,14 +78,15 @@ export default async function handler(req, res) {
     const since = dateDaysAgo(days);
 
     // Fetch all sources in parallel
-    const [gscMainRes, gscCcRes, ytRes, tiktokRes, metaRes, emailRes, ccRes, leadsRes, chatbotRes] = await Promise.all([
+    const [gscMainRes, gscCcRes, ytRes, tiktokRes, metaRes, emailRes, prestaRes, centresRes, leadsRes, chatbotRes] = await Promise.all([
       supabase.from("analytics_gsc").select("*").eq("source", "refap-main").gte("date", since).order("date"),
       supabase.from("analytics_gsc").select("*").eq("source", "refap-cc").gte("date", since).order("date"),
       supabase.from("analytics_youtube").select("*").gte("date", since).order("date"),
       supabase.from("analytics_tiktok").select("*").gte("date", since).order("date"),
       supabase.from("analytics_meta").select("*").gte("date", since).order("date"),
       supabase.from("analytics_email").select("*").gte("date", since).order("date"),
-      supabase.from("analytics_cc_pdf").select("*").gte("date", since).order("date"),
+      supabase.from("prestations_weekly").select("store_code, qty_week, ca_ht_week, marge_week, week_start").gte("week_start", since),
+      supabase.from("centres").select("id, name, city, store_code, cc_code").eq("status", "ACTIVE"),
       supabase.from("crm_leads").select("id, created_at, source, utm_source, assigned_centre_id").gte("created_at", since + "T00:00:00"),
       supabase.from("messages").select("id, conversation_id, created_at, role").gte("created_at", since + "T00:00:00").order("created_at"),
     ]);
@@ -96,9 +97,26 @@ export default async function handler(req, res) {
     const tiktok = tiktokRes.data || [];
     const meta = metaRes.data || [];
     const email = emailRes.data || [];
-    const cc = ccRes.data || [];
+    const prestations = prestaRes.data || [];
+    const centresData = centresRes.data || [];
     const leads = leadsRes.data || [];
     const chatbot = chatbotRes.data || [];
+
+    // Map store_code → centre name for prestations
+    const storeNameMap = {};
+    for (const c of centresData) {
+      if (c.store_code) storeNameMap[c.store_code] = `${c.name} (${c.city || ""})`.trim();
+    }
+
+    // Convert prestations_weekly → cc-like rows (date, magasin, ventes_fap, ca_fap)
+    const cc = prestations.map(p => ({
+      date: p.week_start,
+      magasin: storeNameMap[p.store_code] || p.store_code,
+      ventes_fap: p.qty_week || 0,
+      ca_fap: parseFloat(p.ca_ht_week) || 0,
+      ventes_total: p.qty_week || 0,
+      ca_total: parseFloat(p.ca_ht_week) || 0,
+    }));
 
     // === AGGREGATIONS ===
 
