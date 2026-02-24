@@ -199,6 +199,7 @@ function MagasinsDashboard() {
           { href: "/admin/seo", label: "SEO" },
           { href: "/admin/performance", label: "Performance" },
           { href: "/admin/magasins", label: "Magasins" },
+          { href: "/admin/analytics", label: "Analytics" },
         ].map((item) => (
           <Link key={item.href} href={item.href} style={{
             padding: "10px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none",
