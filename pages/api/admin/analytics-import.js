@@ -102,14 +102,17 @@ function gscMap(sourceTag) {
 const COLUMN_MAP = {
   gsc_main: {
     table: "analytics_gsc",
+    onConflict: "source,date",
     map: gscMap("refap-main"),
   },
   gsc_cc: {
     table: "analytics_gsc",
+    onConflict: "source,date",
     map: gscMap("refap-cc"),
   },
   youtube: {
     table: "analytics_youtube",
+    onConflict: "date",
     map: (row) => ({
       date: row.date || row.Date || row.Jour,
       video_title: row.video_title || row["Video title"] || row.Titre || row["Titre de la vidéo"],
@@ -124,6 +127,7 @@ const COLUMN_MAP = {
   },
   tiktok: {
     table: "analytics_tiktok",
+    onConflict: "date",
     map: (row) => ({
       date: row.date || row.Date,
       views: parseInt(row.views || row.Views || row.Vues || row["Video views"] || 0),
@@ -138,6 +142,7 @@ const COLUMN_MAP = {
   },
   meta: {
     table: "analytics_meta",
+    onConflict: "date",
     map: (row) => ({
       date: row.date || row.Date,
       platform: row.platform || row.Platform || row.Plateforme || "facebook",
@@ -151,6 +156,7 @@ const COLUMN_MAP = {
   },
   email: {
     table: "analytics_email",
+    onConflict: "date",
     map: (row) => ({
       date: row.date || row.Date,
       channel: row.channel || row.Channel || row.Canal || "email",
@@ -200,7 +206,7 @@ export default async function handler(req, res) {
       const parsed = parseCCPdfText(text, date);
       if (parsed.length === 0) return res.status(400).json({ error: "Aucune donnée extraite du PDF" });
 
-      const { error } = await supabase.from("analytics_cc_pdf").insert(parsed);
+      const { error } = await supabase.from("analytics_cc_pdf").upsert(parsed, { onConflict: "magasin,date" });
       if (error) throw error;
 
       return res.status(200).json({ status: "ok", source, inserted: parsed.length, data: parsed });
@@ -224,11 +230,11 @@ export default async function handler(req, res) {
 
     const mapped = rows.map(config.map).filter(r => r.date);
 
-    // Batch insert (500 per batch)
+    // Batch upsert (500 per batch)
     let totalInserted = 0;
     for (let i = 0; i < mapped.length; i += 500) {
       const batch = mapped.slice(i, i + 500);
-      const { error } = await supabase.from(config.table).insert(batch);
+      const { error } = await supabase.from(config.table).upsert(batch, { onConflict: config.onConflict });
       if (error) throw error;
       totalInserted += batch.length;
     }
