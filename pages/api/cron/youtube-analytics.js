@@ -69,6 +69,17 @@ function formatDate(d) {
 }
 
 export default async function handler(req, res) {
+  console.log("[YT-ANALYTICS] === Start ===");
+  console.log("[YT-ANALYTICS] Env check:", {
+    YOUTUBE_CHANNEL_ID: YT_CHANNEL_ID ? "set" : "UNSET",
+    GSC_CLIENT_EMAIL: process.env.GSC_CLIENT_EMAIL ? "set" : "UNSET",
+    GSC_PRIVATE_KEY: process.env.GSC_PRIVATE_KEY ? `set (${process.env.GSC_PRIVATE_KEY.length} chars)` : "UNSET",
+    GOOGLE_SA_EMAIL: process.env.GOOGLE_SA_EMAIL ? "set" : "UNSET",
+    GOOGLE_SA_PRIVATE_KEY: process.env.GOOGLE_SA_PRIVATE_KEY ? "set" : "UNSET",
+    GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS ? "set" : "UNSET",
+    YOUTUBE_IMPERSONATE_EMAIL: process.env.YOUTUBE_IMPERSONATE_EMAIL ? "set" : "UNSET",
+  });
+
   // Auth: cron secret or admin dashboard token
   const token = req.headers["x-cron-secret"] || req.query.secret;
   if (CRON_SECRET && token !== CRON_SECRET && !(ADMIN_TOKEN && token === ADMIN_TOKEN)) {
@@ -79,7 +90,15 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "YOUTUBE_CHANNEL_ID not configured" });
   }
 
-  const auth = getAuthClient();
+  let auth;
+  try {
+    auth = getAuthClient();
+    console.log("[YT-ANALYTICS] Auth client created. SA_EMAIL:", SA_EMAIL, "| SA_KEY present:", !!SA_KEY, "| SA_KEY_FILE:", !!SA_KEY_FILE);
+  } catch (err) {
+    console.error("[YT-ANALYTICS] getAuthClient() FAILED:", err.message);
+    return res.status(500).json({ error: `Auth setup failed: ${err.message}` });
+  }
+
   const youtubeAnalytics = google.youtubeAnalytics({ version: "v2", auth });
 
   // Fetch last 30 days by default, or use query params
@@ -95,6 +114,7 @@ export default async function handler(req, res) {
 
   try {
     // === 1. Core metrics (views, watchTime, subscribers, engagement) ===
+    console.log("[YT-ANALYTICS] Step 1: Fetching core metrics...", { channel: YT_CHANNEL_ID, startStr, endStr });
     const coreReport = await youtubeAnalytics.reports.query({
       ids: `channel==${YT_CHANNEL_ID}`,
       startDate: startStr,
@@ -103,6 +123,7 @@ export default async function handler(req, res) {
       dimensions: "day",
       sort: "day",
     });
+    console.log("[YT-ANALYTICS] Step 1: Core metrics OK, rows:", coreReport.data.rows?.length || 0);
 
     const coreRows = (coreReport.data.rows || []).map((row) => ({
       channel_id: YT_CHANNEL_ID,
@@ -129,14 +150,17 @@ export default async function handler(req, res) {
     }));
 
     if (coreRows.length > 0) {
+      console.log("[YT-ANALYTICS] Step 1: Upserting", coreRows.length, "core rows to Supabase...");
       const { error: coreErr } = await supabaseAdmin
         .from("youtube_analytics")
         .upsert(coreRows, { onConflict: "channel_id,date" });
       if (coreErr) throw coreErr;
       totalRows += coreRows.length;
+      console.log("[YT-ANALYTICS] Step 1: Upsert OK");
     }
 
     // === 2. Traffic sources ===
+    console.log("[YT-ANALYTICS] Step 2: Fetching traffic sources...");
     const trafficReport = await youtubeAnalytics.reports.query({
       ids: `channel==${YT_CHANNEL_ID}`,
       startDate: startStr,
@@ -145,6 +169,7 @@ export default async function handler(req, res) {
       dimensions: "day,insightTrafficSourceType",
       sort: "day",
     });
+    console.log("[YT-ANALYTICS] Step 2: Traffic sources OK, rows:", trafficReport.data.rows?.length || 0);
 
     const trafficRows = (trafficReport.data.rows || []).map((row) => ({
       channel_id: YT_CHANNEL_ID,
@@ -155,14 +180,17 @@ export default async function handler(req, res) {
     }));
 
     if (trafficRows.length > 0) {
+      console.log("[YT-ANALYTICS] Step 2: Upserting", trafficRows.length, "traffic rows to Supabase...");
       const { error: trafficErr } = await supabaseAdmin
         .from("youtube_traffic_sources")
         .upsert(trafficRows, { onConflict: "channel_id,date,source_type" });
       if (trafficErr) throw trafficErr;
       totalRows += trafficRows.length;
+      console.log("[YT-ANALYTICS] Step 2: Upsert OK");
     }
 
     await logSync("youtube", "success", totalRows, null);
+    console.log("[YT-ANALYTICS] === Done === totalRows:", totalRows);
 
     return res.status(200).json({
       status: "ok",
@@ -172,8 +200,18 @@ export default async function handler(req, res) {
       total_synced: totalRows,
     });
   } catch (err) {
-    console.error("YouTube Analytics sync error:", err);
+    console.error("[YT-ANALYTICS] === ERROR ===");
+    console.error("[YT-ANALYTICS] message:", err.message);
+    console.error("[YT-ANALYTICS] code:", err.code);
+    console.error("[YT-ANALYTICS] status:", err.status || err.response?.status);
+    console.error("[YT-ANALYTICS] errors:", JSON.stringify(err.errors || err.response?.data?.error));
+    console.error("[YT-ANALYTICS] stack:", err.stack);
     await logSync("youtube", "error", totalRows, err.message);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({
+      error: err.message,
+      code: err.code,
+      status: err.status || err.response?.status,
+      details: err.errors || err.response?.data?.error || null,
+    });
   }
 }
