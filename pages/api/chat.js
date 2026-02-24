@@ -2228,7 +2228,6 @@ function buildExpertOrientation(extracted, metier) {
     additifNote = `À savoir aussi : ta ${marque || "voiture"} utilise un système d'additif (${metier.vehicle.systeme_additif}) pour faciliter les régénérations. Si le niveau du réservoir d'additif est bas, ça peut aggraver le problème. C'est un point à vérifier de ton côté ou avec ton garagiste.`;
   }
 
-  let openQuestion;
  let openQuestion;
   if (!extracted?.ville && !extracted?.departement) {
     // v7.1 fix: ville inconnue → demander avant le pitch technique (fix conv Audi sans orientation)
@@ -4150,4 +4149,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
