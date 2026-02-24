@@ -135,7 +135,11 @@ export default function AnalyticsImport() {
       });
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || `Erreur ${resp.status}`);
-      setResults(r => ({ ...r, [source.key]: { ok: true, msg: `${json.inserted} lignes synchronisees`, data: json.data } }));
+      if (json.status === "debug") {
+        setResults(r => ({ ...r, [source.key]: { ok: false, msg: json.error, debug: json.debug } }));
+      } else {
+        setResults(r => ({ ...r, [source.key]: { ok: true, msg: `${json.inserted} lignes synchronisees`, data: json.data, debug: json.debug } }));
+      }
     } catch (err) {
       setResults(r => ({ ...r, [source.key]: { ok: false, msg: err.message } }));
     }
@@ -384,6 +388,16 @@ function SourceCard({ source, result, loading, onUpload, onPurgeUpload, onSync, 
             <div style={{ marginTop: 8, fontSize: 12, color: C.sub }}>
               Magasins : {[...new Set(result.data.map(d => d.magasin))].join(", ")}
             </div>
+          )}
+          {result.debug && (
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ cursor: "pointer", fontSize: 12, color: C.muted, fontWeight: 600 }}>Debug dashboard.php</summary>
+              <pre style={{
+                marginTop: 8, padding: 12, background: "#0a0e17", borderRadius: 8,
+                fontSize: 11, color: C.sub, overflow: "auto", maxHeight: 400,
+                whiteSpace: "pre-wrap", wordBreak: "break-all",
+              }}>{JSON.stringify(result.debug, null, 2)}</pre>
+            </details>
           )}
         </div>
       )}

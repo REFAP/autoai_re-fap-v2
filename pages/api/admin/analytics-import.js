@@ -216,6 +216,7 @@ export default async function handler(req, res) {
     if (source === "cc_sync") {
       const DASH_URL = "https://auto.re-fap.fr/dashboard.php";
       const DASH_PWD = process.env.CC_DASH_PASSWORD || "re_fap1972";
+      const debug = {};
 
       // 1. Authenticate (POST password → session cookie)
       const loginResp = await fetch(DASH_URL, {
@@ -224,18 +225,49 @@ export default async function handler(req, res) {
         body: `pwd=${encodeURIComponent(DASH_PWD)}`,
         redirect: "manual",
       });
+      debug.login_status = loginResp.status;
+      debug.login_headers = Object.fromEntries(loginResp.headers.entries());
+
       const setCookie = loginResp.headers.get("set-cookie");
-      if (!setCookie) throw new Error("Echec auth dashboard.php — pas de cookie session");
-      const sessionCookie = setCookie.split(";")[0];
+      debug.set_cookie = setCookie || "(absent)";
+      const sessionCookie = setCookie ? setCookie.split(";")[0] : "";
 
-      // 2. Fetch authenticated page
-      const pageResp = await fetch(DASH_URL, { headers: { Cookie: sessionCookie } });
-      if (!pageResp.ok) throw new Error(`dashboard.php HTTP ${pageResp.status}`);
-      const html = await pageResp.text();
+      // If login returned a body (not a redirect), read it for debug
+      let loginBody = "";
+      try { loginBody = await loginResp.text(); } catch (_) {}
+      debug.login_body_500 = loginBody.slice(0, 500);
 
-      // 3. Extract JS data arrays embedded in <script> (d801, d065, d003, d006, dautres, dca)
+      // 2. Fetch authenticated page (or use login body if it already contains data)
+      let html;
+      if (loginResp.status >= 300 && loginResp.status < 400) {
+        // Got a redirect — follow with cookie
+        const location = loginResp.headers.get("location") || DASH_URL;
+        const redirectUrl = location.startsWith("http") ? location : new URL(location, DASH_URL).href;
+        debug.redirect_to = redirectUrl;
+        const pageResp = await fetch(redirectUrl, { headers: { Cookie: sessionCookie } });
+        debug.page_status = pageResp.status;
+        html = await pageResp.text();
+      } else if (loginResp.status === 200) {
+        // No redirect — maybe the page is already in the response
+        // Or we need a second GET with the cookie
+        if (loginBody.includes("d801") || loginBody.includes("<table")) {
+          html = loginBody;
+          debug.page_source = "login_body_contains_data";
+        } else {
+          const pageResp = await fetch(DASH_URL, { headers: { Cookie: sessionCookie } });
+          debug.page_status = pageResp.status;
+          html = await pageResp.text();
+        }
+      } else {
+        html = loginBody;
+      }
+
+      debug.html_length = html.length;
+      debug.html_500 = html.slice(0, 500);
+
+      // 3. Extract JS data arrays embedded in <script>
       const extractArr = (name) => {
-        const m = html.match(new RegExp(`(?:const|var)\\s+${name}\\s*=\\s*(\\[.*?\\])`));
+        const m = html.match(new RegExp(`(?:const|var|let)\\s+${name}\\s*=\\s*(\\[.*?\\])`, "s"));
         return m ? JSON.parse(m[1]) : [];
       };
       const d801 = extractArr("d801");
@@ -245,11 +277,20 @@ export default async function handler(req, res) {
       const dautres = extractArr("dautres");
       const dca = extractArr("dca");
 
-      if (d801.length === 0) throw new Error("Aucune donnee FAP trouvee dans dashboard.php — verifiez l'authentification");
+      debug.arrays_found = { d801: d801.length, d065: d065.length, d003: d003.length, d006: d006.length, dautres: dautres.length, dca: dca.length };
+
+      // Also scan for any var/const/let assignments with "d" prefix as a hint
+      const varMatches = html.match(/(?:const|var|let)\s+\w+\s*=\s*\[/g) || [];
+      debug.all_js_arrays = varMatches.map(m => m.replace(/\s*=\s*\[$/, "").replace(/^(?:const|var|let)\s+/, ""));
+
+      if (d801.length === 0) {
+        return res.status(200).json({ status: "debug", error: "Aucune donnee FAP trouvee dans dashboard.php", debug });
+      }
 
       // 4. Extract month+year labels from HTML table cells (e.g. "Oct 2025", "Jan 2026")
-      const mMap = { Jan:"01", Fev:"02", Mar:"03", Avr:"04", Mai:"05", Juin:"06", Juil:"07", Aou:"08", Sep:"09", Oct:"10", Nov:"11", Dec:"12" };
-      const monthRx = />(Jan|Fev|Mar|Avr|Mai|Juin|Juil|Aou|Sep|Oct|Nov|Dec)\s+(\d{4})/g;
+      const mMap = { Jan:"01", Fev:"02", "Fév":"02", Mar:"03", Avr:"04", Mai:"05", Juin:"06", Juil:"07", Aou:"08", "Aoû":"08", Sep:"09", Oct:"10", Nov:"11", Dec:"12", "Déc":"12" };
+      const monthNames = Object.keys(mMap).join("|");
+      const monthRx = new RegExp(`>(${monthNames})[\\.\\s]+?(\\d{4})`, "g");
       const seen = new Set();
       const months = [];
       let mx;
@@ -257,7 +298,11 @@ export default async function handler(req, res) {
         const key = `${mx[1]} ${mx[2]}`;
         if (!seen.has(key)) { seen.add(key); months.push({ name: mx[1], year: mx[2] }); }
       }
-      if (months.length === 0) throw new Error("Aucune date trouvee dans dashboard.php");
+      debug.months_found = months;
+
+      if (months.length === 0) {
+        return res.status(200).json({ status: "debug", error: "Aucune date trouvee dans dashboard.php", debug });
+      }
 
       // 5. Build rows per centre x month
       const centres = [
@@ -290,12 +335,14 @@ export default async function handler(req, res) {
         }
       }
 
-      if (parsed2.length === 0) throw new Error("Aucune donnee extraite de dashboard.php");
+      if (parsed2.length === 0) {
+        return res.status(200).json({ status: "debug", error: "Aucune donnee extraite de dashboard.php", debug });
+      }
 
       const { error: syncErr } = await supabase.from("analytics_cc_pdf").upsert(parsed2, { onConflict: "magasin,date" });
       if (syncErr) throw syncErr;
 
-      return res.status(200).json({ status: "ok", source: "cc_sync", inserted: parsed2.length, data: parsed2 });
+      return res.status(200).json({ status: "ok", source: "cc_sync", inserted: parsed2.length, data: parsed2, debug });
     }
 
     // CSV sources
