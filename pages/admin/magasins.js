@@ -277,7 +277,7 @@ function MagasinsDashboard() {
                         <th style={thStyle}>Type</th>
                         <th style={thStyle}>Orient.</th>
                         <th style={thStyle}>Source</th>
-                        <th style={thStyle}>Orient\orienté par</th>
+                        <th style={thStyle}>orienté par</th>
                         <th style={thStyle}>Leads</th>
                         {!isCC && <th style={thStyle}>Raison</th>}
                         <th style={thStyle}>Prestas</th>
