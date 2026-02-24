@@ -2229,7 +2229,12 @@ function buildExpertOrientation(extracted, metier) {
   }
 
   let openQuestion;
-  if (hasHighKm || hasFapCode || attemptResponses.length > 0) {
+ let openQuestion;
+  if (!extracted?.ville && !extracted?.departement) {
+    // v7.1 fix: ville inconnue → demander avant le pitch technique (fix conv Audi sans orientation)
+    openQuestion = "Avant tout, tu es dans quelle ville ? Je te prépare la solution la plus proche.";
+    data.next_best_action = "demander_ville";
+  } else if (hasHighKm || hasFapCode || attemptResponses.length > 0) {
     openQuestion = "Il existe une solution pour retirer ces cendres, mais je préfère d'abord t'expliquer comment ça fonctionne plutôt que de te balancer un devis. Tu veux que je te détaille ça ?";
   } else {
     openQuestion = "Si c'est bien un encrassement du FAP, il existe une solution. Tu veux que je t'explique comment ça fonctionne ?";
@@ -3310,6 +3315,7 @@ function extractCodesFromHistory(history) {
   if (!Array.isArray(history)) return [];
   const codes = [];
   for (const h of history) {
+    if (h?.role !== "user") continue; // v7.1 fix: ignorer messages bot (évite P2002 fantôme du menu symptômes)
     const content = String(h.content || h.raw || "");
     const matches = content.toUpperCase().match(/\bP[0-9]{4}\b|\bP[0-9A-F]{4}\b/g);
     if (matches) codes.push(...matches);
@@ -4144,3 +4150,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
