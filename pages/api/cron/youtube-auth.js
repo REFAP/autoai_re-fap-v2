@@ -2,9 +2,9 @@
 // Helper endpoint to obtain a YouTube OAuth2 refresh token.
 //
 // Usage:
-//   1. GET  /api/cron/youtube-auth          → returns the authorization URL
-//   2. Open the URL in your browser, consent, copy the "code" param
-//   3. GET  /api/cron/youtube-auth?code=XXX  → exchanges the code for tokens
+//   1. GET  /api/cron/youtube-auth  → returns the authorization URL
+//   2. Open the URL in your browser and consent
+//   3. Google redirects back here with ?code=XXX — the token exchange happens automatically
 //   4. Copy the refresh_token and set it as YOUTUBE_REFRESH_TOKEN in Vercel
 //
 // Required env vars: YOUTUBE_OAUTH_CLIENT_ID, YOUTUBE_OAUTH_CLIENT_SECRET
@@ -13,10 +13,8 @@ import { google } from "googleapis";
 
 const CLIENT_ID = process.env.YOUTUBE_OAUTH_CLIENT_ID;
 const CLIENT_SECRET = process.env.YOUTUBE_OAUTH_CLIENT_SECRET;
-
-// "urn:ietf:wg:oauth:2.0:oob" is deprecated; use a simple redirect for manual copy.
-// We use the "out of band" redirect so the code is shown in the browser.
-const REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob";
+const REDIRECT_URI =
+  "https://autoai-re-fap-v2.vercel.app/api/cron/youtube-auth";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/yt-analytics.readonly",
@@ -32,7 +30,7 @@ export default async function handler(req, res) {
 
   const oauth2 = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 
-  // --- Step 2: Exchange authorization code for tokens ---
+  // --- Callback: Google redirected back with ?code= — exchange automatically ---
   const { code } = req.query;
   if (code) {
     try {
@@ -60,16 +58,12 @@ export default async function handler(req, res) {
     }
   }
 
-  // --- Step 1: Generate authorization URL ---
+  // --- No code yet: generate authorization URL and redirect the user ---
   const authUrl = oauth2.generateAuthUrl({
     access_type: "offline",
-    prompt: "consent", // forces refresh_token to be returned
+    prompt: "consent",
     scope: SCOPES,
   });
 
-  return res.status(200).json({
-    message: "Open the URL below in your browser, authorize, then come back with the code.",
-    auth_url: authUrl,
-    next_step: "After authorizing, call: GET /api/cron/youtube-auth?code=PASTE_CODE_HERE",
-  });
+  return res.redirect(authUrl);
 }
