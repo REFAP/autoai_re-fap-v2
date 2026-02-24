@@ -149,7 +149,7 @@ function MagasinsDashboard() {
   async function fetchData() {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/admin/magasins?period=${period}&mode=${mode}`);
+      const res = await fetch(`/dashboard/api/admin/magasins?period=${period}&mode=${mode}`);
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       setData(await res.json());
     } catch (e) { setError(e.message); }

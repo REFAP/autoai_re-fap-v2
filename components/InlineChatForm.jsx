@@ -81,7 +81,7 @@ export default function InlineChatForm({ conversationId, conversationData, onSuc
     var tracking = getTrackingData();
 
     try {
-      var res = await fetch('/api/lead-chatbot', {
+      var res = await fetch('/dashboard/api/lead-chatbot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

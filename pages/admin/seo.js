@@ -30,7 +30,7 @@ export default function SeoDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(`/api/seo?days=${days}&token=${encodeURIComponent(TOKEN)}`);
+      const resp = await fetch(`/dashboard/api/seo?days=${days}&token=${encodeURIComponent(TOKEN)}`);
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error || `Erreur ${resp.status}`);

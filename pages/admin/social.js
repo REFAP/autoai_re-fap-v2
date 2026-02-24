@@ -83,7 +83,7 @@ export default function SocialDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/social-data?token=${TOKEN}`);
+      const res = await fetch(`/dashboard/api/admin/social-data?token=${TOKEN}`);
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       const json = await res.json();
       setMeta(json.meta);
@@ -101,7 +101,7 @@ export default function SocialDashboard() {
   const triggerSync = async (connector) => {
     setSyncing((s) => ({ ...s, [connector]: true }));
     try {
-      const endpoint = connector === "meta" ? "/api/cron/meta-insights" : "/api/cron/youtube-analytics";
+      const endpoint = connector === "meta" ? "/dashboard/api/cron/meta-insights" : "/dashboard/api/cron/youtube-analytics";
       await fetch(`${endpoint}?secret=${TOKEN}`);
       await fetchData();
     } catch {}

@@ -180,7 +180,7 @@ export default function PerformanceDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/baseline?token=${tok}`);
+      const res = await fetch(`/dashboard/api/admin/baseline?token=${tok}`);
       if (res.status === 401) { setError("Accès refusé"); setLoading(false); return; }
       const json = await res.json();
       setData(json);
