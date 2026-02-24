@@ -117,7 +117,7 @@ export default function Home() {
       localStorage.setItem("fapexpert_session_id", storedSessionId);
     }
     setSessionId(storedSessionId);
-    fetch("/dashboard/api/bootstrap", { method: "POST", credentials: "include" }).catch(() => {});
+    fetch("/api/bootstrap", { method: "POST", credentials: "include" }).catch(() => {});
   }, []);
 
   // Auto-scroll
@@ -148,7 +148,7 @@ export default function Home() {
         raw: msg.raw || undefined,
       }));
 
-      const response = await fetch("/dashboard/api/chat", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

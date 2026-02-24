@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 const TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN || "";
 
@@ -180,7 +181,7 @@ export default function PerformanceDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/dashboard/api/admin/baseline?token=${tok}`);
+      const res = await fetch(`/api/admin/baseline?token=${tok}`);
       if (res.status === 401) { setError("Accès refusé"); setLoading(false); return; }
       const json = await res.json();
       setData(json);
@@ -213,7 +214,26 @@ export default function PerformanceDashboard() {
   };
 
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", fontFamily: "system-ui", color: C.text, padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", fontFamily: "system-ui", color: C.text }}>
+
+      {/* Admin Nav */}
+      <nav style={{ background: "#0f1523", borderBottom: `1px solid ${C.border}`, padding: "0 32px", display: "flex", gap: 0 }}>
+        {[
+          { href: "/admin", label: "Terrain" },
+          { href: "/admin/social", label: "Social" },
+          { href: "/admin/seo", label: "SEO" },
+          { href: "/admin/performance", label: "Performance" },
+          { href: "/admin/magasins", label: "Magasins" },
+        ].map((item) => (
+          <Link key={item.href} href={item.href} style={{
+            padding: "10px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none",
+            color: item.href === "/admin/performance" ? C.text : C.sub,
+            borderBottom: item.href === "/admin/performance" ? `2px solid ${C.green}` : "2px solid transparent",
+          }}>{item.label}</Link>
+        ))}
+      </nav>
+
+      <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 36 }}>
@@ -341,6 +361,7 @@ export default function PerformanceDashboard() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Head from "next/head";
+import Link from "next/link";
 
 const TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN || "";
 
@@ -30,7 +31,7 @@ export default function SeoDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(`/dashboard/api/seo?days=${days}&token=${encodeURIComponent(TOKEN)}`);
+      const resp = await fetch(`/api/seo?days=${days}&token=${encodeURIComponent(TOKEN)}`);
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error || `Erreur ${resp.status}`);
@@ -98,6 +99,23 @@ export default function SeoDashboard() {
             </button>
           </div>
         </header>
+
+        {/* Admin Nav */}
+        <nav style={{ background: "#0f1523", borderBottom: `1px solid ${C.border}`, padding: "0 32px", display: "flex", gap: 0 }}>
+          {[
+            { href: "/admin", label: "Terrain" },
+            { href: "/admin/social", label: "Social" },
+            { href: "/admin/seo", label: "SEO" },
+            { href: "/admin/performance", label: "Performance" },
+            { href: "/admin/magasins", label: "Magasins" },
+          ].map((item) => (
+            <Link key={item.href} href={item.href} style={{
+              padding: "10px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none",
+              color: item.href === "/admin/seo" ? C.text : C.muted,
+              borderBottom: item.href === "/admin/seo" ? `2px solid ${C.green}` : "2px solid transparent",
+            }}>{item.label}</Link>
+          ))}
+        </nav>
 
         {/* Loading */}
         {loading && !data && (

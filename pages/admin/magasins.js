@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 
 const ADMIN_KEY = "";
@@ -149,7 +150,7 @@ function MagasinsDashboard() {
   async function fetchData() {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/dashboard/api/admin/magasins?period=${period}&mode=${mode}`);
+      const res = await fetch(`/api/admin/magasins?period=${period}&mode=${mode}`);
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       setData(await res.json());
     } catch (e) { setError(e.message); }
@@ -189,6 +190,23 @@ function MagasinsDashboard() {
           @media (max-width: 768px) { .kpi-row { flex-direction: column !important; } .table-wrap { overflow-x: auto; } .table-wrap table { min-width: 700px; } }
         `}</style>
       </Head>
+
+      {/* Admin Nav */}
+      <nav style={{ background: "#111827", borderBottom: "1px solid #1e293b", padding: "0 32px", display: "flex", gap: 0 }}>
+        {[
+          { href: "/admin", label: "Terrain" },
+          { href: "/admin/social", label: "Social" },
+          { href: "/admin/seo", label: "SEO" },
+          { href: "/admin/performance", label: "Performance" },
+          { href: "/admin/magasins", label: "Magasins" },
+        ].map((item) => (
+          <Link key={item.href} href={item.href} style={{
+            padding: "10px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none",
+            color: item.href === "/admin/magasins" ? "#e2e8f0" : "#64748b",
+            borderBottom: item.href === "/admin/magasins" ? "2px solid #22c55e" : "2px solid transparent",
+          }}>{item.label}</Link>
+        ))}
+      </nav>
 
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px 16px" }}>
         {/* HEADER */}

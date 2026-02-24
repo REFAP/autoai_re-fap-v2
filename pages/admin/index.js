@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Head from "next/head";
+import Link from "next/link";
 
 // Token via variable d'env Next.js (NEXT_PUBLIC_ADMIN_TOKEN) ou fallback localStorage
 const ENV_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN || "";
@@ -24,7 +25,7 @@ export default function AdminDashboard() {
     setError("");
     const t = getToken();
     try {
-      const resp = await fetch(`/dashboard/api/admin/stats${t ? `?token=${encodeURIComponent(t)}` : ""}`);
+      const resp = await fetch(`/api/admin/stats${t ? `?token=${encodeURIComponent(t)}` : ""}`);
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error || `Erreur ${resp.status}`);
@@ -91,6 +92,23 @@ export default function AdminDashboard() {
             </button>
           </div>
         </header>
+
+        {/* Admin Nav */}
+        <nav style={{ background: "#0f1523", borderBottom: "1px solid #1e293b", padding: "0 32px", display: "flex", gap: 0 }}>
+          {[
+            { href: "/admin", label: "Terrain" },
+            { href: "/admin/social", label: "Social" },
+            { href: "/admin/seo", label: "SEO" },
+            { href: "/admin/performance", label: "Performance" },
+            { href: "/admin/magasins", label: "Magasins" },
+          ].map((item) => (
+            <Link key={item.href} href={item.href} style={{
+              padding: "10px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none",
+              color: item.href === "/admin" ? "#e2e8f0" : "#64748b",
+              borderBottom: item.href === "/admin" ? "2px solid #22c55e" : "2px solid transparent",
+            }}>{item.label}</Link>
+          ))}
+        </nav>
 
         {/* Loading */}
         {loading && !data && (
