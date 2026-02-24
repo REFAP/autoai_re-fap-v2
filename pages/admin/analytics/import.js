@@ -79,7 +79,7 @@ export default function AnalyticsImport() {
 
   const getToken = () => TOKEN || (typeof window !== "undefined" ? localStorage.getItem("fapexpert_admin_token") || "" : "");
 
-  const handleUpload = useCallback(async (source, file) => {
+  const handleUpload = useCallback(async (source, file, purge = false) => {
     setUploading(u => ({ ...u, [source.key]: true }));
     setResults(r => ({ ...r, [source.key]: null }));
 
@@ -88,7 +88,6 @@ export default function AnalyticsImport() {
 
       let body;
       if (source.key === "cc_pdf") {
-        // For PDF, we send the raw text + date
         body = { source: "cc_pdf", text, date: pdfDate };
       } else {
         const rows = parseCSV(text);
@@ -104,7 +103,7 @@ export default function AnalyticsImport() {
           }
         }
 
-        body = { source: source.key, rows };
+        body = { source: source.key, rows, ...(purge ? { purge: true } : {}) };
       }
 
       const resp = await fetch(`/api/admin/analytics-import?token=${encodeURIComponent(getToken())}`, {
@@ -116,7 +115,8 @@ export default function AnalyticsImport() {
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || `Erreur ${resp.status}`);
 
-      setResults(r => ({ ...r, [source.key]: { ok: true, msg: `${json.inserted} lignes importees`, data: json.data } }));
+      const prefix = json.purged ? "Donnees purgees. " : "";
+      setResults(r => ({ ...r, [source.key]: { ok: true, msg: `${prefix}${json.inserted} lignes importees`, data: json.data } }));
     } catch (err) {
       setResults(r => ({ ...r, [source.key]: { ok: false, msg: err.message } }));
     }
@@ -188,7 +188,8 @@ export default function AnalyticsImport() {
                 source={source}
                 result={results[source.key]}
                 loading={uploading[source.key]}
-                onUpload={(file) => handleUpload(source, file)}
+                onUpload={(file) => handleUpload(source, file, false)}
+                onPurgeUpload={(file) => handleUpload(source, file, true)}
                 pdfDate={pdfDate}
                 onPdfDateChange={setPdfDate}
               />
@@ -247,10 +248,18 @@ export default function AnalyticsImport() {
   );
 }
 
-function SourceCard({ source, result, loading, onUpload, pdfDate, onPdfDateChange }) {
+function SourceCard({ source, result, loading, onUpload, onPurgeUpload, pdfDate, onPdfDateChange }) {
+  const isGsc = source.key === "gsc_main" || source.key === "gsc_cc";
+
   const handleFile = (e) => {
     const file = e.target.files?.[0];
     if (file) onUpload(file);
+    e.target.value = "";
+  };
+
+  const handlePurgeFile = (e) => {
+    const file = e.target.files?.[0];
+    if (file) onPurgeUpload(file);
     e.target.value = "";
   };
 
@@ -292,24 +301,48 @@ function SourceCard({ source, result, loading, onUpload, pdfDate, onPdfDateChang
         </div>
       )}
 
-      {/* Upload button */}
-      <label style={{
-        display: "inline-flex", alignItems: "center", gap: 8,
-        background: loading ? C.muted + "44" : `${source.color}22`,
-        border: `1px solid ${source.color}44`,
-        color: loading ? C.sub : source.color,
-        padding: "10px 20px", borderRadius: 8, cursor: loading ? "wait" : "pointer",
-        fontSize: 13, fontWeight: 600, transition: "all 0.2s",
-      }}>
-        {loading ? "Import en cours..." : `Choisir un fichier ${source.type === "csv" ? "CSV" : "TXT/PDF"}`}
-        <input
-          type="file"
-          accept={source.type === "csv" ? ".csv,.tsv,.txt" : ".txt,.csv"}
-          onChange={handleFile}
-          disabled={loading}
-          style={{ display: "none" }}
-        />
-      </label>
+      {/* Buttons */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {/* Normal upload */}
+        <label style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          background: loading ? C.muted + "44" : `${source.color}22`,
+          border: `1px solid ${source.color}44`,
+          color: loading ? C.sub : source.color,
+          padding: "10px 20px", borderRadius: 8, cursor: loading ? "wait" : "pointer",
+          fontSize: 13, fontWeight: 600, transition: "all 0.2s",
+        }}>
+          {loading ? "Import en cours..." : `Choisir un fichier ${source.type === "csv" ? "CSV" : "TXT/PDF"}`}
+          <input
+            type="file"
+            accept={source.type === "csv" ? ".csv,.tsv,.txt" : ".txt,.csv"}
+            onChange={handleFile}
+            disabled={loading}
+            style={{ display: "none" }}
+          />
+        </label>
+
+        {/* Purge + re-import (GSC only) */}
+        {isGsc && (
+          <label style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: loading ? C.muted + "44" : `${C.red}15`,
+            border: `1px solid ${C.red}44`,
+            color: loading ? C.sub : C.red,
+            padding: "10px 20px", borderRadius: 8, cursor: loading ? "wait" : "pointer",
+            fontSize: 13, fontWeight: 600, transition: "all 0.2s",
+          }}>
+            {loading ? "..." : "Vider et reimporter"}
+            <input
+              type="file"
+              accept=".csv,.tsv,.txt"
+              onChange={handlePurgeFile}
+              disabled={loading}
+              style={{ display: "none" }}
+            />
+          </label>
+        )}
+      </div>
 
       {/* Result */}
       {result && (

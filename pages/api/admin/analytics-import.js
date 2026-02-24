@@ -180,9 +180,19 @@ export default async function handler(req, res) {
   if (!supabase) return res.status(500).json({ error: "Supabase non configuré" });
 
   try {
-    const { source, rows, text, date } = req.body;
+    const { source, rows, text, date, purge } = req.body;
 
     if (!source) return res.status(400).json({ error: "source requis" });
+
+    // GSC purge: delete existing rows for this source before re-import
+    const GSC_SOURCE_TAGS = { gsc_main: "refap-main", gsc_cc: "refap-cc" };
+    if (purge && GSC_SOURCE_TAGS[source]) {
+      const { error: delError } = await supabase
+        .from("analytics_gsc")
+        .delete()
+        .eq("source", GSC_SOURCE_TAGS[source]);
+      if (delError) throw delError;
+    }
 
     // Carter-Cash PDF: parse text
     if (source === "cc_pdf") {
@@ -223,7 +233,7 @@ export default async function handler(req, res) {
       totalInserted += batch.length;
     }
 
-    return res.status(200).json({ status: "ok", source, inserted: totalInserted });
+    return res.status(200).json({ status: "ok", source, inserted: totalInserted, purged: !!purge });
   } catch (err) {
     console.error("Analytics import error:", err);
     return res.status(500).json({ error: err.message });
