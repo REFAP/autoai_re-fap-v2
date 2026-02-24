@@ -26,8 +26,8 @@ const C = {
 };
 
 const SOURCES = [
-  { key: "gsc_main", label: "GSC \u2014 re-fap.fr (Site principal)", icon: "G", color: C.blue, type: "csv", desc: "CSV export GSC pour re-fap.fr. Colonnes: date, query, page, clicks, impressions, CTR, position" },
-  { key: "gsc_cc", label: "GSC \u2014 auto.re-fap.fr (Carter-Cash)", icon: "G", color: "#4285f4", type: "csv", desc: "CSV export GSC pour auto.re-fap.fr (co-brande Carter-Cash). Memes colonnes que le site principal." },
+  { key: "gsc_main", label: "GSC \u2014 re-fap.fr (Site principal)", icon: "G", color: C.blue, type: "csv", desc: "Depuis le ZIP export GSC, importer uniquement Graphique.csv (colonnes : Date, Clics, Impressions, CTR, Position). Les fichiers Pages.csv, Requetes.csv, Appareils.csv ne sont pas acceptes." },
+  { key: "gsc_cc", label: "GSC \u2014 auto.re-fap.fr (Carter-Cash)", icon: "G", color: "#4285f4", type: "csv", desc: "Depuis le ZIP export GSC, importer uniquement Graphique.csv (colonnes : Date, Clics, Impressions, CTR, Position). Les fichiers Pages.csv, Requetes.csv, Appareils.csv ne sont pas acceptes." },
   { key: "youtube", label: "YouTube Analytics", icon: "\u25B6", color: "#ff0000", type: "csv", desc: "CSV avec colonnes: date, video_title, views, watch_time, likes, comments, shares" },
   { key: "tiktok", label: "TikTok", icon: "\u266A", color: C.cyan, type: "csv", desc: "CSV avec colonnes: date, views, reach, engagement_rate, followers, likes, comments" },
   { key: "meta", label: "Meta / Instagram", icon: "f", color: "#1877f2", type: "csv", desc: "CSV avec colonnes: date, reach_organic, reach_paid, engagement, spend, clicks" },
@@ -93,6 +93,17 @@ export default function AnalyticsImport() {
       } else {
         const rows = parseCSV(text);
         if (rows.length === 0) throw new Error("Aucune ligne trouvee dans le fichier");
+
+        // GSC: only accept Graphique.csv (has a Date column)
+        if (source.key === "gsc_main" || source.key === "gsc_cc") {
+          const h = Object.keys(rows[0]);
+          const hasDate = h.some(k => k.toLowerCase() === "date");
+          if (!hasDate) {
+            const detected = h[0] || "inconnu";
+            throw new Error(`Veuillez importer le fichier Graphique.csv pour les donnees temporelles. Ce fichier contient la colonne "${detected}" au lieu de "Date".`);
+          }
+        }
+
         body = { source: source.key, rows };
       }
 

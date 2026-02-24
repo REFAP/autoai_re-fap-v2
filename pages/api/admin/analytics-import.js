@@ -92,8 +92,8 @@ function gscMap(sourceTag) {
     const posRaw = row.position ?? row.Position ?? "0";
     const position = parseFloat(String(posRaw).replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
 
-    // Date: GSC exports sometimes lack a date column; fallback to today
-    const date = row.date || row.Date || new Date().toISOString().split("T")[0];
+    // Date: required from Graphique.csv (validated upstream)
+    const date = row.date || row.Date || null;
 
     return { date, source: sourceTag, query, page, clicks, impressions, ctr, position };
   };
@@ -200,6 +200,17 @@ export default async function handler(req, res) {
     const config = COLUMN_MAP[source];
     if (!config) return res.status(400).json({ error: `Source inconnue: ${source}` });
     if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "rows[] requis" });
+
+    // GSC: reject non-Graphique.csv files (missing Date column)
+    if ((source === "gsc_main" || source === "gsc_cc") && rows.length > 0) {
+      const keys = Object.keys(rows[0]);
+      const hasDate = keys.some(k => k.toLowerCase() === "date");
+      if (!hasDate) {
+        return res.status(400).json({
+          error: "Veuillez importer le fichier Graphique.csv pour les données temporelles. Les fichiers Pages.csv, Requêtes.csv, Appareils.csv ne sont pas acceptés.",
+        });
+      }
+    }
 
     const mapped = rows.map(config.map).filter(r => r.date);
 
