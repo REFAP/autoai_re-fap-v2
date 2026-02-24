@@ -16,8 +16,8 @@ export default async function handler(req, res) {
   if (!supabase) return res.status(500).json({ error: "Config Supabase manquante" });
 
   const mode = req.query.mode || "internal";
-  const period = req.query.period || "30";
-  const days = parseInt(period) || 30;
+ const period = req.query.period || "30";
+const days = period === "24h" ? 1 : parseInt(period) || 30;
 
   try {
     const since = new Date(Date.now() - days * 86400000).toISOString();
