@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import Head from "next/head";
 import dynamic from "next/dynamic";
 
-const ADMIN_KEY = "re_fap1972";
+const ADMIN_KEY = "";
 
 function formatNum(n) {
   if (n === null || n === undefined) return "\u2014";
@@ -198,7 +198,7 @@ function MagasinsDashboard() {
               {isCC ? "\ud83d\udcca Activit\u00e9 Magasins Re-FAP" : "\ud83d\udcca Dashboard Orientations"}
             </h1>
             <p style={{ fontSize: "13px", color: "#94a3b8", marginTop: "4px" }}>
-              Carter-Cash \u00b7 Garages partenaires \u00b7 Sources \u00b7 Prestations
+              Carter-Cash · Garages partenaires · Sources · Prestations
             </p>
           </div>
           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
@@ -235,7 +235,7 @@ function MagasinsDashboard() {
               <KPICardSources label="Orientations CC" value={formatNum(kpis.total_assignments)} bySource={kpis.by_source} accent="#6bbd45" />
               <KPICard label={"\ud83d\udd27 Garages"} value={formatNum(kpis.total_garage_orientations)} sub={kpis.total_garages_db ? `${kpis.total_garages_db} partenaires` : ""} accent="#8b5cf6" />
               <KPICard label="Total orient." value={formatNum(kpis.total_all)} accent="#0f172a" />
-              <KPICard label="\u26a1 \u00c9quip\u00e9s" value={formatNum(kpis.equipe)} sub={kpis.total_assignments > 0 ? Math.round(100 * kpis.equipe / kpis.total_assignments) + "%" : "\u2014"} accent="#22c55e" />
+            <KPICard label="⚡ Équipés" value={formatNum(kpis.equipe)} sub={kpis.total_assignments > 0 ? Math.round(100 * kpis.equipe / kpis.total_assignments) + "%" : "\u2014"} accent="#22c55e" />
             </div>
             {!isCC && (
               <div className="kpi-row" style={{ display: "flex", gap: "14px", marginBottom: "28px", flexWrap: "wrap" }}>
