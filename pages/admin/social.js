@@ -6,7 +6,8 @@ import { useState, useEffect, useCallback } from "react";
 import Head from "next/head";
 import Link from "next/link";
 
-const TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN || "";
+const ENV_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN || "";
+const STORAGE_KEY = "fapexpert_admin_token";
 
 const C = {
   bg: "#0a0e17",
@@ -80,11 +81,18 @@ export default function SocialDashboard() {
   const [error, setError] = useState(null);
   const [syncing, setSyncing] = useState({});
 
+  const getToken = () => {
+    if (ENV_TOKEN) return ENV_TOKEN;
+    if (typeof window !== "undefined") return localStorage.getItem(STORAGE_KEY) || "";
+    return "";
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/social-data?token=${TOKEN}`);
+      const t = getToken();
+      const res = await fetch(`/api/admin/social-data?token=${encodeURIComponent(t)}`);
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       const json = await res.json();
       setMeta(json.meta);
@@ -102,8 +110,9 @@ export default function SocialDashboard() {
   const triggerSync = async (connector) => {
     setSyncing((s) => ({ ...s, [connector]: true }));
     try {
+      const t = getToken();
       const endpoint = connector === "meta" ? "/api/cron/meta-insights" : "/api/cron/youtube-analytics";
-      await fetch(`${endpoint}?secret=${TOKEN}`);
+      await fetch(`${endpoint}?secret=${encodeURIComponent(t)}`);
       await fetchData();
     } catch {}
     setSyncing((s) => ({ ...s, [connector]: false }));

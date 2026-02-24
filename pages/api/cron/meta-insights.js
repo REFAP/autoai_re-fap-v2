@@ -12,6 +12,7 @@
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
+const ADMIN_TOKEN = process.env.ADMIN_DASHBOARD_TOKEN || "";
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const META_PAGE_ID = process.env.META_PAGE_ID || "145915515278886";
 const GRAPH_API = "https://graph.facebook.com/v19.0";
@@ -41,9 +42,9 @@ async function fetchGraphAPI(endpoint, params = {}) {
 }
 
 export default async function handler(req, res) {
-  // Auth: cron secret or admin token
+  // Auth: cron secret or admin dashboard token
   const token = req.headers["x-cron-secret"] || req.query.secret;
-  if (CRON_SECRET && token !== CRON_SECRET) {
+  if (CRON_SECRET && token !== CRON_SECRET && !(ADMIN_TOKEN && token === ADMIN_TOKEN)) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 

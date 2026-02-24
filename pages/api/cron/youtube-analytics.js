@@ -12,6 +12,7 @@ import { google } from "googleapis";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
+const ADMIN_TOKEN = process.env.ADMIN_DASHBOARD_TOKEN || "";
 const YT_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID;
 
 // Service account credentials (JSON key or individual env vars)
@@ -68,8 +69,9 @@ function formatDate(d) {
 }
 
 export default async function handler(req, res) {
+  // Auth: cron secret or admin dashboard token
   const token = req.headers["x-cron-secret"] || req.query.secret;
-  if (CRON_SECRET && token !== CRON_SECRET) {
+  if (CRON_SECRET && token !== CRON_SECRET && !(ADMIN_TOKEN && token === ADMIN_TOKEN)) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
