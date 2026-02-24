@@ -248,9 +248,7 @@ export default async function handler(req, res) {
         debug.page_status = pageResp.status;
         html = await pageResp.text();
       } else if (loginResp.status === 200) {
-        // No redirect — maybe the page is already in the response
-        // Or we need a second GET with the cookie
-        if (loginBody.includes("d801") || loginBody.includes("<table")) {
+        if (loginBody.includes("dmn801") || loginBody.includes("labels")) {
           html = loginBody;
           debug.page_source = "login_body_contains_data";
         } else {
@@ -266,70 +264,106 @@ export default async function handler(req, res) {
       debug.html_500 = html.slice(0, 500);
 
       // 3. Extract JS data arrays embedded in <script>
+      //    Real vars: labels, dautres, dmn801, dmb_cum, dmntot_cum, dexo_mb, jlabels, j801, clabels
       const extractArr = (name) => {
         const m = html.match(new RegExp(`(?:const|var|let)\\s+${name}\\s*=\\s*(\\[.*?\\])`, "s"));
-        return m ? JSON.parse(m[1]) : [];
+        if (!m) return [];
+        try { return JSON.parse(m[1]); } catch { return []; }
       };
-      const d801 = extractArr("d801");
-      const d065 = extractArr("d065");
-      const d003 = extractArr("d003");
-      const d006 = extractArr("d006");
-      const dautres = extractArr("dautres");
-      const dca = extractArr("dca");
 
-      debug.arrays_found = { d801: d801.length, d065: d065.length, d003: d003.length, d006: d006.length, dautres: dautres.length, dca: dca.length };
+      const labels    = extractArr("labels");     // month labels, e.g. ["Oct 2025","Nov 2025",...]
+      const dmn801    = extractArr("dmn801");      // monthly ventes store 801 (Thiais)
+      const dautres   = extractArr("dautres");     // monthly ventes other stores
+      const dmb_cum   = extractArr("dmb_cum");     // cumulative marge brute
+      const dmntot_cum = extractArr("dmntot_cum"); // cumulative total monthly
+      const dexo_mb   = extractArr("dexo_mb");     // exercice marge brute
+      const j801      = extractArr("j801");        // daily store 801
 
-      // Also scan for any var/const/let assignments with "d" prefix as a hint
+      // Scan all JS arrays for debug
       const varMatches = html.match(/(?:const|var|let)\s+\w+\s*=\s*\[/g) || [];
       debug.all_js_arrays = varMatches.map(m => m.replace(/\s*=\s*\[$/, "").replace(/^(?:const|var|let)\s+/, ""));
+      debug.arrays_found = {
+        labels: labels.length, dmn801: dmn801.length, dautres: dautres.length,
+        dmb_cum: dmb_cum.length, dmntot_cum: dmntot_cum.length, dexo_mb: dexo_mb.length, j801: j801.length,
+      };
+      debug.labels_sample = labels.slice(0, 5);
 
-      if (d801.length === 0) {
-        return res.status(200).json({ status: "debug", error: "Aucune donnee FAP trouvee dans dashboard.php", debug });
+      if (labels.length === 0) {
+        return res.status(200).json({ status: "debug", error: "Aucun label de mois trouve (var labels)", debug });
+      }
+      if (dmn801.length === 0 && dautres.length === 0) {
+        return res.status(200).json({ status: "debug", error: "Aucune donnee ventes trouvee (dmn801/dautres vides)", debug });
       }
 
-      // 4. Extract month+year labels from HTML table cells (e.g. "Oct 2025", "Jan 2026")
-      const mMap = { Jan:"01", Fev:"02", "Fév":"02", Mar:"03", Avr:"04", Mai:"05", Juin:"06", Juil:"07", Aou:"08", "Aoû":"08", Sep:"09", Oct:"10", Nov:"11", Dec:"12", "Déc":"12" };
-      const monthNames = Object.keys(mMap).join("|");
-      const monthRx = new RegExp(`>(${monthNames})[\\.\\s]+?(\\d{4})`, "g");
-      const seen = new Set();
-      const months = [];
-      let mx;
-      while ((mx = monthRx.exec(html)) !== null) {
-        const key = `${mx[1]} ${mx[2]}`;
-        if (!seen.has(key)) { seen.add(key); months.push({ name: mx[1], year: mx[2] }); }
-      }
-      debug.months_found = months;
+      // 4. Parse month labels → date strings
+      //    Formats: "Oct 2025", "Oct. 2025", "Octobre 2025", "10/2025", etc.
+      const mMap = {
+        jan:"01", fev:"02", fév:"02", "fé":"02", mar:"03", avr:"04", mai:"05",
+        juin:"06", jui:"07", juil:"07", aou:"08", aoû:"08", sep:"09",
+        oct:"10", nov:"11", dec:"12", déc:"12",
+      };
+      const parseLabelDate = (label) => {
+        if (!label) return null;
+        const s = String(label).trim();
 
-      if (months.length === 0) {
-        return res.status(200).json({ status: "debug", error: "Aucune date trouvee dans dashboard.php", debug });
+        // Try "MM/YYYY" or "MM-YYYY"
+        const numMatch = s.match(/^(\d{1,2})[\/\-](\d{4})$/);
+        if (numMatch) return `${numMatch[2]}-${numMatch[1].padStart(2, "0")}-01`;
+
+        // Try "MonthName YYYY" or "MonthName. YYYY"
+        const txtMatch = s.match(/^([A-Za-zÀ-ÿ]+)\.?\s+(\d{4})$/);
+        if (txtMatch) {
+          const mKey = txtMatch[1].toLowerCase().slice(0, 4).replace(/\.$/, "");
+          // Try exact match on 4, 3 chars
+          const mm = mMap[mKey] || mMap[mKey.slice(0, 3)] || mMap[mKey.slice(0, 2)];
+          if (mm) return `${txtMatch[2]}-${mm}-01`;
+        }
+
+        // Try "YYYY-MM"
+        const isoMatch = s.match(/^(\d{4})-(\d{2})/);
+        if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-01`;
+
+        return null;
+      };
+
+      const months = labels.map(parseLabelDate);
+      debug.months_parsed = months;
+
+      const validMonths = months.filter(Boolean);
+      if (validMonths.length === 0) {
+        return res.status(200).json({ status: "debug", error: `Labels trouves mais non parses: ${JSON.stringify(labels.slice(0, 5))}`, debug });
       }
 
       // 5. Build rows per centre x month
       const centres = [
-        { arr: d801, magasin: "Thiais (94)" },
-        { arr: d065, magasin: "Lambres (59)" },
-        { arr: d003, magasin: "Villeneuve d'Ascq (59)" },
-        { arr: d006, magasin: "Sarcelles (95)" },
+        { arr: dmn801, magasin: "Thiais (94)" },
         { arr: dautres, magasin: "Autres CC" },
       ];
 
       const parsed2 = [];
-      for (let i = 0; i < months.length && i < d801.length; i++) {
-        const dateStr = `${months[i].year}-${mMap[months[i].name]}-01`;
-        const totalFap = (d801[i]||0) + (d065[i]||0) + (d003[i]||0) + (d006[i]||0) + (dautres[i]||0);
-        const ca = dca[i] || 0;
+      for (let i = 0; i < months.length; i++) {
+        if (!months[i]) continue;
+        const dateStr = months[i];
+        const fap801 = dmn801[i] || 0;
+        const fapAutres = dautres[i] || 0;
+        const totalFap = fap801 + fapAutres;
+
+        // ca_fap: use difference of cumulative marge brute if available
+        const caCum = dmb_cum[i] || 0;
+        const caCumPrev = i > 0 ? (dmb_cum[i - 1] || 0) : 0;
+        const caMonth = i === 0 ? caCum : caCum - caCumPrev;
 
         for (const c of centres) {
           const fap = c.arr[i] || 0;
           if (fap <= 0) continue;
-          const caShare = totalFap > 0 ? Math.round((fap / totalFap) * ca * 100) / 100 : 0;
+          const caShare = totalFap > 0 ? Math.round((fap / totalFap) * Math.abs(caMonth) * 100) / 100 : 0;
           parsed2.push({
             date: dateStr,
             magasin: c.magasin,
             ventes_fap: fap,
             ca_fap: caShare,
             ventes_total: totalFap,
-            ca_total: ca,
+            ca_total: Math.abs(caMonth),
             panier_moyen: fap > 0 ? Math.round((caShare / fap) * 100) / 100 : 0,
           });
         }
