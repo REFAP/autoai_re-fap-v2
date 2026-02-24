@@ -1,12 +1,13 @@
 // /pages/api/cron/youtube-analytics.js
 // Cron connector — YouTube Analytics API
-// Uses service account gsc-refap@refap-gsc.iam.gserviceaccount.com
+// Uses OAuth2 (user consent) instead of service account
 // Fetches: views, watch time, traffic sources
 //
-// Prerequisites:
-// 1. Enable YouTube Analytics API in Google Cloud project refap-gsc
-// 2. Add the service account as a manager on the YouTube channel
-//    OR use impersonation if Google Workspace domain-wide delegation is set up
+// Required env vars:
+//   YOUTUBE_OAUTH_CLIENT_ID
+//   YOUTUBE_OAUTH_CLIENT_SECRET
+//   YOUTUBE_REFRESH_TOKEN       (obtain via /api/cron/youtube-auth)
+//   YOUTUBE_CHANNEL_ID
 
 import { google } from "googleapis";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
@@ -15,13 +16,10 @@ const CRON_SECRET = process.env.CRON_SECRET || "";
 const ADMIN_TOKEN = process.env.ADMIN_DASHBOARD_TOKEN || "";
 const YT_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID;
 
-// Service account credentials (JSON key or individual env vars)
-const SA_EMAIL = process.env.GSC_CLIENT_EMAIL || process.env.GOOGLE_SA_EMAIL || "gsc-refap@refap-gsc.iam.gserviceaccount.com";
-const SA_KEY = process.env.GSC_PRIVATE_KEY || process.env.GOOGLE_SA_PRIVATE_KEY;
-// If using a JSON key file path
-const SA_KEY_FILE = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-// If impersonating a user (for domain-wide delegation)
-const IMPERSONATE_EMAIL = process.env.YOUTUBE_IMPERSONATE_EMAIL;
+// OAuth2 credentials
+const CLIENT_ID = process.env.YOUTUBE_OAUTH_CLIENT_ID;
+const CLIENT_SECRET = process.env.YOUTUBE_OAUTH_CLIENT_SECRET;
+const REFRESH_TOKEN = process.env.YOUTUBE_REFRESH_TOKEN;
 
 async function logSync(connector, status, rowsSynced, errorMsg) {
   await supabaseAdmin.from("social_sync_log").insert({
@@ -34,34 +32,20 @@ async function logSync(connector, status, rowsSynced, errorMsg) {
 }
 
 function getAuthClient() {
-  if (SA_KEY_FILE) {
-    // Use JSON key file
-    const auth = new google.auth.GoogleAuth({
-      keyFile: SA_KEY_FILE,
-      scopes: [
-        "https://www.googleapis.com/auth/yt-analytics.readonly",
-        "https://www.googleapis.com/auth/youtube.readonly",
-      ],
-      clientOptions: IMPERSONATE_EMAIL ? { subject: IMPERSONATE_EMAIL } : undefined,
-    });
-    return auth;
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    throw new Error(
+      "YOUTUBE_OAUTH_CLIENT_ID and YOUTUBE_OAUTH_CLIENT_SECRET must be set."
+    );
+  }
+  if (!REFRESH_TOKEN) {
+    throw new Error(
+      "YOUTUBE_REFRESH_TOKEN is missing. Visit /api/cron/youtube-auth to generate one."
+    );
   }
 
-  if (SA_KEY) {
-    // Use env vars directly
-    const auth = new google.auth.JWT({
-      email: SA_EMAIL,
-      key: SA_KEY.replace(/\\n/g, "\n"),
-      scopes: [
-        "https://www.googleapis.com/auth/yt-analytics.readonly",
-        "https://www.googleapis.com/auth/youtube.readonly",
-      ],
-      subject: IMPERSONATE_EMAIL || undefined,
-    });
-    return auth;
-  }
-
-  throw new Error("No Google credentials configured. Set GOOGLE_SA_PRIVATE_KEY or GOOGLE_APPLICATION_CREDENTIALS.");
+  const oauth2 = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
+  oauth2.setCredentials({ refresh_token: REFRESH_TOKEN });
+  return oauth2;
 }
 
 function formatDate(d) {
@@ -69,15 +53,12 @@ function formatDate(d) {
 }
 
 export default async function handler(req, res) {
-  console.log("[YT-ANALYTICS] === Start ===");
+  console.log("[YT-ANALYTICS] === Start (OAuth2 mode) ===");
   console.log("[YT-ANALYTICS] Env check:", {
     YOUTUBE_CHANNEL_ID: YT_CHANNEL_ID ? "set" : "UNSET",
-    GSC_CLIENT_EMAIL: process.env.GSC_CLIENT_EMAIL ? "set" : "UNSET",
-    GSC_PRIVATE_KEY: process.env.GSC_PRIVATE_KEY ? `set (${process.env.GSC_PRIVATE_KEY.length} chars)` : "UNSET",
-    GOOGLE_SA_EMAIL: process.env.GOOGLE_SA_EMAIL ? "set" : "UNSET",
-    GOOGLE_SA_PRIVATE_KEY: process.env.GOOGLE_SA_PRIVATE_KEY ? "set" : "UNSET",
-    GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS ? "set" : "UNSET",
-    YOUTUBE_IMPERSONATE_EMAIL: process.env.YOUTUBE_IMPERSONATE_EMAIL ? "set" : "UNSET",
+    YOUTUBE_OAUTH_CLIENT_ID: CLIENT_ID ? "set" : "UNSET",
+    YOUTUBE_OAUTH_CLIENT_SECRET: CLIENT_SECRET ? `set (${CLIENT_SECRET.length} chars)` : "UNSET",
+    YOUTUBE_REFRESH_TOKEN: REFRESH_TOKEN ? `set (${REFRESH_TOKEN.length} chars)` : "UNSET",
   });
 
   // Auth: cron secret or admin dashboard token
@@ -93,7 +74,7 @@ export default async function handler(req, res) {
   let auth;
   try {
     auth = getAuthClient();
-    console.log("[YT-ANALYTICS] Auth client created. SA_EMAIL:", SA_EMAIL, "| SA_KEY present:", !!SA_KEY, "| SA_KEY_FILE:", !!SA_KEY_FILE);
+    console.log("[YT-ANALYTICS] OAuth2 client created.");
   } catch (err) {
     console.error("[YT-ANALYTICS] getAuthClient() FAILED:", err.message);
     return res.status(500).json({ error: `Auth setup failed: ${err.message}` });
