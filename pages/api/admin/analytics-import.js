@@ -296,37 +296,45 @@ export default async function handler(req, res) {
       }
 
       // 4. Parse month labels → date strings
-      //    Formats: "Oct 2025", "Oct. 2025", "Octobre 2025", "10/2025", etc.
+      //    Labels can be short names without year: ["Oct","Nov","Dec","Jan","Fev*"]
+      //    Last entry (*) = current/partial month. Reconstruct years backwards.
       const mMap = {
-        jan:"01", fev:"02", fév:"02", "fé":"02", mar:"03", avr:"04", mai:"05",
-        juin:"06", jui:"07", juil:"07", aou:"08", aoû:"08", sep:"09",
-        oct:"10", nov:"11", dec:"12", déc:"12",
+        jan:1, fev:2, fév:2, mar:3, avr:4, mai:5,
+        juin:6, jui:7, juil:7, aou:8, aoû:8, sep:9,
+        oct:10, nov:11, dec:12, déc:12,
       };
-      const parseLabelDate = (label) => {
-        if (!label) return null;
-        const s = String(label).trim();
+      const labelToMonth = (raw) => {
+        if (!raw) return 0;
+        const s = String(raw).replace(/\*/g, "").replace(/\./g, "").trim().toLowerCase();
+        return mMap[s] || mMap[s.slice(0, 4)] || mMap[s.slice(0, 3)] || 0;
+      };
 
-        // Try "MM/YYYY" or "MM-YYYY"
-        const numMatch = s.match(/^(\d{1,2})[\/\-](\d{4})$/);
-        if (numMatch) return `${numMatch[2]}-${numMatch[1].padStart(2, "0")}-01`;
+      // Convert each label to its month number (1-12)
+      const monthNums = labels.map(labelToMonth);
+      debug.month_nums = monthNums;
 
-        // Try "MonthName YYYY" or "MonthName. YYYY"
-        const txtMatch = s.match(/^([A-Za-zÀ-ÿ]+)\.?\s+(\d{4})$/);
-        if (txtMatch) {
-          const mKey = txtMatch[1].toLowerCase().slice(0, 4).replace(/\.$/, "");
-          // Try exact match on 4, 3 chars
-          const mm = mMap[mKey] || mMap[mKey.slice(0, 3)] || mMap[mKey.slice(0, 2)];
-          if (mm) return `${txtMatch[2]}-${mm}-01`;
+      // Assign years: last label = current month/year, walk backwards
+      const now = new Date();
+      const curYear = now.getFullYear();
+      const curMonth = now.getMonth() + 1; // 1-12
+
+      const months = new Array(labels.length).fill(null);
+      if (monthNums.length > 0) {
+        // Start from last element = most recent (current month)
+        let y = curYear;
+        let prevMn = monthNums[monthNums.length - 1];
+        if (prevMn > 0) {
+          months[monthNums.length - 1] = `${y}-${String(prevMn).padStart(2, "0")}-01`;
         }
-
-        // Try "YYYY-MM"
-        const isoMatch = s.match(/^(\d{4})-(\d{2})/);
-        if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-01`;
-
-        return null;
-      };
-
-      const months = labels.map(parseLabelDate);
+        // Walk backwards
+        for (let i = monthNums.length - 2; i >= 0; i--) {
+          const mn = monthNums[i];
+          if (mn <= 0) continue;
+          if (mn >= prevMn) y--; // crossed year boundary (e.g. Dec→Jan means previous year)
+          months[i] = `${y}-${String(mn).padStart(2, "0")}-01`;
+          prevMn = mn;
+        }
+      }
       debug.months_parsed = months;
 
       const validMonths = months.filter(Boolean);
