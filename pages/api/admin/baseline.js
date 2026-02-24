@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const CUTOVER_DATE = "2026-02-22";
 const BASELINE_DAYS = 30;
+const ADMIN_TOKEN = process.env.ADMIN_DASHBOARD_TOKEN || "re-fap-2026-dash";
 
 function getSupabase() {
   return createClient(
@@ -111,6 +112,19 @@ function analyse(enrichments, messages) {
 }
 
 export default async function handler(req, res) {
+  // CORS
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  // Auth par token (même mécanisme que stats.js)
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "").trim() || req.query.token;
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: "Token invalide" });
+  }
+
   const supabase = getSupabase();
   const cutoverEnd = CUTOVER_DATE + "T00:00:00Z";
   const cutoverStart = new Date(new Date(cutoverEnd).getTime() - BASELINE_DAYS * 86400000).toISOString();
