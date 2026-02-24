@@ -16,8 +16,8 @@ const ADMIN_TOKEN = process.env.ADMIN_DASHBOARD_TOKEN || "";
 const YT_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID;
 
 // Service account credentials (JSON key or individual env vars)
-const SA_EMAIL = process.env.GOOGLE_SA_EMAIL || "gsc-refap@refap-gsc.iam.gserviceaccount.com";
-const SA_KEY = process.env.GOOGLE_SA_PRIVATE_KEY;
+const SA_EMAIL = process.env.GSC_CLIENT_EMAIL || process.env.GOOGLE_SA_EMAIL || "gsc-refap@refap-gsc.iam.gserviceaccount.com";
+const SA_KEY = process.env.GSC_PRIVATE_KEY || process.env.GOOGLE_SA_PRIVATE_KEY;
 // If using a JSON key file path
 const SA_KEY_FILE = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 // If impersonating a user (for domain-wide delegation)
