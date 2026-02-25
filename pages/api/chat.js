@@ -820,7 +820,7 @@ function everGaveExpertOrientation(history) {
   for (let i = 0; i < history.length; i++) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("cendres métalliques") || content.includes("que je te détaille") || content.includes("fap doit être démonté") || content.includes("carter-cash équipé")) return true;
+      if (content.includes("cendres métalliques") || content.includes("que je te détaille") || content.includes("fap doit être démonté")) return true;
     }
   }
   return false;
@@ -1053,12 +1053,25 @@ function extractYearFromMessage(text) {
 
 function extractKmFromMessage(text) {
   const t = String(text || "").toLowerCase().replace(/\s/g, "");
+  const tRaw = String(text || "");
+  // Exclure si le message contient un contexte de localisation (code postal)
+  const hasLocationContext = /\b\d{5}\b/.test(tRaw) && /ville|habite|suis (a|à|au|en|dans)|code.?postal|cp|quartier|secteur|pari|lyon|marseil|bordeau|lill|nante|toulous|clermont|region|département/i.test(tRaw);
+  if (hasLocationContext) return null;
   let match = t.match(/(\d{2,3})000k?m?/);
-  if (match) return match[1] + "000 km";
+  if (match) {
+    // Exclure les codes postaux courants (10000-99000 sans suffixe km)
+    const full = match[0];
+    if (/^\d{5}$/.test(full) && !(/km?$/i.test(full))) return null;
+    return match[1] + "000 km";
+  }
   match = t.match(/(\d{2,3})k/);
   if (match) return match[1] + "000 km";
   match = t.match(/\b(\d{5,6})\b/);
-  if (match) return match[1] + " km";
+  if (match) {
+    // Exclure les codes postaux (5 chiffres purs sans contexte km)
+    if (/\b\d{5}\b/.test(tRaw) && !/km|kilo|borne/i.test(tRaw)) return null;
+    return match[1] + " km";
+  }
   return null;
 }
 
@@ -1456,7 +1469,7 @@ const CARTER_CASH_LIST = [
   {name:"Carter-Cash Saint-Etienne",city:"Saint-Etienne",postal:"42000",dept:"42",equipped:false,lat:45.439,lng:4.387},
   {name:"Carter-Cash La Ricamarie",city:"La Ricamarie",postal:"42150",dept:"42",equipped:false,lat:45.395,lng:4.370},
   {name:"Carter-Cash Orvault",city:"Orvault",postal:"44700",dept:"44",equipped:false,lat:47.272,lng:-1.623},
-  {name:"Carter-Cash Sainte-Luce-sur-Loire",city:"Sainte-Luce-sur-Loire",postal:"44980",dept:"44",equipped:false,lat:47.249,lng:-1.478},
+  {name:"Carter-Cash Sainte-Luce-sur-Loire",city:"Sainte-Luce-sur-Loire",postal:"44980",dept:"44",equipped:true,lat:47.249,lng:-1.478},
   {name:"Carter-Cash Saran",city:"Saran",postal:"45770",dept:"45",equipped:false,lat:47.948,lng:1.875},
   {name:"Carter-Cash Beaucouze",city:"Beaucouze",postal:"49070",dept:"49",equipped:false,lat:47.472,lng:-0.616},
   {name:"Carter-Cash Reims",city:"Reims",postal:"51100",dept:"51",equipped:false,lat:49.253,lng:3.960},
@@ -2865,7 +2878,11 @@ function detectFAQ(message) {
 }
 
 function buildFAQResponse(faqEntry, extracted) {
-  const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_vehicule" };
+  // Adapter next_best_action selon les données déjà collectées
+  let nba = "demander_vehicule";
+  if (extracted?.marque && extracted?.ville) nba = "proposer_devis";
+  else if (extracted?.marque) nba = "demander_ville";
+  const data = { ...(extracted || DEFAULT_DATA), next_best_action: nba };
   const replyClean = faqEntry.reponse(extracted);
   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
 }
@@ -3570,15 +3587,6 @@ function getMissingDataQuestion(extracted, history) {
   if (extracted?.marque && !extracted?.kilometrage && !everAskedKm(history)) {
     return { field: "kilometrage", question: `Elle a combien de km à peu près ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} ?` };
   }
-  if (lastBot && /quel mod[eè]le|combien de km|quelle ann[eé]e|code erreur|type de trajet|quel coin/i.test(lastBot)) {
-    return null;
-  }
-  if (extracted?.marque && !extracted?.modele && !everAskedModel(history)) {
-    return { field: "modele", question: `Au fait, c'est quel modèle exactement ta ${extracted.marque} ? (et l'année si tu l'as)` };
-  }
-  if (extracted?.marque && !extracted?.kilometrage && !everAskedKm(history)) {
-    return { field: "kilometrage", question: `Elle a combien de km à peu près ta ${extracted.marque}${extracted.modele ? " " + extracted.modele : ""} ?` };
-  }
   return null;
 }
 function getLastAssistantMessage(history) {
@@ -3779,7 +3787,12 @@ export default async function handler(req, res) {
     // OVERRIDE 1 : Closing question + OUI → Formulaire
     // P3 FIX: Si un résumé de rappel a déjà été envoyé, ne pas le renvoyer
     // ========================================
-    if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history)) && userSaysYes(message)) {
+    // Guard: exclure les messages de clôture ("ok merci", "super merci", "parfait merci")
+    // pour qu'ils tombent dans Override P2 au lieu de déclencher le FormCTA
+    const tClosureGuard = message.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const isClosureNotYes = /^(ok\s*merci|super\s*merci|parfait\s*merci|top\s*merci|merci|c.est bon merci|ok c.est bon)[\s!.]*$/i.test(tClosureGuard);
+
+    if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history)) && userSaysYes(message) && !isClosureNotYes) {
       // P3 FIX: Vérifier si un FormCTA (résumé rappel) a déjà été envoyé
       const alreadySentFormCTA = history.some(h => h?.role === "assistant" && /résumé de ta situation|un expert re-fap te rappelle/i.test(String(h.raw || h.content || "")));
       if (alreadySentFormCTA) {
@@ -4180,9 +4193,14 @@ export default async function handler(req, res) {
       lastExtracted.certitude_fap = "moyenne";
     }
 
-    // 2. Pas de marque → demander
+    // 2. Pas de marque → demander (avec anti-boucle)
     if (!lastExtracted.marque) {
-      return sendResponse(buildVehicleQuestion(lastExtracted));
+      if (!lastAssistantAskedVehicle(history)) {
+        return sendResponse(buildVehicleQuestion(lastExtracted));
+      }
+      // Anti-boucle : le bot a déjà demandé la marque, l'utilisateur a répondu
+      // avec un texte non reconnu → on continue le flow sans marque
+      // plutôt que de boucler indéfiniment
     }
 
     // 3. Pas de modèle → demander (sauf flow OBD)
