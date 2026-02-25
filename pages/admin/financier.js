@@ -71,19 +71,12 @@ export default function Financier() {
   useEffect(() => {
     async function load() {
       try {
-        const { createClient } = await import("@supabase/supabase-js");
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        );
-        const [v, m] = await Promise.all([
-          supabase.from("cc_ventes_mensuelles").select("*").order("mois"),
-          supabase.from("cc_marges_mensuelles").select("*").order("mois"),
-        ]);
-        if (v.error) throw v.error;
-        if (m.error) throw m.error;
-        setVentes(v.data || []);
-        setMarges(m.data || []);
+        const token = process.env.NEXT_PUBLIC_ADMIN_TOKEN || "re-fap-2026-dash";
+        const resp = await fetch(`/api/admin/cc-stats?token=${encodeURIComponent(token)}`);
+        if (!resp.ok) throw new Error(`Erreur API ${resp.status}`);
+        const json = await resp.json();
+        setVentes(json.ventes || []);
+        setMarges(json.marges || []);
       } catch (e) {
         setError(e.message);
       } finally {
