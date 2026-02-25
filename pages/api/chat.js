@@ -275,6 +275,8 @@ function quickExtract(text) {
     result.symptome_key = "odeur_anormale";
   } else if (hasVoyantGeneric) {
     result.symptome_key = "voyant_moteur_seul";
+  } else if (hasVoyantAny) {
+    result.symptome_key = "voyant_moteur_seul";
   }
 
   // --- CODES OBD ---
@@ -4037,6 +4039,20 @@ export default async function handler(req, res) {
 
       // Qualification voyant FAP vs moteur générique (4 choix)
       if (lastBotMsg.includes("quel type de voyant") || lastBotMsg.includes("fap / filtre") || lastBotMsg.includes("symbole avec des points")) {
+        // Si l'utilisateur donne une marque au lieu de répondre à la qualifying question,
+        // capturer le symptôme par défaut (voyant_fap) + la marque, et demander le modèle
+        const marqueInQualif = detectMarque(message);
+        if (marqueInQualif && marqueInQualif.famille !== "diesel_generique") {
+          lastExtracted.symptome = lastExtracted.symptome !== "inconnu" && lastExtracted.symptome ? lastExtracted.symptome : "voyant_fap";
+          if (lastExtracted.certitude_fap === "inconnue" || !lastExtracted.certitude_fap) lastExtracted.certitude_fap = "haute";
+          lastExtracted.marque = marqueInQualif.marque || lastExtracted.marque;
+          const msgModele = extractModelFromMessage(message);
+          if (msgModele) lastExtracted.modele = msgModele;
+          const msgAnnee = extractYearFromMessage(message);
+          if (msgAnnee) lastExtracted.annee = msgAnnee;
+          return sendResponse(buildModelQuestion(lastExtracted));
+        }
+
         const isFAPVoyant = /voyant.*(fap|filtre|particule|dpf)|fap|filtre|points|pot.*(echapp|exhaust)|symbole.*(filtre|fap)|1[^2-9]|premi/i.test(message);
         const isMoteurVoyant = /moteur|cl[eé]|triangle|g[eé]n[eé]rique|orange|check|2[^0-9]|deuxi/i.test(message);
         const isBoth = /deux|both|les.?deux|aussi|en.?m[eê]me|combo|et.*(moteur|fap)/i.test(message);
