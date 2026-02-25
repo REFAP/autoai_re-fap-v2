@@ -91,7 +91,7 @@ export default function Financier() {
   ventes.forEach((r) => {
     if (r.code_centre === "total") return;
     if (!fapMap[r.code_centre]) fapMap[r.code_centre] = {};
-    fapMap[r.code_centre][r.mois] = r.nb_fap;
+    fapMap[r.code_centre][r.mois] = Number(r.nb_fap) || 0;
   });
 
   // CA global par mois (ligne total)
@@ -100,14 +100,33 @@ export default function Financier() {
     if (r.code_centre === "total") caMap[r.mois] = Number(r.ca_ht) || 0;
   });
 
-  // Marge brute par centre par mois
-  const mbMap = {};
-  marges.forEach((r) => {
-    if (!mbMap[r.code_centre]) mbMap[r.code_centre] = {};
-    mbMap[r.code_centre][r.mois] = Number(r.marge_brute) || 0;
+  // FAP total par mois (pour prorata)
+  const fapTotalParMois = {};
+  MOIS_ORDER.forEach((m) => {
+    fapTotalParMois[m] = Object.keys(CENTRES).reduce((a, c) => a + (fapMap[c]?.[m] || 0), 0);
   });
 
-  // Totaux marge brute par mois (tous centres)
+  // Loyer prorate par centre par mois
+  const loyerMap = {};
+  marges.forEach((r) => {
+    if (!loyerMap[r.code_centre]) loyerMap[r.code_centre] = {};
+    loyerMap[r.code_centre][r.mois] = Number(r.loyer_prorate) || 0;
+  });
+
+  // Marge nette = CA prorata - loyer
+  const mbMap = {};
+  Object.keys(CENTRES).forEach((code) => {
+    mbMap[code] = {};
+    MOIS_ORDER.forEach((m) => {
+      const fap      = fapMap[code]?.[m] || 0;
+      const fapTotal = fapTotalParMois[m] || 1;
+      const ca       = caMap[m] || 0;
+      const loyer    = loyerMap[code]?.[m] || 0;
+      mbMap[code][m] = fap > 0 ? Math.round((ca * fap / fapTotal - loyer) * 100) / 100 : 0;
+    });
+  });
+
+  // Totaux marge nette par mois
   const mbTotaux = {};
   MOIS_ORDER.forEach((m) => {
     mbTotaux[m] = Object.keys(CENTRES).reduce((a, c) => a + (mbMap[c]?.[m] || 0), 0);
@@ -157,7 +176,7 @@ export default function Financier() {
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Oct 2025 – Fév 2026</div>
                 </div>
                 <div style={{ ...s.card, borderLeft: `3px solid ${C.orange}` }}>
-                  <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>MB Brute (sans loyers)</div>
+                  <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>MN par Centre (CA - Loyer)</div>
                   <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "monospace", color: C.orange }}>{fmt(mbTotalExercice)}</div>
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Tous centres</div>
                 </div>
@@ -214,7 +233,7 @@ export default function Financier() {
 
               {/* MARGE MENSUELLE */}
               <div style={s.section}>
-                <div style={s.sectionTitle}>MB Brute Mensuelle par Centre (sans loyers)</div>
+                <div style={s.sectionTitle}>MN Mensuelle par Centre (CA - Loyer)</div>
                 <div style={s.card}>
                   <table style={s.table}>
                     <thead>
@@ -256,7 +275,7 @@ export default function Financier() {
 
               {/* MARGE CUMULÉE */}
               <div style={s.section}>
-                <div style={s.sectionTitle}>MB Brute Cumulée (sans loyers)</div>
+                <div style={s.sectionTitle}>MN Cumulée (CA - Loyer)</div>
                 <div style={{ display: "flex", gap: 12 }}>
                   {margeCumulee.map((mc) => (
                     <div key={mc.mois} style={{ flex: 1, background: C.surface, border: `1px solid ${mc.cumul >= 0 ? "#22c55e33" : "#ef444433"}`, borderRadius: 10, padding: "16px 20px" }}>
