@@ -95,11 +95,15 @@ export default async function handler(req, res) {
       // Get all months from marges (which has per-centre data)
       const months = [...new Set(marges.map(m => m.mois))].sort();
 
-      // Build CA total by month from "total" rows in cc_ventes_mensuelles
+      // Build CA by month and centre from cc_ventes_mensuelles
+      const caMap = {};
       const caTotalByMonth = {};
       for (const v of ventes) {
+        if (!caMap[v.mois]) caMap[v.mois] = {};
         if (v.code_centre === "total") {
           caTotalByMonth[v.mois] = Number(v.ca_ht) || 0;
+        } else {
+          caMap[v.mois][v.code_centre] = Number(v.ca_ht) || 0;
         }
       }
 
@@ -113,11 +117,16 @@ export default async function handler(req, res) {
         };
       }
 
-      // CA mensuel: _total from cc_ventes_mensuelles "total" rows
+      // CA mensuel par centre + total
       const caMensuel = months.map(m => {
         const row = { month: m };
-        for (const c of CENTRE_CODES) row[c] = 0;
-        row._total = caTotalByMonth[m] || 0;
+        let total = 0;
+        for (const c of CENTRE_CODES) {
+          const val = caMap[m]?.[c] || 0;
+          row[c] = val;
+          total += val;
+        }
+        row._total = caTotalByMonth[m] || total;
         return row;
       });
 

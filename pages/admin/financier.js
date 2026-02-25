@@ -33,6 +33,14 @@ const NAV_ITEMS = [
   { href: "/admin/cc-ventes", label: "CC Ventes" },
 ];
 
+const CENTRES = {
+  '801': 'Thiais (94)',
+  '065': 'Lambres (59)',
+  '003': "Villeneuve d'Ascq (59)",
+  '006': 'Sarcelles (95)',
+  'autres': 'Autres CC',
+};
+
 const fmt = (n) => n != null ? Number(n).toLocaleString("fr-FR") : "\u2014";
 
 export default function FinancierDashboard() {
@@ -137,7 +145,7 @@ export default function FinancierDashboard() {
                     let centreTotal = 0;
                     return (
                       <tr key={centre} style={{ borderBottom: `1px solid ${C.border}20` }}>
-                        <td style={{ padding: "6px 8px", fontWeight: 500, fontSize: 12, position: "sticky", left: 0, background: C.surface }}>{centre}</td>
+                        <td style={{ padding: "6px 8px", fontWeight: 500, fontSize: 12, position: "sticky", left: 0, background: C.surface }}>{CENTRES[centre] || centre}</td>
                         {data.caMensuel.map(row => {
                           const val = row[centre] || 0;
                           centreTotal += val;
@@ -191,7 +199,7 @@ export default function FinancierDashboard() {
                     let centreTotal = 0;
                     return (
                       <tr key={centre} style={{ borderBottom: `1px solid ${C.border}20` }}>
-                        <td style={{ padding: "6px 8px", fontWeight: 500, fontSize: 12, position: "sticky", left: 0, background: C.surface }}>{centre}</td>
+                        <td style={{ padding: "6px 8px", fontWeight: 500, fontSize: 12, position: "sticky", left: 0, background: C.surface }}>{CENTRES[centre] || centre}</td>
                         {data.margeMensuelle.map(row => {
                           const val = row[centre] || 0;
                           centreTotal += val;
