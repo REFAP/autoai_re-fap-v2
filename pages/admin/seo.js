@@ -110,6 +110,7 @@ export default function SeoDashboard() {
             { href: "/admin/magasins", label: "Magasins" },
             { href: "/admin/analytics", label: "Analytics" },
             { href: "/admin/financier", label: "Financier" },
+            { href: "/admin/cc-ventes", label: "CC Ventes" },
           ].map((item) => (
             <Link key={item.href} href={item.href} style={{
               padding: "10px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none",
