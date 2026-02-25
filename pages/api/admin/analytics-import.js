@@ -304,6 +304,25 @@ export default async function handler(req, res) {
         });
       }
 
+      // Safety net: ensure every row has week_end (required NOT NULL column)
+      for (const row of mapped) {
+        if (!row.week_end) {
+          // Derive week_end from week_start: detect if monthly (day=01) or weekly
+          const ws = row.week_start || "";
+          if (ws.endsWith("-01")) {
+            // Monthly: last day of that month
+            const [y, m] = ws.split("-").map(Number);
+            const lastDay = new Date(y, m, 0).getDate();
+            row.week_end = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+          } else {
+            // Weekly: +6 days
+            const d = new Date(ws + "T00:00:00Z");
+            d.setUTCDate(d.getUTCDate() + 6);
+            row.week_end = d.toISOString().split("T")[0];
+          }
+        }
+      }
+
       // Batch upsert (500 per batch) — UNIQUE constraint on (store_code, week_start)
       let totalInserted = 0;
       for (let i = 0; i < mapped.length; i += 500) {
