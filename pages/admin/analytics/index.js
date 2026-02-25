@@ -45,25 +45,17 @@ const NAV_ITEMS = [
   { href: "/admin/performance", label: "Performance" },
   { href: "/admin/magasins", label: "Magasins" },
   { href: "/admin/analytics", label: "Analytics" },
+  { href: "/admin/financier", label: "Financier" },
 ];
 
 const fmt = (n) => n != null ? Number(n).toLocaleString("fr-FR") : "\u2014";
 const fmtPct = (n) => n != null ? `${Number(n).toFixed(1)}%` : "\u2014";
-
-const SUB_TABS = [
-  { key: "synthese", label: "Synthese" },
-  { key: "financier", label: "Financier" },
-];
 
 export default function AnalyticsDashboard() {
   const [data, setData] = useState(null);
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("synthese");
-  const [finData, setFinData] = useState(null);
-  const [finLoading, setFinLoading] = useState(false);
-  const [finError, setFinError] = useState(null);
 
   const getToken = () => TOKEN || (typeof window !== "undefined" ? localStorage.getItem("fapexpert_admin_token") || "" : "");
 
@@ -80,21 +72,7 @@ export default function AnalyticsDashboard() {
     setLoading(false);
   }, [days]);
 
-  const fetchFinData = useCallback(async () => {
-    setFinLoading(true);
-    setFinError(null);
-    try {
-      const resp = await fetch(`/api/admin/analytics-data?type=financier&token=${encodeURIComponent(getToken())}`);
-      if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || `Erreur ${resp.status}`);
-      setFinData(await resp.json());
-    } catch (e) {
-      setFinError(e.message);
-    }
-    setFinLoading(false);
-  }, []);
-
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { if (activeTab === "financier" && !finData && !finLoading) fetchFinData(); }, [activeTab, finData, finLoading, fetchFinData]);
 
   const exportBrief = () => {
     if (!data) return;
@@ -317,225 +295,13 @@ export default function AnalyticsDashboard() {
           ))}
         </nav>
 
-        {/* Sub-tabs */}
-        <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 32px", display: "flex", gap: 0 }}>
-          {SUB_TABS.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-              padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-              background: "transparent", border: "none", fontFamily: "inherit",
-              color: activeTab === tab.key ? C.green : C.muted,
-              borderBottom: activeTab === tab.key ? `2px solid ${C.green}` : "2px solid transparent",
-            }}>{tab.label}</button>
-          ))}
-        </div>
-
-        {/* ═══════ TAB: FINANCIER ═══════ */}
-        {activeTab === "financier" && (
-          <main style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 32px" }}>
-            {finLoading && !finData && (
-              <div style={{ textAlign: "center", padding: 80, color: C.muted }}>Chargement des donnees financieres...</div>
-            )}
-            {finError && !finData && (
-              <div style={{ textAlign: "center", padding: 80 }}>
-                <div style={{ color: C.red, marginBottom: 16 }}>{finError}</div>
-                <button onClick={fetchFinData} style={{
-                  background: C.green, color: "#000", border: "none",
-                  padding: "10px 24px", borderRadius: 8, fontWeight: 600, cursor: "pointer",
-                }}>Reessayer</button>
-              </div>
-            )}
-            {finData && (
-              <>
-                {/* CA mensuel par centre */}
-                <SectionTitle title="CA mensuel par centre (HT)" />
-                <div style={{
-                  background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-                  padding: 24, marginBottom: 32, overflowX: "auto",
-                }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                        <th style={{ padding: 8, textAlign: "left", color: C.muted, fontWeight: 500, position: "sticky", left: 0, background: C.surface }}>Centre</th>
-                        {finData.months.map(m => (
-                          <th key={m} style={{ padding: 8, textAlign: "right", color: C.text, fontWeight: 600, minWidth: 90 }}>
-                            {m.slice(5)}/{m.slice(2, 4)}
-                          </th>
-                        ))}
-                        <th style={{ padding: 8, textAlign: "right", color: C.orange, fontWeight: 700 }}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {finData.centres.map(centre => {
-                        let centreTotal = 0;
-                        return (
-                          <tr key={centre} style={{ borderBottom: `1px solid ${C.border}20` }}>
-                            <td style={{ padding: "6px 8px", fontWeight: 500, fontSize: 12, position: "sticky", left: 0, background: C.surface }}>{centre}</td>
-                            {finData.caMensuel.map(row => {
-                              const val = row[centre] || 0;
-                              centreTotal += val;
-                              return (
-                                <td key={row.month} style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: val > 0 ? C.text : C.muted }}>
-                                  {val > 0 ? `${fmt(val)}\u20AC` : "\u2014"}
-                                </td>
-                              );
-                            })}
-                            <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: C.orange, fontWeight: 700 }}>
-                              {fmt(Math.round(centreTotal * 100) / 100)}\u20AC
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      <tr style={{ borderTop: `2px solid ${C.border}` }}>
-                        <td style={{ padding: 8, fontWeight: 700, color: C.text, position: "sticky", left: 0, background: C.surface }}>Total</td>
-                        {finData.caMensuel.map(row => (
-                          <td key={row.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.text, fontWeight: 700 }}>
-                            {fmt(row._total)}\u20AC
-                          </td>
-                        ))}
-                        <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.orange, fontWeight: 700 }}>
-                          {fmt(finData.caMensuel.reduce((s, r) => s + r._total, 0).toFixed(2))}\u20AC
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Marge mensuelle par centre */}
-                <SectionTitle title="Marge mensuelle par centre" />
-                <div style={{
-                  background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-                  padding: 24, marginBottom: 32, overflowX: "auto",
-                }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                        <th style={{ padding: 8, textAlign: "left", color: C.muted, fontWeight: 500, position: "sticky", left: 0, background: C.surface }}>Centre</th>
-                        {finData.months.map(m => (
-                          <th key={m} style={{ padding: 8, textAlign: "right", color: C.text, fontWeight: 600, minWidth: 90 }}>
-                            {m.slice(5)}/{m.slice(2, 4)}
-                          </th>
-                        ))}
-                        <th style={{ padding: 8, textAlign: "right", color: C.green, fontWeight: 700 }}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {finData.centres.map(centre => {
-                        let centreTotal = 0;
-                        return (
-                          <tr key={centre} style={{ borderBottom: `1px solid ${C.border}20` }}>
-                            <td style={{ padding: "6px 8px", fontWeight: 500, fontSize: 12, position: "sticky", left: 0, background: C.surface }}>{centre}</td>
-                            {finData.margeMensuelle.map(row => {
-                              const val = row[centre] || 0;
-                              centreTotal += val;
-                              return (
-                                <td key={row.month} style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: val > 0 ? C.green : C.muted }}>
-                                  {val > 0 ? `${fmt(val)}\u20AC` : "\u2014"}
-                                </td>
-                              );
-                            })}
-                            <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
-                              {fmt(Math.round(centreTotal * 100) / 100)}\u20AC
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      <tr style={{ borderTop: `2px solid ${C.border}` }}>
-                        <td style={{ padding: 8, fontWeight: 700, color: C.text, position: "sticky", left: 0, background: C.surface }}>Total</td>
-                        {finData.margeMensuelle.map(row => (
-                          <td key={row.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
-                            {fmt(row._total)}\u20AC
-                          </td>
-                        ))}
-                        <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
-                          {fmt(finData.margeMensuelle.reduce((s, r) => s + r._total, 0).toFixed(2))}\u20AC
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Marge cumulee */}
-                <SectionTitle title="Marge cumulee" />
-                <div style={{
-                  background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-                  padding: 24, marginBottom: 32,
-                }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
-                    {finData.margeCumulee.map((row, i) => (
-                      <div key={row.month} style={{
-                        background: "#1a2234", borderRadius: 10, padding: "14px 18px",
-                        borderLeft: `3px solid ${C.yellow}`,
-                      }}>
-                        <div style={{ fontSize: 12, color: C.sub, marginBottom: 4 }}>
-                          {row.month.slice(5)}/{row.month.slice(0, 4)}
-                        </div>
-                        <div style={{ fontSize: 22, fontWeight: 700, color: C.yellow, fontFamily: "monospace" }}>
-                          {fmt(row.marge_cum)}\u20AC
-                        </div>
-                        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                          +{fmt(row.marge)}\u20AC ce mois
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* SVG bar chart for cumulative marge */}
-                  {finData.margeCumulee.length > 1 && (() => {
-                    const W = 900, H = 250, PAD = { top: 20, right: 20, bottom: 40, left: 70 };
-                    const plotW = W - PAD.left - PAD.right;
-                    const plotH = H - PAD.top - PAD.bottom;
-                    const maxVal = Math.max(1, ...finData.margeCumulee.map(r => r.marge_cum));
-                    const barW = Math.min(60, plotW / finData.margeCumulee.length - 8);
-
-                    return (
-                      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
-                        {[0, 0.25, 0.5, 0.75, 1].map(pct => {
-                          const y = PAD.top + plotH * (1 - pct);
-                          return (
-                            <g key={pct}>
-                              <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke={C.border} strokeWidth={0.5} />
-                              <text x={PAD.left - 6} y={y + 4} textAnchor="end" fill={C.muted} fontSize={10} fontFamily="monospace">
-                                {fmt(Math.round(maxVal * pct))}
-                              </text>
-                            </g>
-                          );
-                        })}
-                        {finData.margeCumulee.map((row, i) => {
-                          const x = PAD.left + (i + 0.5) * (plotW / finData.margeCumulee.length) - barW / 2;
-                          const barH = (row.marge_cum / maxVal) * plotH;
-                          const y = PAD.top + plotH - barH;
-                          return (
-                            <g key={row.month}>
-                              <rect x={x} y={y} width={barW} height={barH} fill={C.yellow} opacity={0.85} rx={3} />
-                              <text x={x + barW / 2} y={H - 8} textAnchor="middle" fill={C.muted} fontSize={10} fontFamily="monospace">
-                                {row.month.slice(5)}/{row.month.slice(2, 4)}
-                              </text>
-                              <text x={x + barW / 2} y={y - 6} textAnchor="middle" fill={C.yellow} fontSize={10} fontWeight={600} fontFamily="monospace">
-                                {fmt(row.marge_cum)}
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </svg>
-                    );
-                  })()}
-                </div>
-
-                <div style={{ textAlign: "center", fontSize: 11, color: C.muted, marginTop: 24 }}>
-                  Re-FAP — Financier v1.0
-                </div>
-              </>
-            )}
-          </main>
-        )}
-
         {/* Loading */}
-        {activeTab === "synthese" && loading && !data && (
+        {loading && !data && (
           <div style={{ textAlign: "center", padding: 80, color: C.muted }}>Chargement des donnees analytics...</div>
         )}
 
         {/* Error */}
-        {activeTab === "synthese" && error && !data && (
+        {error && !data && (
           <div style={{ textAlign: "center", padding: 80 }}>
             <div style={{ color: C.red, marginBottom: 16 }}>{error}</div>
             <button onClick={fetchData} style={{
@@ -546,7 +312,7 @@ export default function AnalyticsDashboard() {
         )}
 
         {/* Content */}
-        {activeTab === "synthese" && data && (
+        {data && (
           <main style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 32px" }}>
 
             {/* ═══════ SECTION 1: VUE SYNTHESE ═══════ */}

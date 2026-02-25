@@ -42,6 +42,7 @@ const NAV_ITEMS = [
   { href: "/admin/performance", label: "Performance" },
   { href: "/admin/magasins", label: "Magasins" },
   { href: "/admin/analytics", label: "Analytics" },
+  { href: "/admin/financier", label: "Financier" },
 ];
 
 // Simple CSV parser
