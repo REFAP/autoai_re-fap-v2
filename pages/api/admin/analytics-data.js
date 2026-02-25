@@ -67,7 +67,7 @@ export default async function handler(req, res) {
   if (!supabase) return res.status(500).json({ error: "Supabase non configuré" });
 
   try {
-    const days = parseInt(req.query.days) || 30;
+    const days  = parseInt(req.query.days) || 30;
     const since = dateDaysAgo(days);
 
     const [
@@ -102,29 +102,34 @@ export default async function handler(req, res) {
     const caGlobal = {};
     for (const r of ventesTotalRes.data || []) caGlobal[r.mois] = Number(r.ca_ht) || 0;
 
-    // Loyer proraté par mois+centre
+    // Marges et loyers par mois+centre
     const loyerMap = {};
-    for (const m of margesRes.data || []) loyerMap[`${m.mois}_${m.code_centre}`] = Number(m.loyer_prorate) || 0;
+    for (const m of margesRes.data || []) {
+      loyerMap[`${m.mois}_${m.code_centre}`] = Number(m.loyer_prorate) || 0;
+    }
 
-    // ─── FAP total par mois (pour prorata CA) ───
+    // FAP total par mois (pour prorata CA)
     const fapTotalParMois = {};
     for (const v of ventes) {
       fapTotalParMois[v.mois] = (fapTotalParMois[v.mois] || 0) + (Number(v.nb_fap) || 0);
     }
 
-    // ─── CC rows enrichis avec CA prorata ───
+    // CC rows : CA prorata + marge = CA prorata - loyer
     const cc = ventes.map(v => {
-      const fapTotal = fapTotalParMois[v.mois] || 1;
-      const ratio    = (Number(v.nb_fap) || 0) / fapTotal;
-      const caMois   = caGlobal[v.mois] || 0;
+      const fapTotal  = fapTotalParMois[v.mois] || 1;
+      const ratio     = (Number(v.nb_fap) || 0) / fapTotal;
+      const caMois    = caGlobal[v.mois] || 0;
+      const caProrata = Math.round(caMois * ratio * 100) / 100;
+      const loyer     = loyerMap[`${v.mois}_${v.code_centre}`] || 0;
+      const marge     = Math.round((caProrata - loyer) * 100) / 100;
       return {
-        date:       v.mois + "-01",
-        mois:       v.mois,
-        magasin:    CENTRES_LABELS[v.code_centre] || v.code_centre,
+        date:        v.mois + "-01",
+        mois:        v.mois,
+        magasin:     CENTRES_LABELS[v.code_centre] || v.code_centre,
         code_centre: v.code_centre,
-        ventes_fap: Number(v.nb_fap) || 0,
-        ca_fap:     Math.round(caMois * ratio * 100) / 100,
-        marge:      Math.round((caMois * ratio - (loyerMap[`${v.mois}_${v.code_centre}`] || 0)) * 100) / 100,
+        ventes_fap:  Number(v.nb_fap) || 0,
+        ca_fap:      caProrata,
+        marge:       marge,
       };
     });
 
@@ -136,8 +141,8 @@ export default async function handler(req, res) {
       t.ctr = t.impressions > 0 ? Math.round((t.clicks / t.impressions) * 10000) / 100 : 0;
       return t;
     }
-    const gscMainDaily = aggregateByDate(gscMain, ["clicks", "impressions"]);
-    const gscCcDaily   = aggregateByDate(gscCc,   ["clicks", "impressions"]);
+    const gscMainDaily  = aggregateByDate(gscMain, ["clicks", "impressions"]);
+    const gscCcDaily    = aggregateByDate(gscCc,   ["clicks", "impressions"]);
     const gscMainTotals = computeGscTotals(gscMain);
     const gscCcTotals   = computeGscTotals(gscCc);
 
@@ -207,10 +212,10 @@ export default async function handler(req, res) {
           .sort((a, b) => b.ventes - a.ventes);
         return {
           month,
-          stores: storeArr,
-          totalVentes: storeArr.reduce((s, d) => s + d.ventes, 0),
-          totalCa:     Math.round((caGlobal[month] || 0) * 100) / 100,
-          totalMarge:  Math.round(storeArr.reduce((s, d) => s + d.marge, 0) * 100) / 100,
+          stores:       storeArr,
+          totalVentes:  storeArr.reduce((s, d) => s + d.ventes, 0),
+          totalCa:      Math.round((caGlobal[month] || 0) * 100) / 100,
+          totalMarge:   Math.round(storeArr.reduce((s, d) => s + d.marge, 0) * 100) / 100,
         };
       });
 
@@ -261,31 +266,31 @@ export default async function handler(req, res) {
     // ─── Attribution ───
     const volumes = {
       gsc_main: gscMainTotals.clicks, gsc_cc: gscCcTotals.clicks,
-      youtube: ytTotals.views, tiktok: tiktokTotals.views,
-      meta: metaTotals.reachOrganic + metaTotals.reachPaid,
-      email: emailTotals.clicks, leads: leads.length, chatbot: seenConvs.size,
+      youtube:  ytTotals.views,       tiktok: tiktokTotals.views,
+      meta:     metaTotals.reachOrganic + metaTotals.reachPaid,
+      email:    emailTotals.clicks,   leads:  leads.length,   chatbot: seenConvs.size,
     };
     const maxVol = Math.max(...Object.values(volumes), 1);
     const attribution = {};
     let attrTotal = 0;
-    for (const [k, v] of Object.entries(correlations)) { const s = Math.max(0, v.correlation) * (volumes[k] / maxVol); attribution[k] = s; attrTotal += s; }
+    for (const [k, v] of Object.entries(correlations)) { const sc = Math.max(0, v.correlation) * (volumes[k] / maxVol); attribution[k] = sc; attrTotal += sc; }
     for (const k of Object.keys(attribution)) attribution[k] = attrTotal > 0 ? Math.round((attribution[k] / attrTotal) * 1000) / 10 : 0;
 
     // ─── Overlay ───
     const allDates = new Set([
       ...gscMainDaily.map(r => r.date), ...gscCcDaily.map(r => r.date),
-      ...ytDaily.map(r => r.date), ...ccDaily.map(r => r.date),
-      ...Object.keys(leadsDaily), ...Object.keys(chatbotConvByDay),
+      ...ytDaily.map(r => r.date),      ...ccDaily.map(r => r.date),
+      ...Object.keys(leadsDaily),       ...Object.keys(chatbotConvByDay),
     ]);
     const overlay = [...allDates].sort().map(d => ({
-      date: d,
-      ventes_fap:      salesByDate[d]         || 0,
-      gsc_main_clicks: gscMainSignal[d]        || 0,
-      gsc_cc_clicks:   gscCcSignal[d]          || 0,
-      yt_views:        ytSignal[d]             || 0,
-      meta_reach:      metaSignal[d]           || 0,
-      leads:           leadsDaily[d]           || 0,
-      chatbot:         chatbotConvByDay[d]     || 0,
+      date:            d,
+      ventes_fap:      salesByDate[d]      || 0,
+      gsc_main_clicks: gscMainSignal[d]    || 0,
+      gsc_cc_clicks:   gscCcSignal[d]      || 0,
+      yt_views:        ytSignal[d]         || 0,
+      meta_reach:      metaSignal[d]       || 0,
+      leads:           leadsDaily[d]       || 0,
+      chatbot:         chatbotConvByDay[d] || 0,
     }));
 
     return res.status(200).json({
@@ -293,12 +298,18 @@ export default async function handler(req, res) {
       days,
       totals: {
         gsc_main: gscMainTotals, gsc_cc: gscCcTotals,
-        youtube: ytTotals, tiktok: tiktokTotals,
-        meta: metaTotals, email: emailTotals, cc: ccTotals,
-        leads: { total: leads.length },
-        chatbot: { conversations: seenConvs.size },
+        youtube:  ytTotals,      tiktok: tiktokTotals,
+        meta:     metaTotals,    email:  emailTotals,
+        cc:       ccTotals,
+        leads:    { total: leads.length },
+        chatbot:  { conversations: seenConvs.size },
       },
-      daily: { gsc_main: gscMainDaily, gsc_cc: gscCcDaily, youtube: ytDaily, tiktok: tiktokDaily, meta: metaDaily, email: emailDaily, cc: ccDaily },
+      daily: {
+        gsc_main: gscMainDaily, gsc_cc: gscCcDaily,
+        youtube:  ytDaily,      tiktok: tiktokDaily,
+        meta:     metaDaily,    email:  emailDaily,
+        cc:       ccDaily,
+      },
       ccMagasins, ccMonthly, ccMargeCumulative,
       correlations, attribution, overlay,
     });
