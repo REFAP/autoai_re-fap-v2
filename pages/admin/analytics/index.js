@@ -133,8 +133,10 @@ export default function AnalyticsDashboard() {
       `  Taux clic       : ${fmtPct(t.email.avgClickRate)}`,
       "",
       "--- Ventes Terrain Carter-Cash ---",
-      `  Ventes FAP : ${fmt(t.cc.ventesFap)}`,
-      `  CA FAP     : ${fmt(t.cc.caFap)} EUR`,
+      `  Ventes FAP    : ${fmt(t.cc.ventesFap)}`,
+      `  CA HT         : ${fmt(t.cc.caFap)} EUR`,
+      `  Marge brute   : ${fmt(t.cc.marge)} EUR`,
+      `  Panier moyen  : ${fmt(t.cc.panierMoyen)} EUR`,
       "",
       "--- Leads CRM ---",
       `  Total leads : ${fmt(t.leads.total)}`,
@@ -184,7 +186,26 @@ export default function AnalyticsDashboard() {
         "",
       );
       for (const [i, m] of data.ccMagasins.slice(0, 15).entries()) {
-        lines.push(`  ${String(i + 1).padStart(2)}. ${m.magasin.padEnd(30)} ${String(m.ventes_fap).padStart(4)} ventes  ${fmt(m.ca_fap).padStart(8)} EUR`);
+        lines.push(`  ${String(i + 1).padStart(2)}. ${m.magasin.padEnd(30)} ${String(m.ventes_fap).padStart(4)} ventes  ${fmt(m.ca_fap).padStart(8)} EUR CA  ${fmt(m.marge).padStart(8)} EUR marge`);
+      }
+    }
+
+    if (data.ccMonthly?.length > 0) {
+      lines.push(
+        "",
+        "════════════════════════════════════════════════════════════",
+        "  5. EVOLUTION MENSUELLE",
+        "════════════════════════════════════════════════════════════",
+        "",
+      );
+      for (const m of data.ccMonthly) {
+        lines.push(`  ${m.month}  |  ${String(m.totalVentes).padStart(4)} ventes  |  ${fmt(m.totalCa).padStart(8)} EUR CA  |  ${fmt(m.totalMarge).padStart(8)} EUR marge`);
+      }
+      if (data.ccMargeCumulative?.length > 0) {
+        lines.push("", "  Marge brute cumulee :");
+        for (const c of data.ccMargeCumulative) {
+          lines.push(`    ${c.month} : ${fmt(c.marge_cum)} EUR`);
+        }
       }
     }
 
@@ -306,7 +327,7 @@ export default function AnalyticsDashboard() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
               <KpiCard label="Meta Reach" value={fmt(data.totals.meta.reachOrganic + data.totals.meta.reachPaid)} sub={`${fmt(data.totals.meta.spend)}\u20AC depense`} color={C.meta} icon="f" />
               <KpiCard label="Email Envois" value={fmt(data.totals.email.sends)} sub={`${fmtPct(data.totals.email.avgOpenRate)} ouverture`} color={C.green} icon={"\u2709"} />
-              <KpiCard label="Ventes FAP" value={fmt(data.totals.cc.ventesFap)} sub={`${fmt(data.totals.cc.caFap)}\u20AC CA`} color={C.orange} icon="CC" />
+              <KpiCard label="Ventes FAP" value={fmt(data.totals.cc.ventesFap)} sub={`${fmt(data.totals.cc.caFap)}\u20AC CA \u2022 ${fmt(data.totals.cc.marge)}\u20AC marge`} color={C.orange} icon="CC" />
               <KpiCard label="Leads CRM" value={fmt(data.totals.leads.total)} sub="depuis Supabase" color={C.purple} icon="L" />
             </div>
 
@@ -422,7 +443,9 @@ export default function AnalyticsDashboard() {
                           <th style={{ padding: 8, textAlign: "left", color: C.muted, fontWeight: 500 }}>#</th>
                           <th style={{ padding: 8, textAlign: "left", color: C.muted, fontWeight: 500 }}>Magasin</th>
                           <th style={{ padding: 8, textAlign: "right", color: C.muted, fontWeight: 500 }}>Ventes FAP</th>
-                          <th style={{ padding: 8, textAlign: "right", color: C.muted, fontWeight: 500 }}>CA FAP</th>
+                          <th style={{ padding: 8, textAlign: "right", color: C.muted, fontWeight: 500 }}>CA HT</th>
+                          <th style={{ padding: 8, textAlign: "right", color: C.muted, fontWeight: 500 }}>Marge</th>
+                          <th style={{ padding: 8, textAlign: "right", color: C.muted, fontWeight: 500 }}>Panier moy.</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -432,8 +455,121 @@ export default function AnalyticsDashboard() {
                             <td style={{ padding: 8, fontWeight: 500 }}>{m.magasin}</td>
                             <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.orange, fontWeight: 600 }}>{m.ventes_fap}</td>
                             <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.sub }}>{fmt(m.ca_fap)}\u20AC</td>
+                            <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.green }}>{fmt(m.marge)}\u20AC</td>
+                            <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.muted }}>{fmt(m.panier_moyen)}\u20AC</td>
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ═══════ SECTION 5b: EVOLUTION MENSUELLE (like dashboard.php) ═══════ */}
+            {data.ccMonthly && data.ccMonthly.length > 0 && (
+              <>
+                <SectionTitle title="Evolution mensuelle (vue dashboard.php)" />
+                <div style={{
+                  background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+                  padding: 24, marginBottom: 32,
+                }}>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                          <th style={{ padding: 8, textAlign: "left", color: C.muted, fontWeight: 500 }}>Mois</th>
+                          {data.ccMonthly.map(m => (
+                            <th key={m.month} style={{ padding: 8, textAlign: "right", color: C.text, fontWeight: 600, minWidth: 80 }}>
+                              {m.month.slice(5)}/{m.month.slice(0, 4)}
+                            </th>
+                          ))}
+                          <th style={{ padding: 8, textAlign: "right", color: C.orange, fontWeight: 700 }}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* Collect all unique magasins across months */}
+                        {(() => {
+                          const allMags = [...new Set(data.ccMonthly.flatMap(m => m.stores.map(s => s.magasin)))];
+                          const magTotals = {};
+                          for (const mag of allMags) {
+                            magTotals[mag] = { ventes: 0, ca: 0, marge: 0 };
+                            for (const m of data.ccMonthly) {
+                              const s = m.stores.find(s => s.magasin === mag);
+                              if (s) { magTotals[mag].ventes += s.ventes; magTotals[mag].ca += s.ca; magTotals[mag].marge += s.marge; }
+                            }
+                          }
+                          const sortedMags = allMags.sort((a, b) => magTotals[b].ventes - magTotals[a].ventes);
+                          return (
+                            <>
+                              {/* Ventes row per magasin */}
+                              {sortedMags.map(mag => (
+                                <tr key={`v-${mag}`} style={{ borderBottom: `1px solid ${C.border}20` }}>
+                                  <td style={{ padding: "6px 8px", fontWeight: 500, fontSize: 12 }}>{mag}</td>
+                                  {data.ccMonthly.map(m => {
+                                    const s = m.stores.find(s => s.magasin === mag);
+                                    return (
+                                      <td key={m.month} style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: C.orange }}>
+                                        {s ? s.ventes : 0}
+                                      </td>
+                                    );
+                                  })}
+                                  <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: C.orange, fontWeight: 700 }}>
+                                    {magTotals[mag].ventes}
+                                  </td>
+                                </tr>
+                              ))}
+                              {/* Total ventes row */}
+                              <tr style={{ borderTop: `2px solid ${C.border}`, borderBottom: `1px solid ${C.border}40` }}>
+                                <td style={{ padding: "8px", fontWeight: 700, color: C.text }}>Total ventes</td>
+                                {data.ccMonthly.map(m => (
+                                  <td key={m.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.text, fontWeight: 700 }}>
+                                    {m.totalVentes}
+                                  </td>
+                                ))}
+                                <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.orange, fontWeight: 700 }}>
+                                  {fmt(data.totals.cc.ventesFap)}
+                                </td>
+                              </tr>
+                              {/* Total CA row */}
+                              <tr style={{ borderBottom: `1px solid ${C.border}40` }}>
+                                <td style={{ padding: "8px", fontWeight: 600, color: C.sub }}>CA HT</td>
+                                {data.ccMonthly.map(m => (
+                                  <td key={m.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.sub, fontSize: 12 }}>
+                                    {fmt(m.totalCa)}\u20AC
+                                  </td>
+                                ))}
+                                <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.sub, fontWeight: 700 }}>
+                                  {fmt(data.totals.cc.caFap)}\u20AC
+                                </td>
+                              </tr>
+                              {/* Total Marge row */}
+                              <tr style={{ borderBottom: `1px solid ${C.border}40` }}>
+                                <td style={{ padding: "8px", fontWeight: 600, color: C.green }}>Marge brute</td>
+                                {data.ccMonthly.map(m => (
+                                  <td key={m.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.green, fontSize: 12 }}>
+                                    {fmt(m.totalMarge)}\u20AC
+                                  </td>
+                                ))}
+                                <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
+                                  {fmt(data.totals.cc.marge)}\u20AC
+                                </td>
+                              </tr>
+                              {/* Cumulative marge row */}
+                              {data.ccMargeCumulative && (
+                                <tr>
+                                  <td style={{ padding: "8px", fontWeight: 600, color: C.yellow }}>Marge cumul.</td>
+                                  {data.ccMargeCumulative.map(c => (
+                                    <td key={c.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.yellow, fontSize: 12 }}>
+                                      {fmt(c.marge_cum)}\u20AC
+                                    </td>
+                                  ))}
+                                  <td style={{ padding: 8 }} />
+                                </tr>
+                              )}
+                            </>
+                          );
+                        })()}
                       </tbody>
                     </table>
                   </div>

@@ -108,14 +108,13 @@ export default async function handler(req, res) {
       if (c.store_code) storeNameMap[c.store_code] = `${c.name} (${c.city || ""})`.trim();
     }
 
-    // Convert prestations_weekly → cc-like rows (date, magasin, ventes_fap, ca_fap)
+    // Convert prestations_weekly → cc-like rows with marge
     const cc = prestations.map(p => ({
       date: p.week_start,
       magasin: storeNameMap[p.store_code] || p.store_code,
       ventes_fap: p.qty_week || 0,
       ca_fap: parseFloat(p.ca_ht_week) || 0,
-      ventes_total: p.qty_week || 0,
-      ca_total: parseFloat(p.ca_ht_week) || 0,
+      marge: parseFloat(p.marge_week) || 0,
     }));
 
     // === AGGREGATIONS ===
@@ -182,28 +181,68 @@ export default async function handler(req, res) {
     emailTotals.avgOpenRate = emailTotals.sends > 0 ? Math.round((emailTotals.opens / emailTotals.sends) * 10000) / 100 : 0;
     emailTotals.avgClickRate = emailTotals.sends > 0 ? Math.round((emailTotals.clicks / emailTotals.sends) * 10000) / 100 : 0;
 
-    // Carter-Cash (ventes terrain)
-    const ccDaily = aggregateByDate(cc, ["ventes_fap", "ca_fap", "ventes_total", "ca_total"]);
-    const ccTotals = { ventesFap: 0, caFap: 0, ventesTotal: 0, caTotal: 0 };
+    // Carter-Cash (ventes terrain) — weekly → aggregate
+    const ccDaily = aggregateByDate(cc, ["ventes_fap", "ca_fap", "marge"]);
+    const ccTotals = { ventesFap: 0, caFap: 0, marge: 0, panierMoyen: 0 };
     for (const r of cc) {
       ccTotals.ventesFap += r.ventes_fap || 0;
       ccTotals.caFap += Number(r.ca_fap) || 0;
-      ccTotals.ventesTotal += r.ventes_total || 0;
-      ccTotals.caTotal += Number(r.ca_total) || 0;
+      ccTotals.marge += Number(r.marge) || 0;
     }
     ccTotals.caFap = Math.round(ccTotals.caFap * 100) / 100;
-    ccTotals.caTotal = Math.round(ccTotals.caTotal * 100) / 100;
+    ccTotals.marge = Math.round(ccTotals.marge * 100) / 100;
+    ccTotals.panierMoyen = ccTotals.ventesFap > 0
+      ? Math.round((ccTotals.caFap / ccTotals.ventesFap) * 100) / 100 : 0;
 
-    // CC by magasin
+    // CC by magasin (period totals)
     const ccByMagasin = {};
     for (const r of cc) {
-      if (!ccByMagasin[r.magasin]) ccByMagasin[r.magasin] = { ventes_fap: 0, ca_fap: 0 };
+      if (!ccByMagasin[r.magasin]) ccByMagasin[r.magasin] = { ventes_fap: 0, ca_fap: 0, marge: 0 };
       ccByMagasin[r.magasin].ventes_fap += r.ventes_fap || 0;
       ccByMagasin[r.magasin].ca_fap += Number(r.ca_fap) || 0;
+      ccByMagasin[r.magasin].marge += Number(r.marge) || 0;
     }
     const ccMagasins = Object.entries(ccByMagasin)
-      .map(([mag, d]) => ({ magasin: mag, ...d, ca_fap: Math.round(d.ca_fap * 100) / 100 }))
+      .map(([mag, d]) => ({
+        magasin: mag,
+        ventes_fap: d.ventes_fap,
+        ca_fap: Math.round(d.ca_fap * 100) / 100,
+        marge: Math.round(d.marge * 100) / 100,
+        panier_moyen: d.ventes_fap > 0 ? Math.round((d.ca_fap / d.ventes_fap) * 100) / 100 : 0,
+      }))
       .sort((a, b) => b.ventes_fap - a.ventes_fap);
+
+    // CC monthly aggregation (like dashboard.php: months × magasins)
+    const ccMonthlyMap = {};
+    for (const r of cc) {
+      const month = r.date.slice(0, 7); // YYYY-MM
+      if (!ccMonthlyMap[month]) ccMonthlyMap[month] = {};
+      if (!ccMonthlyMap[month][r.magasin]) ccMonthlyMap[month][r.magasin] = { ventes: 0, ca: 0, marge: 0 };
+      ccMonthlyMap[month][r.magasin].ventes += r.ventes_fap;
+      ccMonthlyMap[month][r.magasin].ca += Number(r.ca_fap) || 0;
+      ccMonthlyMap[month][r.magasin].marge += Number(r.marge) || 0;
+    }
+    const ccMonthly = Object.entries(ccMonthlyMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, stores]) => {
+        const storeArr = Object.entries(stores)
+          .map(([mag, d]) => ({ magasin: mag, ventes: d.ventes, ca: Math.round(d.ca * 100) / 100, marge: Math.round(d.marge * 100) / 100 }))
+          .sort((a, b) => b.ventes - a.ventes);
+        return {
+          month,
+          stores: storeArr,
+          totalVentes: storeArr.reduce((s, d) => s + d.ventes, 0),
+          totalCa: Math.round(storeArr.reduce((s, d) => s + d.ca, 0) * 100) / 100,
+          totalMarge: Math.round(storeArr.reduce((s, d) => s + d.marge, 0) * 100) / 100,
+        };
+      });
+
+    // Cumulative marge (running total, like dmb_cum in dashboard.php)
+    let margeCum = 0;
+    const ccMargeCumulative = ccMonthly.map(m => {
+      margeCum += m.totalMarge;
+      return { month: m.month, marge_cum: Math.round(margeCum * 100) / 100 };
+    });
 
     // Leads daily
     const leadsDaily = {};
@@ -337,6 +376,8 @@ export default async function handler(req, res) {
         cc: ccDaily,
       },
       ccMagasins,
+      ccMonthly,
+      ccMargeCumulative,
       correlations: correlationScores,
       attribution,
       overlay,
