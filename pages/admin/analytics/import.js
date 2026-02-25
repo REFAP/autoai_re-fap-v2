@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/admin/magasins", label: "Magasins" },
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/financier", label: "Financier" },
+  { href: "/admin/cc-ventes", label: "CC Ventes" },
 ];
 
 // ═══════ SOURCE DEFINITIONS ═══════
