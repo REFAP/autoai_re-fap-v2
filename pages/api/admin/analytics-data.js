@@ -95,15 +95,32 @@ export default async function handler(req, res) {
       // Get all months from marges (which has per-centre data)
       const months = [...new Set(marges.map(m => m.mois))].sort();
 
-      // Build CA by month and centre from cc_ventes_mensuelles
-      const caMap = {};
+      // Build CA global (total) par mois + nb_fap par mois/centre
       const caTotalByMonth = {};
+      const fapParMois = {};
+      const fapParMoisCentre = {};
       for (const v of ventes) {
-        if (!caMap[v.mois]) caMap[v.mois] = {};
         if (v.code_centre === "total") {
           caTotalByMonth[v.mois] = Number(v.ca_ht) || 0;
         } else {
-          caMap[v.mois][v.code_centre] = Number(v.ca_ht) || 0;
+          const fap = Number(v.nb_fap) || 0;
+          if (!fapParMois[v.mois]) fapParMois[v.mois] = 0;
+          fapParMois[v.mois] += fap;
+          const key = `${v.mois}_${v.code_centre}`;
+          if (!fapParMoisCentre[key]) fapParMoisCentre[key] = 0;
+          fapParMoisCentre[key] += fap;
+        }
+      }
+
+      // CA prorata par centre : ca_centre_mois = ca_global_mois * (fap_centre / fap_total_mois)
+      const caProrata = {}; // { mois: { code_centre: ca } }
+      for (const m of months) {
+        caProrata[m] = {};
+        const caGlobal = caTotalByMonth[m] || 0;
+        const totalFap = fapParMois[m] || 1;
+        for (const c of CENTRE_CODES) {
+          const fapCentre = fapParMoisCentre[`${m}_${c}`] || 0;
+          caProrata[m][c] = Math.round((caGlobal * (fapCentre / totalFap)) * 100) / 100;
         }
       }
 
@@ -117,12 +134,12 @@ export default async function handler(req, res) {
         };
       }
 
-      // CA mensuel par centre + total
+      // CA mensuel par centre (prorata) + total
       const caMensuel = months.map(m => {
         const row = { month: m };
         let total = 0;
         for (const c of CENTRE_CODES) {
-          const val = caMap[m]?.[c] || 0;
+          const val = caProrata[m]?.[c] || 0;
           row[c] = val;
           total += val;
         }
