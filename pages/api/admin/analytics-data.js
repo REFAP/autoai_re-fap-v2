@@ -102,9 +102,9 @@ export default async function handler(req, res) {
     const caGlobal = {};
     for (const r of ventesTotalRes.data || []) caGlobal[r.mois] = Number(r.ca_ht) || 0;
 
-    // Marges par mois+centre
-    const margesMap = {};
-    for (const m of margesRes.data || []) margesMap[`${m.mois}_${m.code_centre}`] = Number(m.marge_brute) || 0;
+    // Loyer proraté par mois+centre
+    const loyerMap = {};
+    for (const m of margesRes.data || []) loyerMap[`${m.mois}_${m.code_centre}`] = Number(m.loyer_prorate) || 0;
 
     // ─── FAP total par mois (pour prorata CA) ───
     const fapTotalParMois = {};
@@ -124,7 +124,7 @@ export default async function handler(req, res) {
         code_centre: v.code_centre,
         ventes_fap: Number(v.nb_fap) || 0,
         ca_fap:     Math.round(caMois * ratio * 100) / 100,
-        marge:      margesMap[`${v.mois}_${v.code_centre}`] || 0,
+        marge:      Math.round((caMois * ratio - (loyerMap[`${v.mois}_${v.code_centre}`] || 0)) * 100) / 100,
       };
     });
 
