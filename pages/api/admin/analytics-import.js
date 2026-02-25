@@ -155,25 +155,102 @@ export default async function handler(req, res) {
     if (source === "cc_csv") {
       if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "rows[] requis" });
 
+      // Flexible column detection: find the right column by trying multiple names
+      function findCol(row, candidates) {
+        for (const c of candidates) {
+          // Try exact match first
+          if (row[c] !== undefined && row[c] !== "") return row[c];
+        }
+        // Try case-insensitive match
+        const keys = Object.keys(row);
+        for (const c of candidates) {
+          const lower = c.toLowerCase();
+          const found = keys.find(k => k.toLowerCase() === lower || k.toLowerCase().replace(/[_\s]/g, "") === lower.replace(/[_\s]/g, ""));
+          if (found && row[found] !== undefined && row[found] !== "") return row[found];
+        }
+        return null;
+      }
+
       const mapped = rows.map(row => {
-        const date = row.date || row.Date || null;
-        const store_code = row.store_code || row["store_code"] || row.Store || row.store || null;
-        const qty = parseInt(row.ventes_fap || row["ventes_fap"] || row.Ventes || 0);
-        const ca = parseFloat(String(row.ca_ht || row["ca_ht"] || row.CA || "0").replace(",", ".").replace(/\s/g, "")) || 0;
-        const marge = parseFloat(String(row.marge || row.Marge || "0").replace(",", ".").replace(/\s/g, "")) || 0;
+        // Date: many possible column names
+        const date = findCol(row, [
+          "date", "Date", "DATE",
+          "semaine", "Semaine", "semaine_du", "Semaine du",
+          "periode", "Periode", "Période",
+          "week_start", "week", "Week",
+          "date_debut", "Date debut", "Date début",
+          "mois", "Mois",
+        ]);
+
+        // Store code: many possible column names
+        const store_code = findCol(row, [
+          "store_code", "Store", "store",
+          "code", "Code", "CODE",
+          "code_centre", "Code centre", "Code Centre",
+          "code_magasin", "Code magasin", "Code Magasin",
+          "centre", "Centre", "CENTRE",
+          "magasin", "Magasin", "MAGASIN",
+          "n_centre", "N° centre", "N°centre",
+          "id_centre", "ID centre", "id",
+          "num_centre", "Num centre",
+          "store_id", "Store ID",
+        ]);
+
+        // Quantity FAP: many possible column names
+        const qtyRaw = findCol(row, [
+          "ventes_fap", "Ventes", "ventes",
+          "nb_fap", "Nb FAP", "nb FAP", "NB FAP",
+          "nb_prestations", "Nb prestations", "Prestations", "prestations",
+          "nettoyages", "Nettoyages",
+          "qty", "Qty", "QTY", "quantite", "Quantité", "Quantite",
+          "production", "Production", "PRODUCTION",
+          "nombre", "Nombre",
+          "nb_nettoyages", "Nb nettoyages",
+          "volume", "Volume",
+        ]);
+        const qty = parseInt(String(qtyRaw || "0").replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
+
+        // CA HT: many possible column names
+        const caRaw = findCol(row, [
+          "ca_ht", "CA", "ca",
+          "CA HT", "CA_HT", "ca ht",
+          "chiffre_affaires", "Chiffre affaires", "Chiffre d'affaires",
+          "ca_ttc", "CA TTC",
+          "revenue", "Revenue",
+          "montant", "Montant",
+          "ca_mensuel", "CA mensuel",
+        ]);
+        const ca = parseFloat(String(caRaw || "0").replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
+
+        // Marge: many possible column names
+        const margeRaw = findCol(row, [
+          "marge", "Marge", "MARGE",
+          "marge_brute", "Marge brute", "Marge Brute",
+          "marge_ht", "Marge HT",
+          "profit", "Profit",
+          "benefice", "Bénéfice", "Benefice",
+          "marge_nette", "Marge nette",
+        ]);
+        const marge = parseFloat(String(margeRaw || "0").replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
 
         if (!date || !store_code) return null;
 
         return {
-          store_code,
-          week_start: date,
+          store_code: String(store_code).trim(),
+          week_start: String(date).trim(),
           qty_week: qty,
           ca_ht_week: Math.round(ca * 100) / 100,
           marge_week: Math.round(marge * 100) / 100,
         };
       }).filter(Boolean);
 
-      if (mapped.length === 0) return res.status(400).json({ error: "Aucune ligne valide (colonnes attendues : date, store_code, ventes_fap, ca_ht, marge)" });
+      if (mapped.length === 0) {
+        // Show the actual column names to help the user understand the mismatch
+        const detectedCols = rows.length > 0 ? Object.keys(rows[0]) : [];
+        return res.status(400).json({
+          error: `Aucune ligne valide. Colonnes detectees : [${detectedCols.join(", ")}]. Il faut au minimum une colonne date (date, semaine, periode...) et une colonne centre (store_code, code, centre, magasin...).`,
+        });
+      }
 
       // Batch upsert (500 per batch) — UNIQUE constraint on (store_code, week_start)
       let totalInserted = 0;
