@@ -8,7 +8,7 @@ import Head from "next/head";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 
-const ADMIN_KEY = "";
+const ADMIN_KEY = process.env.NEXT_PUBLIC_ADMIN_TOKEN || "re-fap-2026-dash";
 
 function formatNum(n) {
   if (n === null || n === undefined) return "\u2014";
@@ -141,7 +141,13 @@ function MagasinsDashboard() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("mode") === "cc") setMode("cc");
-      if (sessionStorage.getItem("refap_admin") === ADMIN_KEY) setAuth(true);
+      // Auto-auth if token is set via env or localStorage
+      const storedToken = localStorage.getItem("fapexpert_admin_token") || "";
+      if (ADMIN_KEY || storedToken) {
+        setAuth(true);
+      } else if (sessionStorage.getItem("refap_admin")) {
+        setAuth(true);
+      }
     }
   }, []);
 
@@ -150,7 +156,7 @@ function MagasinsDashboard() {
   async function fetchData() {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/admin/magasins?period=${period}&mode=${mode}`);
+      const res = await fetch(`/api/admin/magasins?period=${period}&mode=${mode}&token=${encodeURIComponent(ADMIN_KEY)}`);
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       setData(await res.json());
     } catch (e) { setError(e.message); }
@@ -159,7 +165,10 @@ function MagasinsDashboard() {
 
   function handleLogin(e) {
     e.preventDefault();
-    if (keyInput === ADMIN_KEY) { sessionStorage.setItem("refap_admin", ADMIN_KEY); setAuth(true); }
+    if (keyInput && keyInput === ADMIN_KEY) {
+      sessionStorage.setItem("refap_admin", keyInput);
+      setAuth(true);
+    }
   }
 
   if (!auth) {
