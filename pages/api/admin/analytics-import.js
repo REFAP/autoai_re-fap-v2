@@ -297,6 +297,16 @@ export default async function handler(req, res) {
       const cols = Object.keys(rows[0]);
       const aliases = SOURCE_ALIASES.cc;
 
+      // Fetch store_code → cc_code mapping from centres table
+      const { data: centres } = await supabase
+        .from("centres")
+        .select("store_code, cc_code")
+        .not("store_code", "is", null);
+      const ccCodeMap = {};
+      for (const c of centres || []) {
+        if (c.store_code && c.cc_code) ccCodeMap[String(c.store_code).trim()] = c.cc_code;
+      }
+
       // Detect pivot format: columns matching YYYY-MM pattern
       const dateColRegex = /^(\d{4}-\d{2})/;
       const dateCols = cols.filter(c => dateColRegex.test(c));
@@ -348,6 +358,7 @@ export default async function handler(req, res) {
 
             mapped.push({
               store_code,
+              cc_code: ccCodeMap[store_code] || store_code,
               week_start,
               week_end: computeWeekEnd(week_start, true),
               qty_week: Math.round(num),
@@ -374,6 +385,7 @@ export default async function handler(req, res) {
 
           return {
             store_code,
+            cc_code: ccCodeMap[store_code] || store_code,
             week_start: date,
             week_end: computeWeekEnd(date, false),
             qty_week: qty,
