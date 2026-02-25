@@ -152,103 +152,137 @@ export default async function handler(req, res) {
     }
 
     // Carter-Cash CSV upload → UPSERT into prestations_weekly
+    // Supports TWO formats:
+    //   A) Flat: columns date, store_code, ventes_fap, ca_ht, marge (one row per store+date)
+    //   B) Pivot: columns MagasinCode, Magasin, 2025-10, 2025-11, ... (months as columns, one row per store)
     if (source === "cc_csv") {
       if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "rows[] requis" });
 
-      // Flexible column detection: find the right column by trying multiple names
-      function findCol(row, candidates) {
-        for (const c of candidates) {
-          // Try exact match first
-          if (row[c] !== undefined && row[c] !== "") return row[c];
-        }
-        // Try case-insensitive match
-        const keys = Object.keys(row);
-        for (const c of candidates) {
+      const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+      // Detect pivot format: columns matching YYYY-MM pattern (e.g. "2025-10", "2026-01", "2026-02_partiel")
+      const dateColRegex = /^(\d{4}-\d{2})/;
+      const dateCols = cols.filter(c => dateColRegex.test(c));
+      const isPivot = dateCols.length >= 2;
+
+      let mapped = [];
+
+      if (isPivot) {
+        // --- FORMAT B: Pivot table (months as columns) ---
+        // Find store code column
+        const storeCodeCol = cols.find(c =>
+          /^(magasincode|store_code|code_centre|code_magasin|code)$/i.test(c.replace(/[\s_]/g, ""))
+        ) || cols.find(c => /code/i.test(c));
+
+        // Find store name column (optional, for logging)
+        const storeNameCol = cols.find(c =>
+          /^(magasin|centre|store|nom)$/i.test(c.replace(/[\s_]/g, ""))
+        ) && !storeCodeCol ? null : cols.find(c =>
+          /^(magasin|centre|store|nom)$/i.test(c) && c !== storeCodeCol
+        );
+
+        // Exclude aggregate columns (Total, Moyenne, etc.)
+        const monthCols = dateCols.filter(c => {
           const lower = c.toLowerCase();
-          const found = keys.find(k => k.toLowerCase() === lower || k.toLowerCase().replace(/[_\s]/g, "") === lower.replace(/[_\s]/g, ""));
-          if (found && row[found] !== undefined && row[found] !== "") return row[found];
+          return !lower.includes("total") && !lower.includes("moyenne") && !lower.includes("cumul");
+        });
+
+        if (!storeCodeCol) {
+          return res.status(400).json({
+            error: `Format pivot detecte (colonnes mois: ${dateCols.slice(0, 3).join(", ")}...) mais pas de colonne code magasin. Colonnes: [${cols.join(", ")}]`,
+          });
         }
-        return null;
+
+        for (const row of rows) {
+          const rawCode = row[storeCodeCol];
+          if (!rawCode) continue;
+          const store_code = String(rawCode).trim();
+
+          for (const mc of monthCols) {
+            const val = row[mc];
+            if (val === undefined || val === "" || val === null) continue;
+
+            // Extract YYYY-MM from column name (handles "2026-02_partiel" → "2026-02")
+            const match = mc.match(dateColRegex);
+            if (!match) continue;
+            const week_start = match[1] + "-01"; // "2025-10" → "2025-10-01"
+
+            const num = parseFloat(String(val).replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
+
+            mapped.push({
+              store_code,
+              week_start,
+              qty_week: Math.round(num), // production count (integer)
+              ca_ht_week: 0,
+              marge_week: 0,
+            });
+          }
+        }
+      } else {
+        // --- FORMAT A: Flat table (one row per store+date) ---
+        function findCol(row, candidates) {
+          for (const c of candidates) {
+            if (row[c] !== undefined && row[c] !== "") return row[c];
+          }
+          const keys = Object.keys(row);
+          for (const c of candidates) {
+            const lower = c.toLowerCase();
+            const found = keys.find(k => k.toLowerCase() === lower || k.toLowerCase().replace(/[_\s]/g, "") === lower.replace(/[_\s]/g, ""));
+            if (found && row[found] !== undefined && row[found] !== "") return row[found];
+          }
+          return null;
+        }
+
+        mapped = rows.map(row => {
+          const date = findCol(row, [
+            "date", "Date", "DATE", "semaine", "Semaine", "semaine_du", "Semaine du",
+            "periode", "Periode", "Période", "week_start", "week", "Week",
+            "date_debut", "Date debut", "Date début", "mois", "Mois",
+          ]);
+          const store_code = findCol(row, [
+            "store_code", "Store", "store", "code", "Code", "CODE",
+            "code_centre", "Code centre", "Code Centre",
+            "code_magasin", "Code magasin", "Code Magasin",
+            "MagasinCode", "magasincode",
+            "centre", "Centre", "CENTRE", "magasin", "Magasin", "MAGASIN",
+            "n_centre", "N° centre", "N°centre", "id_centre", "ID centre", "id",
+            "num_centre", "Num centre", "store_id", "Store ID",
+          ]);
+          const qtyRaw = findCol(row, [
+            "ventes_fap", "Ventes", "ventes", "nb_fap", "Nb FAP", "nb FAP",
+            "nb_prestations", "Nb prestations", "Prestations", "prestations",
+            "nettoyages", "Nettoyages", "qty", "Qty", "QTY",
+            "quantite", "Quantité", "Quantite", "production", "Production",
+            "nombre", "Nombre", "nb_nettoyages", "Nb nettoyages", "volume", "Volume",
+          ]);
+          const qty = parseInt(String(qtyRaw || "0").replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
+          const caRaw = findCol(row, [
+            "ca_ht", "CA", "ca", "CA HT", "CA_HT", "ca ht",
+            "chiffre_affaires", "Chiffre affaires", "Chiffre d'affaires",
+            "ca_ttc", "CA TTC", "revenue", "Revenue", "montant", "Montant",
+          ]);
+          const ca = parseFloat(String(caRaw || "0").replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
+          const margeRaw = findCol(row, [
+            "marge", "Marge", "MARGE", "marge_brute", "Marge brute", "Marge Brute",
+            "marge_ht", "Marge HT", "profit", "Profit",
+            "benefice", "Bénéfice", "Benefice", "marge_nette", "Marge nette",
+          ]);
+          const marge = parseFloat(String(margeRaw || "0").replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
+
+          if (!date || !store_code) return null;
+          return {
+            store_code: String(store_code).trim(),
+            week_start: String(date).trim(),
+            qty_week: qty,
+            ca_ht_week: Math.round(ca * 100) / 100,
+            marge_week: Math.round(marge * 100) / 100,
+          };
+        }).filter(Boolean);
       }
 
-      const mapped = rows.map(row => {
-        // Date: many possible column names
-        const date = findCol(row, [
-          "date", "Date", "DATE",
-          "semaine", "Semaine", "semaine_du", "Semaine du",
-          "periode", "Periode", "Période",
-          "week_start", "week", "Week",
-          "date_debut", "Date debut", "Date début",
-          "mois", "Mois",
-        ]);
-
-        // Store code: many possible column names
-        const store_code = findCol(row, [
-          "store_code", "Store", "store",
-          "code", "Code", "CODE",
-          "code_centre", "Code centre", "Code Centre",
-          "code_magasin", "Code magasin", "Code Magasin",
-          "centre", "Centre", "CENTRE",
-          "magasin", "Magasin", "MAGASIN",
-          "n_centre", "N° centre", "N°centre",
-          "id_centre", "ID centre", "id",
-          "num_centre", "Num centre",
-          "store_id", "Store ID",
-        ]);
-
-        // Quantity FAP: many possible column names
-        const qtyRaw = findCol(row, [
-          "ventes_fap", "Ventes", "ventes",
-          "nb_fap", "Nb FAP", "nb FAP", "NB FAP",
-          "nb_prestations", "Nb prestations", "Prestations", "prestations",
-          "nettoyages", "Nettoyages",
-          "qty", "Qty", "QTY", "quantite", "Quantité", "Quantite",
-          "production", "Production", "PRODUCTION",
-          "nombre", "Nombre",
-          "nb_nettoyages", "Nb nettoyages",
-          "volume", "Volume",
-        ]);
-        const qty = parseInt(String(qtyRaw || "0").replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
-
-        // CA HT: many possible column names
-        const caRaw = findCol(row, [
-          "ca_ht", "CA", "ca",
-          "CA HT", "CA_HT", "ca ht",
-          "chiffre_affaires", "Chiffre affaires", "Chiffre d'affaires",
-          "ca_ttc", "CA TTC",
-          "revenue", "Revenue",
-          "montant", "Montant",
-          "ca_mensuel", "CA mensuel",
-        ]);
-        const ca = parseFloat(String(caRaw || "0").replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
-
-        // Marge: many possible column names
-        const margeRaw = findCol(row, [
-          "marge", "Marge", "MARGE",
-          "marge_brute", "Marge brute", "Marge Brute",
-          "marge_ht", "Marge HT",
-          "profit", "Profit",
-          "benefice", "Bénéfice", "Benefice",
-          "marge_nette", "Marge nette",
-        ]);
-        const marge = parseFloat(String(margeRaw || "0").replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
-
-        if (!date || !store_code) return null;
-
-        return {
-          store_code: String(store_code).trim(),
-          week_start: String(date).trim(),
-          qty_week: qty,
-          ca_ht_week: Math.round(ca * 100) / 100,
-          marge_week: Math.round(marge * 100) / 100,
-        };
-      }).filter(Boolean);
-
       if (mapped.length === 0) {
-        // Show the actual column names to help the user understand the mismatch
-        const detectedCols = rows.length > 0 ? Object.keys(rows[0]) : [];
         return res.status(400).json({
-          error: `Aucune ligne valide. Colonnes detectees : [${detectedCols.join(", ")}]. Il faut au minimum une colonne date (date, semaine, periode...) et une colonne centre (store_code, code, centre, magasin...).`,
+          error: `Aucune ligne valide. Colonnes detectees : [${cols.join(", ")}]. Format pivot: ${isPivot ? "oui" : "non"}. Il faut au minimum une colonne code magasin et des colonnes mois (YYYY-MM) ou une colonne date.`,
         });
       }
 

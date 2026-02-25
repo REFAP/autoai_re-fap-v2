@@ -32,7 +32,7 @@ const SOURCES = [
   { key: "tiktok", label: "TikTok", icon: "\u266A", color: C.cyan, type: "csv", desc: "CSV avec colonnes: date, views, reach, engagement_rate, followers, likes, comments" },
   { key: "meta", label: "Meta / Instagram", icon: "f", color: "#1877f2", type: "csv", desc: "CSV avec colonnes: date, reach_organic, reach_paid, engagement, spend, clicks" },
   { key: "email", label: "Brevo (Email/SMS)", icon: "\u2709", color: C.green, type: "csv", desc: "CSV avec colonnes: date, channel, campaign_name, sends, opens, clicks" },
-  { key: "cc_csv", label: "Carter-Cash (Ventes FAP)", icon: "CC", color: C.orange, type: "csv", desc: "CSV avec colonnes : date, store_code, ventes_fap, ca_ht, marge. UPSERT sur (store_code, date) — pas de doublons." },
+  { key: "cc_csv", label: "Carter-Cash (Ventes FAP)", icon: "CC", color: C.orange, type: "csv", desc: "Accepte 2 formats : (1) Tableau croise avec MagasinCode + colonnes mois (2025-10, 2025-11...) ou (2) Format plat avec colonnes date, store_code, ventes_fap, ca_ht, marge. UPSERT sur (store_code, date)." },
 ];
 
 const NAV_ITEMS = [
