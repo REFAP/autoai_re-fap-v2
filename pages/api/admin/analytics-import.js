@@ -1,6 +1,7 @@
 // /pages/api/admin/analytics-import.js
 // Import CSV data into analytics tables
-// POST { source, rows[] }
+// POST { source, rows[], column_mapping? }
+// Supports custom column mapping from the smart import UI
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -13,115 +14,253 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-// Column mapping per source
-function gscMap(sourceTag) {
-  return (row) => {
-    // Query: EN + FR GSC headers
-    const query = row.query || row.Query || row["Top queries"]
-      || row.requete || row["Requêtes principales"] || row["Requête"]
-      || row["Requetes principales"] || row["Requete"]
-      || null;
+// ═══════ FLEXIBLE VALUE PARSERS ═══════
 
-    // Page: EN + FR GSC headers
-    const page = row.page || row.Page || row.URL
-      || row["Pages les plus populaires"] || row["Page de destination"]
-      || null;
+function parseNum(val) {
+  if (val == null || val === "") return 0;
+  const s = String(val).replace(/[\s\u00A0€$]/g, "").replace(",", ".");
+  return parseInt(s) || 0;
+}
 
-    // Clicks: handle FR "Clics", thousand separators, comma decimals
-    const clicksRaw = row.clicks ?? row.Clicks ?? row.Clics ?? "0";
-    const clicks = parseInt(String(clicksRaw).replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
+function parseFloat2(val) {
+  if (val == null || val === "") return 0;
+  const s = String(val).replace(/[\s\u00A0€$]/g, "").replace(",", ".");
+  return parseFloat(s) || 0;
+}
 
-    // Impressions: same cleanup
-    const impRaw = row.impressions ?? row.Impressions ?? "0";
-    const impressions = parseInt(String(impRaw).replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
+function parsePct(val) {
+  if (val == null || val === "") return 0;
+  const s = String(val).replace(/[\s\u00A0%]/g, "").replace(",", ".");
+  const n = parseFloat(s);
+  if (isNaN(n)) return 0;
+  // If value > 1, assume it's already a percentage (e.g., "3.75"), divide by 100
+  // If value <= 1, assume it's already a ratio (e.g., "0.0375")
+  return n > 1 ? n / 100 : n;
+}
 
-    // CTR: handle "3,75 %" and "3.75%" formats
-    const ctrRaw = row.ctr ?? row.CTR ?? "0";
-    const ctr = parseFloat(String(ctrRaw).replace(/[\s\u00A0%]/g, "").replace(",", ".")) / 100 || 0;
+function parseDate(val) {
+  if (!val) return null;
+  const s = String(val).trim();
 
-    // Position: handle "4,2" comma format
-    const posRaw = row.position ?? row.Position ?? "0";
-    const position = parseFloat(String(posRaw).replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
+  // YYYY-MM-DD (standard)
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
 
-    // Date: required from Graphique.csv (validated upstream)
-    const date = row.date || row.Date || null;
+  // DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+  const dmyMatch = s.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})/);
+  if (dmyMatch) {
+    const [, d, m, y] = dmyMatch;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
 
-    return { date, source: sourceTag, query, page, clicks, impressions, ctr, position };
+  // YYYY/MM/DD
+  const ymdMatch = s.match(/^(\d{4})[/](\d{1,2})[/](\d{1,2})/);
+  if (ymdMatch) {
+    const [, y, m, d] = ymdMatch;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  // Try native Date parsing as last resort
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+
+  return null;
+}
+
+// ═══════ NORMALIZE HELPER ═══════
+
+function normalize(str) {
+  return String(str || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
+// Find a value in a row using custom mapping or fallback aliases
+function findVal(row, dbField, customMap, aliases) {
+  // 1. Try custom mapping first
+  if (customMap && customMap[dbField]) {
+    const key = customMap[dbField];
+    if (row[key] !== undefined && row[key] !== "") return row[key];
+  }
+
+  // 2. Try aliases (fuzzy)
+  if (aliases) {
+    const keys = Object.keys(row);
+    for (const alias of aliases) {
+      const norm = normalize(alias);
+      // Exact match
+      const exact = keys.find(k => normalize(k) === norm);
+      if (exact && row[exact] !== undefined && row[exact] !== "") return row[exact];
+    }
+    // Partial/contains match
+    for (const alias of aliases) {
+      const norm = normalize(alias);
+      const found = Object.keys(row).find(k => {
+        const kn = normalize(k);
+        return kn.includes(norm) || norm.includes(kn);
+      });
+      if (found && row[found] !== undefined && row[found] !== "") return row[found];
+    }
+  }
+
+  return null;
+}
+
+// ═══════ SOURCE MAPPING CONFIGS ═══════
+// Each config defines aliases for flexible column matching
+
+const SOURCE_ALIASES = {
+  gsc: {
+    date: ["date", "jour", "day"],
+    query: ["query", "requete", "requetes principales", "mot cle", "keyword", "top queries"],
+    page: ["page", "url", "landing page", "pages les plus populaires", "page de destination"],
+    clicks: ["clicks", "clics", "clic", "nb clics"],
+    impressions: ["impressions", "impr", "nb impressions"],
+    ctr: ["ctr", "taux de clic", "click through rate"],
+    position: ["position", "pos", "position moyenne"],
+  },
+  youtube: {
+    date: ["date", "jour", "day"],
+    video_title: ["video title", "titre", "titre de la video", "title", "nom video"],
+    views: ["views", "vues", "nb vues", "video views"],
+    watch_time_hours: ["watch time hours", "watch time", "duree de visionnage", "duree visionnage heures", "temps de visionnage"],
+    likes: ["likes", "jaime", "nb likes"],
+    comments: ["comments", "commentaires", "nb commentaires"],
+    shares: ["shares", "partages", "nb partages"],
+    subscribers_gained: ["subscribers gained", "abonnes gagnes", "nouveaux abonnes", "new subscribers"],
+    traffic_source: ["traffic source", "source de trafic", "source trafic"],
+  },
+  tiktok: {
+    date: ["date", "jour", "day"],
+    views: ["views", "vues", "video views", "nb vues"],
+    reach: ["reach", "portee", "couverture"],
+    likes: ["likes", "jaime"],
+    comments: ["comments", "commentaires"],
+    shares: ["shares", "partages"],
+    engagement_rate: ["engagement rate", "taux dengagement", "taux engagement", "engagement"],
+    followers: ["followers", "abonnes", "nb abonnes"],
+    followers_gained: ["new followers", "nouveaux abonnes", "followers gained"],
+  },
+  meta: {
+    date: ["date", "jour", "day"],
+    platform: ["platform", "plateforme", "reseau"],
+    reach_organic: ["reach organic", "organic reach", "portee organique", "portee naturelle"],
+    reach_paid: ["reach paid", "paid reach", "portee payante", "portee sponsorisee"],
+    impressions: ["impressions", "impr"],
+    engagement: ["engagement", "engagements", "interactions"],
+    clicks: ["clicks", "clics"],
+    spend: ["spend", "depense", "montant depense", "budget", "cout", "cost"],
+  },
+  email: {
+    date: ["date", "jour", "day", "date envoi"],
+    channel: ["channel", "canal", "type"],
+    campaign_name: ["campaign name", "campagne", "nom campagne", "campaign"],
+    sends: ["sends", "envois", "destinataires", "nb envois", "sent"],
+    opens: ["opens", "ouvertures", "nb ouvertures", "opened"],
+    clicks: ["clicks", "clics", "nb clics", "clicked"],
+    bounces: ["bounces", "rebonds"],
+    unsubscribes: ["unsubscribes", "desinscriptions", "desabonnements"],
+    open_rate: ["open rate", "taux douverture", "taux ouverture"],
+    click_rate: ["click rate", "taux de clic", "taux clic"],
+  },
+  cc: {
+    date: ["date", "semaine", "semaine du", "periode", "week start", "week", "mois", "date debut"],
+    store_code: ["store code", "store", "code", "code centre", "code magasin", "magasincode", "centre", "magasin", "n centre", "id centre", "num centre", "store id"],
+    ventes_fap: ["ventes fap", "ventes", "nb fap", "nb prestations", "prestations", "nettoyages", "qty", "quantite", "production", "nombre", "nb nettoyages", "volume"],
+    ca_ht: ["ca ht", "ca", "chiffre affaires", "chiffre daffaires", "ca ttc", "revenue", "montant"],
+    marge: ["marge", "marge brute", "marge ht", "profit", "benefice", "marge nette"],
+  },
+};
+
+// ═══════ MAPPING FUNCTIONS (using flexible findVal) ═══════
+
+function mapGscRow(row, sourceTag, customMap) {
+  const aliases = SOURCE_ALIASES.gsc;
+  return {
+    date: parseDate(findVal(row, "date", customMap, aliases.date)),
+    source: sourceTag,
+    query: findVal(row, "query", customMap, aliases.query) || null,
+    page: findVal(row, "page", customMap, aliases.page) || null,
+    clicks: parseNum(findVal(row, "clicks", customMap, aliases.clicks)),
+    impressions: parseNum(findVal(row, "impressions", customMap, aliases.impressions)),
+    ctr: parsePct(findVal(row, "ctr", customMap, aliases.ctr)),
+    position: parseFloat2(findVal(row, "position", customMap, aliases.position)),
   };
 }
 
-const COLUMN_MAP = {
-  gsc_main: {
-    table: "analytics_gsc",
-    onConflict: "source,date",
-    map: gscMap("refap-main"),
-  },
-  gsc_cc: {
-    table: "analytics_gsc",
-    onConflict: "source,date",
-    map: gscMap("refap-cc"),
-  },
-  youtube: {
-    table: "analytics_youtube",
-    onConflict: "date",
-    map: (row) => ({
-      date: row.date || row.Date || row.Jour,
-      video_title: row.video_title || row["Video title"] || row.Titre || row["Titre de la vidéo"],
-      views: parseInt(row.views || row.Views || row.Vues || 0),
-      watch_time_hours: parseFloat(String(row.watch_time_hours || row["Watch time (hours)"] || row["Durée de visionnage (heures)"] || "0").replace(",", ".")) || 0,
-      likes: parseInt(row.likes || row.Likes || row["J'aime"] || 0),
-      comments: parseInt(row.comments || row.Comments || row.Commentaires || 0),
-      shares: parseInt(row.shares || row.Shares || row.Partages || 0),
-      subscribers_gained: parseInt(row.subscribers_gained || row["Subscribers gained"] || row["Abonnés gagnés"] || 0),
-      traffic_source: row.traffic_source || row["Traffic source"] || row["Source de trafic"] || null,
-    }),
-  },
-  tiktok: {
-    table: "analytics_tiktok",
-    onConflict: "date",
-    map: (row) => ({
-      date: row.date || row.Date,
-      views: parseInt(row.views || row.Views || row.Vues || row["Video views"] || 0),
-      reach: parseInt(row.reach || row.Reach || row["Portée"] || 0),
-      likes: parseInt(row.likes || row.Likes || row["J'aime"] || 0),
-      comments: parseInt(row.comments || row.Comments || row.Commentaires || 0),
-      shares: parseInt(row.shares || row.Shares || row.Partages || 0),
-      engagement_rate: parseFloat(String(row.engagement_rate || row["Engagement rate"] || row["Taux d'engagement"] || "0").replace("%", "").replace(",", ".")) / 100 || 0,
-      followers: parseInt(row.followers || row.Followers || row["Abonnés"] || 0),
-      followers_gained: parseInt(row.followers_gained || row["New followers"] || row["Nouveaux abonnés"] || 0),
-    }),
-  },
-  meta: {
-    table: "analytics_meta",
-    onConflict: "date",
-    map: (row) => ({
-      date: row.date || row.Date,
-      platform: row.platform || row.Platform || row.Plateforme || "facebook",
-      reach_organic: parseInt(row.reach_organic || row["Organic reach"] || row["Portée organique"] || 0),
-      reach_paid: parseInt(row.reach_paid || row["Paid reach"] || row["Portée payante"] || 0),
-      impressions: parseInt(row.impressions || row.Impressions || 0),
-      engagement: parseInt(row.engagement || row.Engagement || row.Engagements || 0),
-      clicks: parseInt(row.clicks || row.Clicks || row.Clics || 0),
-      spend: parseFloat(String(row.spend || row.Spend || row["Dépense"] || row["Montant dépensé"] || "0").replace(",", ".").replace("€", "").trim()) || 0,
-    }),
-  },
-  email: {
-    table: "analytics_email",
-    onConflict: "date",
-    map: (row) => ({
-      date: row.date || row.Date,
-      channel: row.channel || row.Channel || row.Canal || "email",
-      campaign_name: row.campaign_name || row["Campaign name"] || row.Campagne || null,
-      sends: parseInt(row.sends || row.Sends || row.Envois || row["Destinataires"] || 0),
-      opens: parseInt(row.opens || row.Opens || row.Ouvertures || 0),
-      clicks: parseInt(row.clicks || row.Clicks || row.Clics || 0),
-      bounces: parseInt(row.bounces || row.Bounces || row.Rebonds || 0),
-      unsubscribes: parseInt(row.unsubscribes || row.Unsubscribes || row["Désinscriptions"] || 0),
-      open_rate: parseFloat(String(row.open_rate || row["Open rate"] || row["Taux d'ouverture"] || "0").replace("%", "").replace(",", ".")) / 100 || 0,
-      click_rate: parseFloat(String(row.click_rate || row["Click rate"] || row["Taux de clic"] || "0").replace("%", "").replace(",", ".")) / 100 || 0,
-    }),
-  },
+function mapYoutubeRow(row, customMap) {
+  const aliases = SOURCE_ALIASES.youtube;
+  return {
+    date: parseDate(findVal(row, "date", customMap, aliases.date)),
+    video_title: findVal(row, "video_title", customMap, aliases.video_title) || null,
+    views: parseNum(findVal(row, "views", customMap, aliases.views)),
+    watch_time_hours: parseFloat2(findVal(row, "watch_time_hours", customMap, aliases.watch_time_hours)),
+    likes: parseNum(findVal(row, "likes", customMap, aliases.likes)),
+    comments: parseNum(findVal(row, "comments", customMap, aliases.comments)),
+    shares: parseNum(findVal(row, "shares", customMap, aliases.shares)),
+    subscribers_gained: parseNum(findVal(row, "subscribers_gained", customMap, aliases.subscribers_gained)),
+    traffic_source: findVal(row, "traffic_source", customMap, aliases.traffic_source) || null,
+  };
+}
+
+function mapTiktokRow(row, customMap) {
+  const aliases = SOURCE_ALIASES.tiktok;
+  return {
+    date: parseDate(findVal(row, "date", customMap, aliases.date)),
+    views: parseNum(findVal(row, "views", customMap, aliases.views)),
+    reach: parseNum(findVal(row, "reach", customMap, aliases.reach)),
+    likes: parseNum(findVal(row, "likes", customMap, aliases.likes)),
+    comments: parseNum(findVal(row, "comments", customMap, aliases.comments)),
+    shares: parseNum(findVal(row, "shares", customMap, aliases.shares)),
+    engagement_rate: parsePct(findVal(row, "engagement_rate", customMap, aliases.engagement_rate)),
+    followers: parseNum(findVal(row, "followers", customMap, aliases.followers)),
+    followers_gained: parseNum(findVal(row, "followers_gained", customMap, aliases.followers_gained)),
+  };
+}
+
+function mapMetaRow(row, customMap) {
+  const aliases = SOURCE_ALIASES.meta;
+  return {
+    date: parseDate(findVal(row, "date", customMap, aliases.date)),
+    platform: findVal(row, "platform", customMap, aliases.platform) || "facebook",
+    reach_organic: parseNum(findVal(row, "reach_organic", customMap, aliases.reach_organic)),
+    reach_paid: parseNum(findVal(row, "reach_paid", customMap, aliases.reach_paid)),
+    impressions: parseNum(findVal(row, "impressions", customMap, aliases.impressions)),
+    engagement: parseNum(findVal(row, "engagement", customMap, aliases.engagement)),
+    clicks: parseNum(findVal(row, "clicks", customMap, aliases.clicks)),
+    spend: parseFloat2(findVal(row, "spend", customMap, aliases.spend)),
+  };
+}
+
+function mapEmailRow(row, customMap) {
+  const aliases = SOURCE_ALIASES.email;
+  return {
+    date: parseDate(findVal(row, "date", customMap, aliases.date)),
+    channel: findVal(row, "channel", customMap, aliases.channel) || "email",
+    campaign_name: findVal(row, "campaign_name", customMap, aliases.campaign_name) || null,
+    sends: parseNum(findVal(row, "sends", customMap, aliases.sends)),
+    opens: parseNum(findVal(row, "opens", customMap, aliases.opens)),
+    clicks: parseNum(findVal(row, "clicks", customMap, aliases.clicks)),
+    bounces: parseNum(findVal(row, "bounces", customMap, aliases.bounces)),
+    unsubscribes: parseNum(findVal(row, "unsubscribes", customMap, aliases.unsubscribes)),
+    open_rate: parsePct(findVal(row, "open_rate", customMap, aliases.open_rate)),
+    click_rate: parsePct(findVal(row, "click_rate", customMap, aliases.click_rate)),
+  };
+}
+
+// ═══════ SOURCE CONFIG FOR BATCH UPSERT ═══════
+
+const SOURCE_CONFIG = {
+  gsc_main: { table: "analytics_gsc", onConflict: "source,date", map: (row, cm) => mapGscRow(row, "refap-main", cm) },
+  gsc_cc: { table: "analytics_gsc", onConflict: "source,date", map: (row, cm) => mapGscRow(row, "refap-cc", cm) },
+  youtube: { table: "analytics_youtube", onConflict: "date", map: (row, cm) => mapYoutubeRow(row, cm) },
+  tiktok: { table: "analytics_tiktok", onConflict: "date", map: (row, cm) => mapTiktokRow(row, cm) },
+  meta: { table: "analytics_meta", onConflict: "date", map: (row, cm) => mapMetaRow(row, cm) },
+  email: { table: "analytics_email", onConflict: "date", map: (row, cm) => mapEmailRow(row, cm) },
 };
+
+// ═══════ HANDLER ═══════
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -134,14 +273,16 @@ export default async function handler(req, res) {
   if (token !== ADMIN_TOKEN) return res.status(401).json({ error: "Token invalide" });
 
   const supabase = getSupabase();
-  if (!supabase) return res.status(500).json({ error: "Supabase non configuré" });
+  if (!supabase) return res.status(500).json({ error: "Supabase non configure" });
 
   try {
-    const { source, rows, purge } = req.body;
+    const { source, rows, purge, column_mapping } = req.body;
+    const customMap = column_mapping || null;
 
     if (!source) return res.status(400).json({ error: "source requis" });
+    if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "rows[] requis (aucune donnee)" });
 
-    // GSC purge: delete existing rows for this source before re-import
+    // ═══════ GSC PURGE ═══════
     const GSC_SOURCE_TAGS = { gsc_main: "refap-main", gsc_cc: "refap-cc" };
     if (purge && GSC_SOURCE_TAGS[source]) {
       const { error: delError } = await supabase
@@ -151,30 +292,22 @@ export default async function handler(req, res) {
       if (delError) throw delError;
     }
 
-    // Carter-Cash CSV upload → UPSERT into prestations_weekly
-    // Supports TWO formats:
-    //   A) Flat: columns date, store_code, ventes_fap, ca_ht, marge (one row per store+date)
-    //   B) Pivot: columns MagasinCode, Magasin, 2025-10, 2025-11, ... (months as columns, one row per store)
+    // ═══════ CARTER-CASH CSV ═══════
     if (source === "cc_csv") {
-      if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "rows[] requis" });
+      const cols = Object.keys(rows[0]);
+      const aliases = SOURCE_ALIASES.cc;
 
-      const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
-
-      // Detect pivot format: columns matching YYYY-MM pattern (e.g. "2025-10", "2026-01", "2026-02_partiel")
+      // Detect pivot format: columns matching YYYY-MM pattern
       const dateColRegex = /^(\d{4}-\d{2})/;
       const dateCols = cols.filter(c => dateColRegex.test(c));
       const isPivot = dateCols.length >= 2;
 
-      // Helper: compute week_end from week_start
-      // For monthly data (pivot): last day of month. For weekly: +6 days.
       function computeWeekEnd(dateStr, isMonthly) {
         if (isMonthly) {
-          // "2025-10-01" → last day of October = "2025-10-31"
           const [y, m] = dateStr.split("-").map(Number);
-          const lastDay = new Date(y, m, 0).getDate(); // month is 1-based here, Date(y,m,0) = last day of month m
+          const lastDay = new Date(y, m, 0).getDate();
           return `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
         }
-        // Weekly: +6 days
         const d = new Date(dateStr + "T00:00:00Z");
         d.setUTCDate(d.getUTCDate() + 6);
         return d.toISOString().split("T")[0];
@@ -183,20 +316,11 @@ export default async function handler(req, res) {
       let mapped = [];
 
       if (isPivot) {
-        // --- FORMAT B: Pivot table (months as columns) ---
-        // Find store code column
-        const storeCodeCol = cols.find(c =>
+        // PIVOT FORMAT: months as columns
+        const storeCodeCol = customMap?.store_code || cols.find(c =>
           /^(magasincode|store_code|code_centre|code_magasin|code)$/i.test(c.replace(/[\s_]/g, ""))
         ) || cols.find(c => /code/i.test(c));
 
-        // Find store name column (optional, for logging)
-        const storeNameCol = cols.find(c =>
-          /^(magasin|centre|store|nom)$/i.test(c.replace(/[\s_]/g, ""))
-        ) && !storeCodeCol ? null : cols.find(c =>
-          /^(magasin|centre|store|nom)$/i.test(c) && c !== storeCodeCol
-        );
-
-        // Exclude aggregate columns (Total, Moyenne, etc.)
         const monthCols = dateCols.filter(c => {
           const lower = c.toLowerCase();
           return !lower.includes("total") && !lower.includes("moyenne") && !lower.includes("cumul");
@@ -204,7 +328,7 @@ export default async function handler(req, res) {
 
         if (!storeCodeCol) {
           return res.status(400).json({
-            error: `Format pivot detecte (colonnes mois: ${dateCols.slice(0, 3).join(", ")}...) mais pas de colonne code magasin. Colonnes: [${cols.join(", ")}]`,
+            error: `Format pivot detecte (colonnes mois: ${dateCols.slice(0, 3).join(", ")}...) mais pas de colonne code magasin. Colonnes disponibles: [${cols.join(", ")}]. Mappez la colonne store_code manuellement.`,
           });
         }
 
@@ -217,80 +341,41 @@ export default async function handler(req, res) {
             const val = row[mc];
             if (val === undefined || val === "" || val === null) continue;
 
-            // Extract YYYY-MM from column name (handles "2026-02_partiel" → "2026-02")
             const match = mc.match(dateColRegex);
             if (!match) continue;
-            const week_start = match[1] + "-01"; // "2025-10" → "2025-10-01"
-
-            const num = parseFloat(String(val).replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
+            const week_start = match[1] + "-01";
+            const num = parseFloat2(val);
 
             mapped.push({
               store_code,
               week_start,
               week_end: computeWeekEnd(week_start, true),
-              qty_week: Math.round(num), // production count (integer)
+              qty_week: Math.round(num),
               ca_ht_week: 0,
               marge_week: 0,
             });
           }
         }
       } else {
-        // --- FORMAT A: Flat table (one row per store+date) ---
-        function findCol(row, candidates) {
-          for (const c of candidates) {
-            if (row[c] !== undefined && row[c] !== "") return row[c];
-          }
-          const keys = Object.keys(row);
-          for (const c of candidates) {
-            const lower = c.toLowerCase();
-            const found = keys.find(k => k.toLowerCase() === lower || k.toLowerCase().replace(/[_\s]/g, "") === lower.replace(/[_\s]/g, ""));
-            if (found && row[found] !== undefined && row[found] !== "") return row[found];
-          }
-          return null;
-        }
-
+        // FLAT FORMAT
         mapped = rows.map(row => {
-          const date = findCol(row, [
-            "date", "Date", "DATE", "semaine", "Semaine", "semaine_du", "Semaine du",
-            "periode", "Periode", "Période", "week_start", "week", "Week",
-            "date_debut", "Date debut", "Date début", "mois", "Mois",
-          ]);
-          const store_code = findCol(row, [
-            "store_code", "Store", "store", "code", "Code", "CODE",
-            "code_centre", "Code centre", "Code Centre",
-            "code_magasin", "Code magasin", "Code Magasin",
-            "MagasinCode", "magasincode",
-            "centre", "Centre", "CENTRE", "magasin", "Magasin", "MAGASIN",
-            "n_centre", "N° centre", "N°centre", "id_centre", "ID centre", "id",
-            "num_centre", "Num centre", "store_id", "Store ID",
-          ]);
-          const qtyRaw = findCol(row, [
-            "ventes_fap", "Ventes", "ventes", "nb_fap", "Nb FAP", "nb FAP",
-            "nb_prestations", "Nb prestations", "Prestations", "prestations",
-            "nettoyages", "Nettoyages", "qty", "Qty", "QTY",
-            "quantite", "Quantité", "Quantite", "production", "Production",
-            "nombre", "Nombre", "nb_nettoyages", "Nb nettoyages", "volume", "Volume",
-          ]);
-          const qty = parseInt(String(qtyRaw || "0").replace(/[\s\u00A0]/g, "").replace(",", ".")) || 0;
-          const caRaw = findCol(row, [
-            "ca_ht", "CA", "ca", "CA HT", "CA_HT", "ca ht",
-            "chiffre_affaires", "Chiffre affaires", "Chiffre d'affaires",
-            "ca_ttc", "CA TTC", "revenue", "Revenue", "montant", "Montant",
-          ]);
-          const ca = parseFloat(String(caRaw || "0").replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
-          const margeRaw = findCol(row, [
-            "marge", "Marge", "MARGE", "marge_brute", "Marge brute", "Marge Brute",
-            "marge_ht", "Marge HT", "profit", "Profit",
-            "benefice", "Bénéfice", "Benefice", "marge_nette", "Marge nette",
-          ]);
-          const marge = parseFloat(String(margeRaw || "0").replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
+          const dateVal = findVal(row, "date", customMap, aliases.date);
+          const storeVal = findVal(row, "store_code", customMap, aliases.store_code);
 
+          if (!dateVal && !storeVal) return null;
+
+          const date = parseDate(dateVal);
+          const store_code = String(storeVal || "").trim();
           if (!date || !store_code) return null;
-          const ws = String(date).trim();
+
+          const qty = parseNum(findVal(row, "ventes_fap", customMap, aliases.ventes_fap));
+          const ca = parseFloat2(findVal(row, "ca_ht", customMap, aliases.ca_ht));
+          const marge = parseFloat2(findVal(row, "marge", customMap, aliases.marge));
+
           return {
-            store_code: String(store_code).trim(),
-            week_start: ws,
-            week_end: computeWeekEnd(ws, false),
+            store_code,
+            week_start: date,
+            week_end: computeWeekEnd(date, false),
             qty_week: qty,
             ca_ht_week: Math.round(ca * 100) / 100,
             marge_week: Math.round(marge * 100) / 100,
@@ -300,11 +385,10 @@ export default async function handler(req, res) {
 
       if (mapped.length === 0) {
         return res.status(400).json({
-          error: `Aucune ligne valide. Colonnes detectees : [${cols.join(", ")}]. Format pivot: ${isPivot ? "oui" : "non"}. Il faut au minimum une colonne code magasin et des colonnes mois (YYYY-MM) ou une colonne date.`,
+          error: `Aucune ligne valide trouvee. Colonnes detectees: [${cols.join(", ")}]. Format ${isPivot ? "pivot" : "plat"}. Verifiez que les colonnes date et store_code sont correctement mappees.`,
         });
       }
 
-      // Batch upsert (500 per batch) — UNIQUE constraint on (store_code, week_start)
       let totalInserted = 0;
       for (let i = 0; i < mapped.length; i += 500) {
         const batch = mapped.slice(i, i + 500);
@@ -313,31 +397,40 @@ export default async function handler(req, res) {
         totalInserted += batch.length;
       }
 
+      const skipped = rows.length - (isPivot ? mapped.length : mapped.length);
+
       return res.status(200).json({
         status: "ok",
         source: "cc_csv",
         inserted: totalInserted,
+        skipped: rows.length - mapped.length,
         stores: [...new Set(mapped.map(r => r.store_code))],
       });
     }
 
-    // CSV sources
-    const config = COLUMN_MAP[source];
-    if (!config) return res.status(400).json({ error: `Source inconnue: ${source}` });
-    if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "rows[] requis" });
+    // ═══════ STANDARD ANALYTICS SOURCES ═══════
+    const config = SOURCE_CONFIG[source];
+    if (!config) return res.status(400).json({ error: `Source inconnue: ${source}. Sources valides: ${Object.keys(SOURCE_CONFIG).join(", ")}, cc_csv` });
 
-    // GSC: reject non-Graphique.csv files (missing Date column)
-    if ((source === "gsc_main" || source === "gsc_cc") && rows.length > 0) {
-      const keys = Object.keys(rows[0]);
-      const hasDate = keys.some(k => k.toLowerCase() === "date");
-      if (!hasDate) {
-        return res.status(400).json({
-          error: "Veuillez importer le fichier Graphique.csv pour les données temporelles. Les fichiers Pages.csv, Requêtes.csv, Appareils.csv ne sont pas acceptés.",
-        });
+    // Map all rows using the flexible mapper
+    const allMapped = rows.map(row => {
+      try {
+        return config.map(row, customMap);
+      } catch {
+        return null;
       }
-    }
+    });
 
-    const mapped = rows.map(config.map).filter(r => r.date);
+    // Filter: keep rows with a valid date
+    const mapped = allMapped.filter(r => r && r.date);
+    const skipped = rows.length - mapped.length;
+
+    if (mapped.length === 0) {
+      const sampleCols = rows.length > 0 ? Object.keys(rows[0]).join(", ") : "aucune";
+      return res.status(400).json({
+        error: `Aucune ligne valide (toutes sans date ou non parsables). Colonnes du fichier: [${sampleCols}]. Verifiez le mapping de la colonne date.`,
+      });
+    }
 
     // Batch upsert (500 per batch)
     let totalInserted = 0;
@@ -348,7 +441,13 @@ export default async function handler(req, res) {
       totalInserted += batch.length;
     }
 
-    return res.status(200).json({ status: "ok", source, inserted: totalInserted, purged: !!purge });
+    return res.status(200).json({
+      status: "ok",
+      source,
+      inserted: totalInserted,
+      skipped,
+      purged: !!purge,
+    });
   } catch (err) {
     console.error("Analytics import error:", err);
     return res.status(500).json({ error: err.message });
