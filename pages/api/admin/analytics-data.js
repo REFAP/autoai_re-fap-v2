@@ -287,7 +287,7 @@ export default async function handler(req, res) {
       }))
       .sort((a, b) => b.ventes_fap - a.ventes_fap);
 
-    // CC monthly aggregation (like dashboard.php: months × magasins)
+    // CC monthly aggregation (months × magasins)
     const ccMonthlyMap = {};
     for (const r of cc) {
       const month = r.date.slice(0, 7); // YYYY-MM
@@ -312,7 +312,7 @@ export default async function handler(req, res) {
         };
       });
 
-    // Cumulative marge (running total, like dmb_cum in dashboard.php)
+    // Cumulative marge (running total)
     let margeCum = 0;
     const ccMargeCumulative = ccMonthly.map(m => {
       margeCum += m.totalMarge;
