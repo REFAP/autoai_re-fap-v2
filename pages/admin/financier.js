@@ -1,25 +1,19 @@
 // /pages/admin/financier.js
-// Dashboard Financier Re-FAP — CA mensuel, marge mensuelle, marge cumulee
-// Source: Supabase tables prestations_weekly + centres
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
 
-const TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN || "";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const C = {
-  bg: "#0a0e17",
-  surface: "#111827",
-  border: "#1e293b",
-  green: "#22c55e",
-  blue: "#3b82f6",
-  yellow: "#f59e0b",
-  red: "#ef4444",
-  orange: "#f97316",
-  muted: "#64748b",
-  text: "#e2e8f0",
-  sub: "#94a3b8",
+  bg: "#0a0e17", surface: "#111827", border: "#1e293b",
+  green: "#22c55e", blue: "#3b82f6", yellow: "#f59e0b",
+  red: "#ef4444", orange: "#f97316", muted: "#64748b",
+  text: "#e2e8f0", sub: "#94a3b8",
 };
 
 const NAV_ITEMS = [
@@ -33,279 +27,242 @@ const NAV_ITEMS = [
   { href: "/admin/cc-ventes", label: "CC Ventes" },
 ];
 
-const fmt = (n) => n != null ? Number(n).toLocaleString("fr-FR") : "\u2014";
+const CENTRES = {
+  "801": { label: "Thiais (94)", color: "#f97316" },
+  "065": { label: "Lambres (59)", color: "#ef4444" },
+  "003": { label: "Villeneuve d'Ascq (59)", color: "#3b82f6" },
+  "006": { label: "Sarcelles (95)", color: "#8b5cf6" },
+  "autres": { label: "Autres CC", color: "#6b7280" },
+};
 
-export default function FinancierDashboard() {
-  const [data, setData] = useState(null);
+const MOIS_ORDER = ["2025-10","2025-11","2025-12","2026-01","2026-02"];
+const MOIS_LABEL = {
+  "2025-10":"10/25","2025-11":"11/25","2025-12":"12/25",
+  "2026-01":"01/26","2026-02":"02/26"
+};
+
+const fmt = (v) => {
+  if (v === null || v === undefined || v === 0) return "–";
+  return Number(v).toLocaleString("fr-FR") + "€";
+};
+
+const fmtSign = (v) => {
+  if (!v && v !== 0) return "–";
+  const s = Number(v).toLocaleString("fr-FR");
+  return (v >= 0 ? "+" : "") + s + "€";
+};
+
+export default function Financier() {
+  const [ventes, setVentes] = useState([]);
+  const [marges, setMarges] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  const getToken = () => TOKEN || (typeof window !== "undefined" ? localStorage.getItem("fapexpert_admin_token") || "" : "");
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const resp = await fetch(`/api/admin/analytics-data?type=financier&token=${encodeURIComponent(getToken())}`);
-      if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || `Erreur ${resp.status}`);
-      setData(await resp.json());
-    } catch (e) {
-      setError(e.message);
+  useEffect(() => {
+    async function load() {
+      const [v, m] = await Promise.all([
+        supabase.from("cc_ventes_mensuelles").select("*").order("mois"),
+        supabase.from("cc_marges_mensuelles").select("*").order("mois"),
+      ]);
+      setVentes(v.data || []);
+      setMarges(m.data || []);
+      setLoading(false);
     }
-    setLoading(false);
+    load();
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // CA par centre par mois
+  const caMap = {};
+  ventes.forEach((r) => {
+    if (!caMap[r.code_centre]) caMap[r.code_centre] = {};
+    // CA global sur ligne 'total', nb_fap sur lignes centres
+    if (r.code_centre === "total") {
+      caMap["total"] = caMap["total"] || {};
+      caMap["total"][r.mois] = r.ca_ht;
+    }
+  });
+
+  // Marge brute par centre par mois
+  const mbMap = {};
+  let mbCumul = {};
+  marges.forEach((r) => {
+    if (!mbMap[r.code_centre]) mbMap[r.code_centre] = {};
+    mbMap[r.code_centre][r.mois] = r.marge_brute;
+  });
+
+  // FAP par centre par mois
+  const fapMap = {};
+  ventes.forEach((r) => {
+    if (r.code_centre === "total") return;
+    if (!fapMap[r.code_centre]) fapMap[r.code_centre] = {};
+    fapMap[r.code_centre][r.mois] = r.nb_fap;
+  });
+
+  // Totaux CA par mois
+  const caTotaux = {};
+  MOIS_ORDER.forEach((m) => {
+    caTotaux[m] = caMap["total"]?.[m] || 0;
+  });
+
+  // Totaux marge par mois (tous centres)
+  const mbTotaux = {};
+  MOIS_ORDER.forEach((m) => {
+    mbTotaux[m] = Object.keys(CENTRES).reduce((acc, c) => acc + (mbMap[c]?.[m] || 0), 0);
+  });
+
+  // Marge cumulée
+  let cumul = 0;
+  const margeCumulee = MOIS_ORDER.map((m) => {
+    cumul += mbTotaux[m];
+    return { mois: m, cumul, mensuel: mbTotaux[m] };
+  });
+
+  const s = {
+    page: { background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "system-ui, sans-serif" },
+    nav: { display: "flex", gap: 4, padding: "12px 24px", background: C.surface, borderBottom: `1px solid ${C.border}`, alignItems: "center" },
+    logo: { fontWeight: 700, fontSize: 14, color: C.text, marginRight: 16, textDecoration: "none" },
+    navLink: (active) => ({ padding: "6px 14px", borderRadius: 6, fontSize: 13, fontWeight: active ? 600 : 400, color: active ? C.text : C.muted, background: active ? C.border : "transparent", textDecoration: "none" }),
+    main: { padding: 24, maxWidth: 1400, margin: "0 auto" },
+    section: { marginBottom: 32 },
+    sectionTitle: { fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 16 },
+    card: { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20 },
+    table: { width: "100%", borderCollapse: "collapse", fontSize: 12 },
+    th: { padding: "8px 12px", textAlign: "right", color: C.muted, fontWeight: 500, fontSize: 11, textTransform: "uppercase", borderBottom: `1px solid ${C.border}` },
+    thL: { padding: "8px 12px", textAlign: "left", color: C.muted, fontWeight: 500, fontSize: 11, textTransform: "uppercase", borderBottom: `1px solid ${C.border}` },
+    td: { padding: "8px 12px", textAlign: "right", borderBottom: `1px solid #0a162833`, fontFamily: "monospace", fontSize: 12 },
+    tdL: { padding: "8px 12px", textAlign: "left", borderBottom: `1px solid #0a162833`, fontSize: 12, fontWeight: 600 },
+    tdTot: { padding: "8px 12px", textAlign: "right", borderTop: `2px solid ${C.border}`, fontWeight: 700, fontFamily: "monospace", fontSize: 12 },
+    tdTotL: { padding: "8px 12px", textAlign: "left", borderTop: `2px solid ${C.border}`, fontWeight: 700, fontSize: 12 },
+  };
 
   return (
     <>
-      <Head><title>Financier \u2014 Re-FAP</title></Head>
-      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', system-ui, sans-serif", color: C.text }}>
-
-        {/* Header */}
-        <header style={{
-          background: C.surface, borderBottom: `1px solid ${C.border}`,
-          padding: "16px 32px", display: "flex", alignItems: "center", justifyContent: "space-between",
-          position: "sticky", top: 0, zIndex: 100,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 36, height: 36, background: C.green, borderRadius: 8,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, fontSize: 14, color: "#000",
-            }}>RE</div>
-            <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Financier</h1>
-          </div>
-          <button onClick={fetchData} disabled={loading} style={{
-            background: "#1a2234", border: `1px solid ${C.border}`, color: C.text,
-            padding: "8px 16px", borderRadius: 8, cursor: loading ? "wait" : "pointer",
-            fontFamily: "inherit", fontSize: 13,
-          }}>{loading ? "..." : "Rafraichir"}</button>
-        </header>
-
-        {/* Nav */}
-        <nav style={{ background: "#0f1523", borderBottom: `1px solid ${C.border}`, padding: "0 32px", display: "flex", gap: 0 }}>
-          {NAV_ITEMS.map(item => (
-            <Link key={item.href} href={item.href} style={{
-              padding: "10px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none",
-              color: item.href === "/admin/financier" ? C.text : C.muted,
-              borderBottom: item.href === "/admin/financier" ? `2px solid ${C.green}` : "2px solid transparent",
-            }}>{item.label}</Link>
+      <Head><title>Financier — Re-FAP Dashboard</title></Head>
+      <div style={s.page}>
+        {/* NAV */}
+        <nav style={s.nav}>
+          <span style={s.logo}>RE</span>
+          <span style={{ fontSize: 14, fontWeight: 700, marginRight: 24 }}>Financier</span>
+          {NAV_ITEMS.map((n) => (
+            <Link key={n.href} href={n.href} style={s.navLink(n.href === "/admin/financier")}>{n.label}</Link>
           ))}
+          <button onClick={() => window.location.reload()} style={{ marginLeft: "auto", background: C.border, border: "none", color: C.text, borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontSize: 12 }}>Rafraîchir</button>
         </nav>
 
-        {/* Loading */}
-        {loading && !data && (
-          <div style={{ textAlign: "center", padding: 80, color: C.muted }}>Chargement des donnees financieres...</div>
-        )}
-
-        {/* Error */}
-        {error && !data && (
-          <div style={{ textAlign: "center", padding: 80 }}>
-            <div style={{ color: C.red, marginBottom: 16 }}>{error}</div>
-            <button onClick={fetchData} style={{
-              background: C.green, color: "#000", border: "none",
-              padding: "10px 24px", borderRadius: 8, fontWeight: 600, cursor: "pointer",
-            }}>Reessayer</button>
-          </div>
-        )}
-
-        {/* Content */}
-        {data && (
-          <main style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 32px" }}>
-
-            {/* ═══════ CA MENSUEL PAR CENTRE ═══════ */}
-            <SectionTitle title="CA mensuel par centre (HT)" />
-            <div style={{
-              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-              padding: 24, marginBottom: 32, overflowX: "auto",
-            }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <th style={{ padding: 8, textAlign: "left", color: C.muted, fontWeight: 500, position: "sticky", left: 0, background: C.surface }}>Centre</th>
-                    {data.months.map(m => (
-                      <th key={m} style={{ padding: 8, textAlign: "right", color: C.text, fontWeight: 600, minWidth: 90 }}>
-                        {m.slice(5)}/{m.slice(2, 4)}
-                      </th>
-                    ))}
-                    <th style={{ padding: 8, textAlign: "right", color: C.orange, fontWeight: 700 }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.centres.map(centre => {
-                    let centreTotal = 0;
-                    return (
-                      <tr key={centre} style={{ borderBottom: `1px solid ${C.border}20` }}>
-                        <td style={{ padding: "6px 8px", fontWeight: 500, fontSize: 12, position: "sticky", left: 0, background: C.surface }}>{centre}</td>
-                        {data.caMensuel.map(row => {
-                          const val = row[centre] || 0;
-                          centreTotal += val;
-                          return (
-                            <td key={row.month} style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: val > 0 ? C.text : C.muted }}>
-                              {val > 0 ? `${fmt(val)}\u20AC` : "\u2014"}
+        <div style={s.main}>
+          {loading ? (
+            <div style={{ color: C.muted, padding: 40, textAlign: "center" }}>Chargement...</div>
+          ) : (
+            <>
+              {/* CA MENSUEL PAR CENTRE */}
+              <div style={s.section}>
+                <div style={s.sectionTitle}>CA Mensuel par Centre (HT)</div>
+                <div style={s.card}>
+                  <table style={s.table}>
+                    <thead>
+                      <tr>
+                        <th style={s.thL}>Centre</th>
+                        {MOIS_ORDER.map((m) => <th key={m} style={s.th}>{MOIS_LABEL[m]}</th>)}
+                        <th style={{ ...s.th, color: C.orange }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* CA global non ventilé par centre — on affiche le CA total sur la ligne Total uniquement */}
+                      {Object.keys(CENTRES).map((code) => {
+                        const fapTotal = MOIS_ORDER.reduce((a, m) => a + (fapMap[code]?.[m] || 0), 0);
+                        return (
+                          <tr key={code}>
+                            <td style={s.tdL}>
+                              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: CENTRES[code].color, marginRight: 8 }} />
+                              {CENTRES[code].label}
                             </td>
-                          );
-                        })}
-                        <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: C.orange, fontWeight: 700 }}>
-                          {fmt(Math.round(centreTotal * 100) / 100)}\u20AC
+                            {MOIS_ORDER.map((m) => (
+                              <td key={m} style={s.td} title={`${fapMap[code]?.[m] || 0} FAP`}>
+                                {fapMap[code]?.[m] ? `${fapMap[code][m]} FAP` : "–"}
+                              </td>
+                            ))}
+                            <td style={{ ...s.td, fontWeight: 700 }}>{fapTotal > 0 ? `${fapTotal} FAP` : "–"}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr>
+                        <td style={s.tdTotL}>CA HT Global</td>
+                        {MOIS_ORDER.map((m) => (
+                          <td key={m} style={{ ...s.tdTot, color: C.green }}>{fmt(caTotaux[m])}</td>
+                        ))}
+                        <td style={{ ...s.tdTot, color: C.orange }}>
+                          {fmt(MOIS_ORDER.reduce((a, m) => a + (caTotaux[m] || 0), 0))}
                         </td>
                       </tr>
-                    );
-                  })}
-                  <tr style={{ borderTop: `2px solid ${C.border}` }}>
-                    <td style={{ padding: 8, fontWeight: 700, color: C.text, position: "sticky", left: 0, background: C.surface }}>Total</td>
-                    {data.caMensuel.map(row => (
-                      <td key={row.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.text, fontWeight: 700 }}>
-                        {fmt(row._total)}\u20AC
-                      </td>
-                    ))}
-                    <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.orange, fontWeight: 700 }}>
-                      {fmt(Math.round(data.caMensuel.reduce((s, r) => s + r._total, 0) * 100) / 100)}\u20AC
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* ═══════ MARGE MENSUELLE PAR CENTRE ═══════ */}
-            <SectionTitle title="Marge mensuelle par centre" />
-            <div style={{
-              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-              padding: 24, marginBottom: 32, overflowX: "auto",
-            }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <th style={{ padding: 8, textAlign: "left", color: C.muted, fontWeight: 500, position: "sticky", left: 0, background: C.surface }}>Centre</th>
-                    {data.months.map(m => (
-                      <th key={m} style={{ padding: 8, textAlign: "right", color: C.text, fontWeight: 600, minWidth: 90 }}>
-                        {m.slice(5)}/{m.slice(2, 4)}
-                      </th>
-                    ))}
-                    <th style={{ padding: 8, textAlign: "right", color: C.green, fontWeight: 700 }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.centres.map(centre => {
-                    let centreTotal = 0;
-                    return (
-                      <tr key={centre} style={{ borderBottom: `1px solid ${C.border}20` }}>
-                        <td style={{ padding: "6px 8px", fontWeight: 500, fontSize: 12, position: "sticky", left: 0, background: C.surface }}>{centre}</td>
-                        {data.margeMensuelle.map(row => {
-                          const val = row[centre] || 0;
-                          centreTotal += val;
-                          return (
-                            <td key={row.month} style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: val > 0 ? C.green : C.muted }}>
-                              {val > 0 ? `${fmt(val)}\u20AC` : "\u2014"}
-                            </td>
-                          );
-                        })}
-                        <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
-                          {fmt(Math.round(centreTotal * 100) / 100)}\u20AC
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  <tr style={{ borderTop: `2px solid ${C.border}` }}>
-                    <td style={{ padding: 8, fontWeight: 700, color: C.text, position: "sticky", left: 0, background: C.surface }}>Total</td>
-                    {data.margeMensuelle.map(row => (
-                      <td key={row.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
-                        {fmt(row._total)}\u20AC
-                      </td>
-                    ))}
-                    <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
-                      {fmt(Math.round(data.margeMensuelle.reduce((s, r) => s + r._total, 0) * 100) / 100)}\u20AC
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* ═══════ MARGE CUMULEE ═══════ */}
-            <SectionTitle title="Marge cumulee" />
-            <div style={{
-              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-              padding: 24, marginBottom: 32,
-            }}>
-              {/* Cards */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
-                {data.margeCumulee.map(row => (
-                  <div key={row.month} style={{
-                    background: "#1a2234", borderRadius: 10, padding: "14px 18px",
-                    borderLeft: `3px solid ${C.yellow}`,
-                  }}>
-                    <div style={{ fontSize: 12, color: C.sub, marginBottom: 4 }}>
-                      {row.month.slice(5)}/{row.month.slice(0, 4)}
-                    </div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: C.yellow, fontFamily: "monospace" }}>
-                      {fmt(row.marge_cum)}\u20AC
-                    </div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                      +{fmt(row.marge)}\u20AC ce mois
-                    </div>
-                  </div>
-                ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              {/* Bar chart */}
-              {data.margeCumulee.length > 1 && (() => {
-                const W = 900, H = 250, PAD = { top: 20, right: 20, bottom: 40, left: 70 };
-                const plotW = W - PAD.left - PAD.right;
-                const plotH = H - PAD.top - PAD.bottom;
-                const maxVal = Math.max(1, ...data.margeCumulee.map(r => r.marge_cum));
-                const barW = Math.min(60, plotW / data.margeCumulee.length - 8);
+              {/* MARGE MENSUELLE PAR CENTRE */}
+              <div style={s.section}>
+                <div style={s.sectionTitle}>Marge Mensuelle par Centre</div>
+                <div style={s.card}>
+                  <table style={s.table}>
+                    <thead>
+                      <tr>
+                        <th style={s.thL}>Centre</th>
+                        {MOIS_ORDER.map((m) => <th key={m} style={s.th}>{MOIS_LABEL[m]}</th>)}
+                        <th style={{ ...s.th, color: C.green }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.keys(CENTRES).map((code) => {
+                        const total = MOIS_ORDER.reduce((a, m) => a + (mbMap[code]?.[m] || 0), 0);
+                        return (
+                          <tr key={code}>
+                            <td style={s.tdL}>
+                              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: CENTRES[code].color, marginRight: 8 }} />
+                              {CENTRES[code].label}
+                            </td>
+                            {MOIS_ORDER.map((m) => (
+                              <td key={m} style={{ ...s.td, color: mbMap[code]?.[m] > 0 ? C.green : C.muted }}>
+                                {fmt(mbMap[code]?.[m])}
+                              </td>
+                            ))}
+                            <td style={{ ...s.td, fontWeight: 700, color: total > 0 ? C.green : C.muted }}>{fmt(total)}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr>
+                        <td style={s.tdTotL}>Total</td>
+                        {MOIS_ORDER.map((m) => (
+                          <td key={m} style={{ ...s.tdTot, color: C.green }}>{fmt(mbTotaux[m])}</td>
+                        ))}
+                        <td style={{ ...s.tdTot, color: C.orange }}>
+                          {fmt(MOIS_ORDER.reduce((a, m) => a + mbTotaux[m], 0))}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-                return (
-                  <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
-                    {[0, 0.25, 0.5, 0.75, 1].map(pct => {
-                      const y = PAD.top + plotH * (1 - pct);
-                      return (
-                        <g key={pct}>
-                          <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke={C.border} strokeWidth={0.5} />
-                          <text x={PAD.left - 6} y={y + 4} textAnchor="end" fill={C.muted} fontSize={10} fontFamily="monospace">
-                            {fmt(Math.round(maxVal * pct))}
-                          </text>
-                        </g>
-                      );
-                    })}
-                    {data.margeCumulee.map((row, i) => {
-                      const x = PAD.left + (i + 0.5) * (plotW / data.margeCumulee.length) - barW / 2;
-                      const barH = (row.marge_cum / maxVal) * plotH;
-                      const y = PAD.top + plotH - barH;
-                      return (
-                        <g key={row.month}>
-                          <rect x={x} y={y} width={barW} height={barH} fill={C.yellow} opacity={0.85} rx={3} />
-                          <text x={x + barW / 2} y={H - 8} textAnchor="middle" fill={C.muted} fontSize={10} fontFamily="monospace">
-                            {row.month.slice(5)}/{row.month.slice(2, 4)}
-                          </text>
-                          <text x={x + barW / 2} y={y - 6} textAnchor="middle" fill={C.yellow} fontSize={10} fontWeight={600} fontFamily="monospace">
-                            {fmt(row.marge_cum)}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
-                );
-              })()}
-            </div>
-
-            <div style={{ textAlign: "center", fontSize: 11, color: C.muted, marginTop: 24 }}>
-              Re-FAP \u2014 Financier v1.0
-            </div>
-          </main>
-        )}
+              {/* MARGE CUMULÉE */}
+              <div style={s.section}>
+                <div style={s.sectionTitle}>Marge Cumulée</div>
+                <div style={{ display: "flex", gap: 12 }}>
+                  {margeCumulee.map((mc) => (
+                    <div key={mc.mois} style={{ flex: 1, background: C.surface, border: `1px solid ${mc.cumul >= 0 ? "#22c55e33" : "#ef444433"}`, borderRadius: 10, padding: "16px 20px" }}>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>{MOIS_LABEL[mc.mois]}</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "monospace", color: mc.cumul >= 0 ? C.green : C.red }}>
+                        {fmtSign(mc.cumul)}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                        {fmtSign(mc.mensuel)} ce mois
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </>
-  );
-}
-
-function SectionTitle({ title }) {
-  return (
-    <div style={{
-      fontSize: 11, fontWeight: 700, color: C.sub, textTransform: "uppercase",
-      letterSpacing: 2, marginBottom: 16, paddingBottom: 8,
-      borderBottom: `1px solid ${C.border}`,
-    }}>{title}</div>
   );
 }
