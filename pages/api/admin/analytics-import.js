@@ -165,6 +165,21 @@ export default async function handler(req, res) {
       const dateCols = cols.filter(c => dateColRegex.test(c));
       const isPivot = dateCols.length >= 2;
 
+      // Helper: compute week_end from week_start
+      // For monthly data (pivot): last day of month. For weekly: +6 days.
+      function computeWeekEnd(dateStr, isMonthly) {
+        if (isMonthly) {
+          // "2025-10-01" → last day of October = "2025-10-31"
+          const [y, m] = dateStr.split("-").map(Number);
+          const lastDay = new Date(y, m, 0).getDate(); // month is 1-based here, Date(y,m,0) = last day of month m
+          return `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+        }
+        // Weekly: +6 days
+        const d = new Date(dateStr + "T00:00:00Z");
+        d.setUTCDate(d.getUTCDate() + 6);
+        return d.toISOString().split("T")[0];
+      }
+
       let mapped = [];
 
       if (isPivot) {
@@ -212,6 +227,7 @@ export default async function handler(req, res) {
             mapped.push({
               store_code,
               week_start,
+              week_end: computeWeekEnd(week_start, true),
               qty_week: Math.round(num), // production count (integer)
               ca_ht_week: 0,
               marge_week: 0,
@@ -270,9 +286,11 @@ export default async function handler(req, res) {
           const marge = parseFloat(String(margeRaw || "0").replace(",", ".").replace(/[\s\u00A0€]/g, "")) || 0;
 
           if (!date || !store_code) return null;
+          const ws = String(date).trim();
           return {
             store_code: String(store_code).trim(),
-            week_start: String(date).trim(),
+            week_start: ws,
+            week_end: computeWeekEnd(ws, false),
             qty_week: qty,
             ca_ht_week: Math.round(ca * 100) / 100,
             marge_week: Math.round(marge * 100) / 100,
