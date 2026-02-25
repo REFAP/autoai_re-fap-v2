@@ -2429,6 +2429,80 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
   const garageDistLabel = (g) => g.distance_km ? ` (~${g.distance_km} km)` : "";
 
   // ============================================================
+  // PRIORITÉ ÎLE-DE-FRANCE : proposer Thiais + Sarcelles en premier
+  // Pour tous les départements IDF (75, 77, 78, 91, 92, 93, 94, 95),
+  // les 2 CC équipés machine sont la meilleure option.
+  // ============================================================
+  const IDF_DEPTS = ["75", "77", "78", "91", "92", "93", "94", "95"];
+  if (dept && IDF_DEPTS.includes(dept)) {
+    // Trouver les 2 CC équipés IDF (Thiais + Sarcelles) avec distances
+    const idfEquipped = CARTER_CASH_LIST
+      .filter(c => c.equipped && IDF_DEPTS.includes(c.dept) && !c.isRefapCenter)
+      .map(c => ({
+        ...c,
+        distance: refLat && refLng ? Math.round(haversineKm(refLat, refLng, c.lat, c.lng)) : null,
+      }))
+      .sort((a, b) => (a.distance || 999) - (b.distance || 999));
+
+    // Si au moins un CC équipé IDF est à moins de 80km → réponse IDF prioritaire
+    if (idfEquipped.length > 0 && idfEquipped[0].distance !== null && idfEquipped[0].distance <= 80) {
+      const ccLines = idfEquipped.map(c =>
+        `🏪 ${c.name}${c.distance !== null ? ` (~${c.distance} km)` : ""} — nettoyage sur place en 4h, 99€ ou 149€`
+      ).join("\n");
+
+      assignedCC = { ...idfEquipped[0], reason: "IDF centre express prioritaire" };
+
+      replyClean = `Bonne nouvelle, tu es en Île-de-France — on a ${idfEquipped.length > 1 ? "deux centres équipés" : "un centre équipé"} près de toi :\n\n${ccLines}\n\nTu déposes ton FAP démonté, il repart propre le jour même.`;
+
+      // Si garage partenaire trouvé, le mentionner aussi
+      if (bestGarage && demontage !== "self") {
+        const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
+        const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
+        const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
+        assignedGarage = bestGarage;
+        replyClean += `\n\nSi tu préfères qu'un garage s'occupe de tout : 🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} peut gérer le démontage/remontage.`;
+      }
+
+      replyClean += `\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option pour ${vehicleInfo} ?`;
+
+      // Construire data et retourner
+      const data = {
+        ...(extracted || DEFAULT_DATA),
+        intention: "rdv",
+        ville: villeDisplay || null,
+        departement: dept || null,
+        next_best_action: "proposer_devis",
+        centre_proche: `Carter-Cash ${idfEquipped[0].city}`,
+      };
+      const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+      const assignment = {
+        postal_code: idfEquipped[0].postal,
+        centre_type: "EXPRESS",
+        reason: "IDF prioritaire",
+        user_location_input: ville || null,
+        user_dept: dept || null,
+        distance_km: idfEquipped[0].distance || null,
+      };
+      const garageAssignment = assignedGarage ? {
+        garage_partenaire_id: assignedGarage.id,
+        garage_name: assignedGarage.nom,
+        garage_reseau: assignedGarage.reseau,
+        garage_distance_km: assignedGarage.distance_km,
+      } : null;
+
+      return {
+        replyClean, replyFull, extracted: data,
+        assignment,
+        garageAssignment,
+        suggested_replies: [
+          { label: "✅ Oui, rappelez-moi", value: "oui je veux être rappelé" },
+          { label: "Non merci", value: "non merci" },
+        ],
+      };
+    }
+  }
+
+  // ============================================================
   // RÉPONSES PAR CAS
   // ============================================================
 
