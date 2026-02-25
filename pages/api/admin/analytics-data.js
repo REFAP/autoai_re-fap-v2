@@ -77,6 +77,81 @@ export default async function handler(req, res) {
     const days = parseInt(req.query.days) || 30;
     const since = dateDaysAgo(days);
 
+    // ── Financier mode: only prestations_weekly + centres ──
+    if (req.query.type === "financier") {
+      const [prestaRes, centresRes] = await Promise.all([
+        supabase.from("prestations_weekly").select("store_code, qty_week, ca_ht_week, marge_week, week_start"),
+        supabase.from("centres").select("id, name, city, store_code").eq("status", "ACTIVE"),
+      ]);
+
+      const prestations = prestaRes.data || [];
+      const centresData = centresRes.data || [];
+
+      const storeNameMap = {};
+      for (const c of centresData) {
+        if (c.store_code) storeNameMap[c.store_code] = `${c.name} (${c.city || ""})`.trim();
+      }
+
+      // Build monthly data per centre (all time, no date filter)
+      const monthlyMap = {};
+      for (const p of prestations) {
+        const month = (p.week_start || "").slice(0, 7);
+        if (!month) continue;
+        const centre = storeNameMap[p.store_code] || p.store_code;
+        if (!monthlyMap[month]) monthlyMap[month] = {};
+        if (!monthlyMap[month][centre]) monthlyMap[month][centre] = { ca: 0, marge: 0, qty: 0 };
+        monthlyMap[month][centre].ca += parseFloat(p.ca_ht_week) || 0;
+        monthlyMap[month][centre].marge += parseFloat(p.marge_week) || 0;
+        monthlyMap[month][centre].qty += p.qty_week || 0;
+      }
+
+      const months = Object.keys(monthlyMap).sort();
+      const allCentres = [...new Set(prestations.map(p => storeNameMap[p.store_code] || p.store_code))];
+
+      // CA mensuel par centre
+      const caMensuel = months.map(m => {
+        const row = { month: m };
+        let total = 0;
+        for (const c of allCentres) {
+          const val = Math.round((monthlyMap[m]?.[c]?.ca || 0) * 100) / 100;
+          row[c] = val;
+          total += val;
+        }
+        row._total = Math.round(total * 100) / 100;
+        return row;
+      });
+
+      // Marge mensuelle par centre
+      const margeMensuelle = months.map(m => {
+        const row = { month: m };
+        let total = 0;
+        for (const c of allCentres) {
+          const val = Math.round((monthlyMap[m]?.[c]?.marge || 0) * 100) / 100;
+          row[c] = val;
+          total += val;
+        }
+        row._total = Math.round(total * 100) / 100;
+        return row;
+      });
+
+      // Marge cumulée
+      let cumul = 0;
+      const margeCumulee = months.map(m => {
+        const marge = margeMensuelle.find(r => r.month === m)?._total || 0;
+        cumul += marge;
+        return { month: m, marge: Math.round(marge * 100) / 100, marge_cum: Math.round(cumul * 100) / 100 };
+      });
+
+      return res.status(200).json({
+        generated_at: new Date().toISOString(),
+        centres: allCentres,
+        months,
+        caMensuel,
+        margeMensuelle,
+        margeCumulee,
+      });
+    }
+
     // Fetch all sources in parallel
     const [gscMainRes, gscCcRes, ytRes, tiktokRes, metaRes, emailRes, prestaRes, centresRes, leadsRes, chatbotRes] = await Promise.all([
       supabase.from("analytics_gsc").select("*").eq("source", "refap-main").gte("date", since).order("date"),
