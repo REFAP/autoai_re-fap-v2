@@ -77,60 +77,60 @@ export default async function handler(req, res) {
     const days = parseInt(req.query.days) || 30;
     const since = dateDaysAgo(days);
 
-    // ── Financier mode: only prestations_weekly + centres ──
+    // ── Financier mode: cc_ventes_mensuelles + cc_marges_mensuelles ──
     if (req.query.type === "financier") {
-      const [prestaRes, centresRes] = await Promise.all([
-        supabase.from("prestations_weekly").select("store_code, qty_week, ca_ht_week, marge_week, week_start"),
-        supabase.from("centres").select("id, name, city, store_code").eq("status", "ACTIVE"),
+      const [ventesRes, margesRes] = await Promise.all([
+        supabase.from("cc_ventes_mensuelles").select("*").order("mois"),
+        supabase.from("cc_marges_mensuelles").select("*").order("mois"),
       ]);
 
-      const prestations = prestaRes.data || [];
-      const centresData = centresRes.data || [];
+      if (ventesRes.error) throw ventesRes.error;
+      if (margesRes.error) throw margesRes.error;
 
-      const storeNameMap = {};
-      for (const c of centresData) {
-        if (c.store_code) storeNameMap[c.store_code] = `${c.name} (${c.city || ""})`.trim();
+      const ventes = ventesRes.data || [];
+      const marges = margesRes.data || [];
+
+      const CENTRE_CODES = ["801", "065", "003", "006", "autres"];
+
+      // Get all months from marges (which has per-centre data)
+      const months = [...new Set(marges.map(m => m.mois))].sort();
+
+      // Build CA total by month from "total" rows in cc_ventes_mensuelles
+      const caTotalByMonth = {};
+      for (const v of ventes) {
+        if (v.code_centre === "total") {
+          caTotalByMonth[v.mois] = Number(v.ca_ht) || 0;
+        }
       }
 
-      // Build monthly data per centre (all time, no date filter)
-      const monthlyMap = {};
-      for (const p of prestations) {
-        const month = (p.week_start || "").slice(0, 7);
-        if (!month) continue;
-        const centre = storeNameMap[p.store_code] || p.store_code;
-        if (!monthlyMap[month]) monthlyMap[month] = {};
-        if (!monthlyMap[month][centre]) monthlyMap[month][centre] = { ca: 0, marge: 0, qty: 0 };
-        monthlyMap[month][centre].ca += parseFloat(p.ca_ht_week) || 0;
-        monthlyMap[month][centre].marge += parseFloat(p.marge_week) || 0;
-        monthlyMap[month][centre].qty += p.qty_week || 0;
+      // Build marge by month and centre
+      const margeMap = {};
+      for (const m of marges) {
+        if (!margeMap[m.mois]) margeMap[m.mois] = {};
+        margeMap[m.mois][m.code_centre] = {
+          marge_brute: m.marge_brute || 0,
+          loyer: m.loyer_prorate || 0,
+        };
       }
 
-      const months = Object.keys(monthlyMap).sort();
-      const allCentres = [...new Set(prestations.map(p => storeNameMap[p.store_code] || p.store_code))];
-
-      // CA mensuel par centre
+      // CA mensuel: _total from cc_ventes_mensuelles "total" rows
       const caMensuel = months.map(m => {
         const row = { month: m };
-        let total = 0;
-        for (const c of allCentres) {
-          const val = Math.round((monthlyMap[m]?.[c]?.ca || 0) * 100) / 100;
-          row[c] = val;
-          total += val;
-        }
-        row._total = Math.round(total * 100) / 100;
+        for (const c of CENTRE_CODES) row[c] = 0;
+        row._total = caTotalByMonth[m] || 0;
         return row;
       });
 
-      // Marge mensuelle par centre
+      // Marge mensuelle par centre (marge_brute from cc_marges_mensuelles)
       const margeMensuelle = months.map(m => {
         const row = { month: m };
         let total = 0;
-        for (const c of allCentres) {
-          const val = Math.round((monthlyMap[m]?.[c]?.marge || 0) * 100) / 100;
+        for (const c of CENTRE_CODES) {
+          const val = margeMap[m]?.[c]?.marge_brute || 0;
           row[c] = val;
           total += val;
         }
-        row._total = Math.round(total * 100) / 100;
+        row._total = total;
         return row;
       });
 
@@ -139,12 +139,12 @@ export default async function handler(req, res) {
       const margeCumulee = months.map(m => {
         const marge = margeMensuelle.find(r => r.month === m)?._total || 0;
         cumul += marge;
-        return { month: m, marge: Math.round(marge * 100) / 100, marge_cum: Math.round(cumul * 100) / 100 };
+        return { month: m, marge, marge_cum: cumul };
       });
 
       return res.status(200).json({
         generated_at: new Date().toISOString(),
-        centres: allCentres,
+        centres: CENTRE_CODES,
         months,
         caMensuel,
         margeMensuelle,

@@ -59,7 +59,7 @@ export default function FinancierDashboard() {
 
   return (
     <>
-      <Head><title>Financier \u2014 Re-FAP</title></Head>
+      <Head><title>Financier — Re-FAP</title></Head>
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', system-ui, sans-serif", color: C.text }}>
 
         {/* Header */}
@@ -143,12 +143,12 @@ export default function FinancierDashboard() {
                           centreTotal += val;
                           return (
                             <td key={row.month} style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: val > 0 ? C.text : C.muted }}>
-                              {val > 0 ? `${fmt(val)}\u20AC` : "\u2014"}
+                              {val > 0 ? `${fmt(val)}€` : "\u2014"}
                             </td>
                           );
                         })}
                         <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: C.orange, fontWeight: 700 }}>
-                          {fmt(Math.round(centreTotal * 100) / 100)}\u20AC
+                          {fmt(Math.round(centreTotal * 100) / 100)}€
                         </td>
                       </tr>
                     );
@@ -157,11 +157,11 @@ export default function FinancierDashboard() {
                     <td style={{ padding: 8, fontWeight: 700, color: C.text, position: "sticky", left: 0, background: C.surface }}>Total</td>
                     {data.caMensuel.map(row => (
                       <td key={row.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.text, fontWeight: 700 }}>
-                        {fmt(row._total)}\u20AC
+                        {fmt(row._total)}€
                       </td>
                     ))}
                     <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.orange, fontWeight: 700 }}>
-                      {fmt(Math.round(data.caMensuel.reduce((s, r) => s + r._total, 0) * 100) / 100)}\u20AC
+                      {fmt(Math.round(data.caMensuel.reduce((s, r) => s + r._total, 0) * 100) / 100)}€
                     </td>
                   </tr>
                 </tbody>
@@ -197,12 +197,12 @@ export default function FinancierDashboard() {
                           centreTotal += val;
                           return (
                             <td key={row.month} style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: val > 0 ? C.green : C.muted }}>
-                              {val > 0 ? `${fmt(val)}\u20AC` : "\u2014"}
+                              {val > 0 ? `${fmt(val)}€` : "\u2014"}
                             </td>
                           );
                         })}
                         <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
-                          {fmt(Math.round(centreTotal * 100) / 100)}\u20AC
+                          {fmt(Math.round(centreTotal * 100) / 100)}€
                         </td>
                       </tr>
                     );
@@ -211,11 +211,11 @@ export default function FinancierDashboard() {
                     <td style={{ padding: 8, fontWeight: 700, color: C.text, position: "sticky", left: 0, background: C.surface }}>Total</td>
                     {data.margeMensuelle.map(row => (
                       <td key={row.month} style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
-                        {fmt(row._total)}\u20AC
+                        {fmt(row._total)}€
                       </td>
                     ))}
                     <td style={{ padding: 8, textAlign: "right", fontFamily: "monospace", color: C.green, fontWeight: 700 }}>
-                      {fmt(Math.round(data.margeMensuelle.reduce((s, r) => s + r._total, 0) * 100) / 100)}\u20AC
+                      {fmt(Math.round(data.margeMensuelle.reduce((s, r) => s + r._total, 0) * 100) / 100)}€
                     </td>
                   </tr>
                 </tbody>
@@ -239,10 +239,10 @@ export default function FinancierDashboard() {
                       {row.month.slice(5)}/{row.month.slice(0, 4)}
                     </div>
                     <div style={{ fontSize: 22, fontWeight: 700, color: C.yellow, fontFamily: "monospace" }}>
-                      {fmt(row.marge_cum)}\u20AC
+                      {fmt(row.marge_cum)}€
                     </div>
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                      +{fmt(row.marge)}\u20AC ce mois
+                      +{fmt(row.marge)}€ ce mois
                     </div>
                   </div>
                 ))}
@@ -291,7 +291,7 @@ export default function FinancierDashboard() {
             </div>
 
             <div style={{ textAlign: "center", fontSize: 11, color: C.muted, marginTop: 24 }}>
-              Re-FAP \u2014 Financier v1.0
+              Re-FAP — Financier v1.0
             </div>
           </main>
         )}
