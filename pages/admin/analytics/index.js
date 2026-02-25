@@ -467,10 +467,10 @@ export default function AnalyticsDashboard() {
               </>
             )}
 
-            {/* ═══════ SECTION 5b: EVOLUTION MENSUELLE (like dashboard.php) ═══════ */}
+            {/* ═══════ SECTION 5b: EVOLUTION MENSUELLE ═══════ */}
             {data.ccMonthly && data.ccMonthly.length > 0 && (
               <>
-                <SectionTitle title="Evolution mensuelle (vue dashboard.php)" />
+                <SectionTitle title="Evolution mensuelle" />
                 <div style={{
                   background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
                   padding: 24, marginBottom: 32,
