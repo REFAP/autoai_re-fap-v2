@@ -38,14 +38,14 @@ const MOIS_LABEL = {
 };
 
 const fmt = (v) => {
-  if (!v && v !== 0) return "–";
-  if (v === 0) return "–";
-  return Number(v).toLocaleString("fr-FR") + "€";
+  if (!v && v !== 0) return "\u2013";
+  if (v === 0) return "\u2013";
+  return Number(v).toLocaleString("fr-FR") + "\u20AC";
 };
 
 const fmtSign = (v) => {
-  if (v === null || v === undefined) return "–";
-  return (v >= 0 ? "+" : "") + Number(v).toLocaleString("fr-FR") + "€";
+  if (v === null || v === undefined) return "\u2013";
+  return (v >= 0 ? "+" : "") + Number(v).toLocaleString("fr-FR") + "\u20AC";
 };
 
 const thStyle = { padding: "8px 12px", textAlign: "right", color: "#64748b", fontWeight: 500, fontSize: 11, textTransform: "uppercase", borderBottom: "1px solid #1e293b" };
@@ -116,7 +116,7 @@ export default function Financier() {
 
   return (
     <>
-      <Head><title>Financier — Re-FAP Dashboard</title></Head>
+      <Head><title>Financier \u2014 Re-FAP Dashboard</title></Head>
       <div style={{ background: C.bg, minHeight: "100vh", color: C.text, fontFamily: "system-ui, sans-serif" }}>
 
         {/* NAV */}
@@ -133,7 +133,7 @@ export default function Financier() {
             }}>{n.label}</Link>
           ))}
           <button onClick={fetchData} disabled={loading} style={{ marginLeft: "auto", background: C.border, border: "none", color: C.text, borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontSize: 12 }}>
-            {loading ? "..." : "Rafraîchir"}
+            {loading ? "..." : "Rafra\u00EEchir"}
           </button>
         </nav>
 
@@ -147,9 +147,9 @@ export default function Financier() {
               {/* KPIs */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 28 }}>
                 {[
-                  { label: "CA Cumulé HT", value: fmt(caTotalExercice), color: C.green, sub: "Oct 2025 – Fév 2026" },
+                  { label: "CA Cumul\u00E9 HT", value: fmt(caTotalExercice), color: C.green, sub: "Oct 2025 \u2013 F\u00E9v 2026" },
                   { label: "Marge Brute Exercice", value: fmt(mbTotalExercice), color: C.orange, sub: "Tous centres" },
-                  { label: "MN Exercice Parc", value: fmtSign(totalMNExercice), color: totalMNExercice >= 0 ? C.green : C.red, sub: "MB – Loyers PDF officiel" },
+                  { label: "MN Exercice Parc", value: fmtSign(totalMNExercice), color: totalMNExercice >= 0 ? C.green : C.red, sub: "MB \u2013 Loyers PDF officiel" },
                 ].map((k) => (
                   <div key={k.label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20, borderLeft: `3px solid ${k.color}` }}>
                     <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{k.label}</div>
@@ -178,10 +178,10 @@ export default function Financier() {
                           <td style={tdL}>{dot(CENTRES[code].color)}{CENTRES[code].label}</td>
                           {MOIS_ORDER.map((m) => (
                             <td key={m} style={{ ...td, color: fapMap[code]?.[m] > 0 ? C.text : C.muted }}>
-                              {fapMap[code]?.[m] > 0 ? `${fapMap[code][m]} FAP` : "–"}
+                              {fapMap[code]?.[m] > 0 ? `${fapMap[code][m]} FAP` : "\u2013"}
                             </td>
                           ))}
-                          <td style={{ ...td, fontWeight: 700 }}>{total > 0 ? `${total} FAP` : "–"}</td>
+                          <td style={{ ...td, fontWeight: 700 }}>{total > 0 ? `${total} FAP` : "\u2013"}</td>
                         </tr>
                       );
                     })}
@@ -230,7 +230,7 @@ export default function Financier() {
               </div>
 
               {/* MARGE CUMULÉE */}
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>Marge Cumulée</div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>Marge Cumul\u00E9e</div>
               <div style={{ display: "flex", gap: 12, marginBottom: 28 }}>
                 {margeCumulee.map((mc) => (
                   <div key={mc.mois} style={{ flex: 1, background: C.surface, border: `1px solid ${mc.cumul >= 0 ? "#22c55e33" : "#ef444433"}`, borderRadius: 10, padding: "16px 20px" }}>
