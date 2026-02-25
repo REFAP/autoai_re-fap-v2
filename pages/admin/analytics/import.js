@@ -98,6 +98,12 @@ export default function AnalyticsImport() {
         }
       }
 
+      // cc_csv: show detected columns if none match expected names
+      if (source.key === "cc_csv" && rows.length > 0) {
+        const cols = Object.keys(rows[0]);
+        console.log("[cc_csv] Colonnes detectees:", cols);
+      }
+
       const body = { source: source.key, rows, ...(purge ? { purge: true } : {}) };
 
       const resp = await fetch(`/api/admin/analytics-import?token=${encodeURIComponent(getToken())}`, {
