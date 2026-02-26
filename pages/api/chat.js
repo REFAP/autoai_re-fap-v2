@@ -3949,7 +3949,9 @@ export default async function handler(req, res) {
     const tClosureGuard = message.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const isClosureNotYes = /^(ok\s*merci|super\s*merci|parfait\s*merci|top\s*merci|merci|c.est bon merci|ok c.est bon)[\s!.]*$/i.test(tClosureGuard);
 
-    if ((lastAssistantAskedClosingQuestion(history) || lastAssistantAskedCity(history)) && userSaysYes(message) && !isClosureNotYes) {
+    // FIX 2: si lastAssistantAskedCity, "oui" ne doit PAS déclencher le formulaire
+    // (l'utilisateur confirme qu'il est dans la bonne ville, pas qu'il veut un rappel)
+    if (lastAssistantAskedClosingQuestion(history) && userSaysYes(message) && !isClosureNotYes) {
       // P3 FIX: Vérifier si un FormCTA (résumé rappel) a déjà été envoyé
       const alreadySentFormCTA = history.some(h => h?.role === "assistant" && /résumé de ta situation|un expert re-fap te rappelle/i.test(String(h.raw || h.content || "")));
       if (alreadySentFormCTA) {
