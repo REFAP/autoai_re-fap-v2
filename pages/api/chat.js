@@ -1042,8 +1042,19 @@ function extractModelFromMessage(text) {
   }
   const mercMatch = tNorm.match(/\bclass?e?\s*([a-egsv])\b/i);
   if (mercMatch) return "Classe " + mercMatch[1].toUpperCase();
+  // Mercedes compact notation: C220, E250, A180, S350, etc.
+  const mercCompactMatch = tNorm.match(/\b([a-egsv])(\d{3})\b/i);
+  if (mercCompactMatch && /merced|benz/i.test(tNorm)) return "Classe " + mercCompactMatch[1].toUpperCase();
   const mercModelMatch = tNorm.match(/\b(gl[abc]|gle|gls|cla|clk)\b/i);
   if (mercModelMatch) return mercModelMatch[1].toUpperCase();
+  // Mercedes numeric models: 220 CDI, 250 CDI, 320 BlueTEC, etc.
+  const mercNumericMatch = tNorm.match(/\b([1-9]\d{2})\s*(cdi|blue\s*tec)\b/i);
+  if (mercNumericMatch) return mercNumericMatch[1] + " " + mercNumericMatch[2].replace(/\s+/g, "").toUpperCase();
+  // Mercedes numeric + d suffix only when Mercedes context present
+  if (/\bmerced|benz\b/i.test(tNorm)) {
+    const mercDMatch = tNorm.match(/\b([1-9]\d{2})\s*d\b/i);
+    if (mercDMatch) return mercDMatch[1] + "d";
+  }
   const peugeotMatch = tNorm.match(/\b(1008|108|2008|208|3008|308|408|5008|508|206|207|306|307|407|607|807)\b/);
   if (peugeotMatch) {
     const val = peugeotMatch[1];
