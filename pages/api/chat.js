@@ -2501,18 +2501,23 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
 
       assignedCC = { ...idfEquipped[0], reason: "IDF centre express prioritaire" };
 
-      replyClean = `Bonne nouvelle, tu es en Île-de-France — on a ${idfEquipped.length > 1 ? "deux centres équipés" : "un centre équipé"} près de toi :\n\n${ccLines}\n\nTu déposes ton FAP démonté, il repart propre le jour même.`;
-
-      // Si garage partenaire trouvé, le mentionner aussi
-      if (bestGarage && demontage !== "self") {
+      if (demontage !== "self" && bestGarage) {
+        // IDF + intent garage → circuit complet garage partenaire + CC équipé
+        assignedGarage = bestGarage;
         const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
         const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
         const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
-        assignedGarage = bestGarage;
-        replyClean += `\n\nSi tu préfères qu'un garage s'occupe de tout : 🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} peut gérer le démontage/remontage.`;
+        const bestCC = idfEquipped[0];
+        replyClean = `On a un garage partenaire près de toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — démontage et remontage de ton FAP\n🏪 ${bestCC.name}${distLabel(bestCC)} — nettoyage sur place en 4h, 99€ ou 149€\n\nLe garage envoie le FAP directement au CC, tu récupères ton véhicule le jour même ou le lendemain.`;
+        if (idfEquipped.length > 1) {
+          replyClean += `\n\nAutre CC équipé à proximité : ${idfEquipped[1].name}${distLabel(idfEquipped[1])}.`;
+        }
+        replyClean += `\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
+      } else {
+        // IDF + self (ou pas de garage trouvé) → CC équipés seulement
+        replyClean = `Bonne nouvelle, tu es en Île-de-France — on a ${idfEquipped.length > 1 ? "deux centres équipés" : "un centre équipé"} près de toi :\n\n${ccLines}\n\nTu déposes ton FAP démonté, il repart propre le jour même.`;
+        replyClean += `\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option pour ${vehicleInfo} ?`;
       }
-
-      replyClean += `\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option pour ${vehicleInfo} ?`;
 
       // Construire data et retourner
       const data = {
