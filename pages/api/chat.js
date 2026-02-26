@@ -2161,22 +2161,25 @@ function looksLikeCityAnswer(message) {
 function cleanVilleInput(message) {
   let ville = String(message || "").trim();
 
+  // BUG D FIX: normaliser les apostrophes typographiques (''‛) → apostrophe ASCII
+  ville = ville.replace(/[\u2018\u2019\u201B\u0060\u00B4]/g, "'");
+
   // Cas spéciaux — abréviations et ambiguïtés (même logique que extractDeptFromInput)
-  const tLow = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const tLow = ville.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   if (/\bclermont\b/.test(tLow) && !/\boise\b/.test(tLow)) return "Clermont-Ferrand";
   if (/\bst[- ]etienne\b|saint[- ]etienne\b/.test(tLow)) return "Saint-Étienne";
   if (/\bst[- ]nazaire\b|saint[- ]nazaire\b/.test(tLow)) return "Saint-Nazaire";
 
   ville = ville
-    .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |je me trouve |on est |nous sommes |moi c'est |c'est |ici c'est |je veux |je voudrais |je cherche |j'aimerais )/i, "")
-    .replace(/^(un garage |une solution |un centre )?(vite |rapidement |urgent )?(à |a |au |en |sur |dans le |dans |près de |pres de |vers |du côté de |du cote de |secteur |région |region )?(cp |code postal )?/i, "")
+    .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |je me trouve |on est |nous sommes |moi c'est |c'est |ici c'est |je veux |je voudrais |je cherche |j'aimerais |mon garage |mon garagiste )/i, "")
+    .replace(/^(un garage |une solution |un centre |garage )?(habituel |de confiance )?(vite |rapidement |urgent )?(à |a |au |en |sur |dans le |dans |près de |pres de |vers |du côté de |du cote de |secteur |région |region |pour )?(cp |code postal )?/i, "")
     .replace(/[,;]\s*(c'est|c est|très|tres|assez|super|trop|vraiment).*$/i, "")
     .replace(/[.!?]+$/, "")
     .trim();
 
   // Chercher le nom de ville reconnu dans la phrase (CITY_TO_DEPT) — pour messages longs ET courts ambigus
-  const tNorm = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
-  const hasNonCityWords = /\b(garage|cherche|besoin|propose|suis|habite|centre|fap|carter|demonter|nettoyer|veux|vite|urgent)\b/i.test(ville);
+  const tNorm = ville.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
+  const hasNonCityWords = /\b(garage|cherche|besoin|propose|suis|habite|centre|fap|carter|demonter|nettoyer|veux|vite|urgent|proche|pour|mon|leur|dans)\b/i.test(ville);
 
   if (ville.length > 30 || hasNonCityWords) {
     // BUG D FIX: CP seul extrait de la phrase — priorité absolue
