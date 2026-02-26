@@ -3986,7 +3986,18 @@ export default async function handler(req, res) {
     // ========================================
     if (userExpressesGaragePreference(message)) {
       const garageDept = extractDeptFromInput(message);
-      const garageVille = garageDept ? cleanVilleInput(message) : null;
+      let garageVille = garageDept ? cleanVilleInput(message) : null;
+      // BUG C FIX: si extractDeptFromInput échoue (ville non répertoriée),
+      // tenter d'extraire le nom de ville après une préposition (à, sur, de, vers)
+      if (!garageVille && !garageDept) {
+        const prepoMatch = message.match(/\b(?:à|a|sur|vers|dans|près\s+de|pres\s+de)\s+([\wÀ-ÿ][\wÀ-ÿ'-]*(?:[-\s]+(?:sur|sous|le|la|les|en|de|du|des|lès|lez)[-\s]+[\wÀ-ÿ][\wÀ-ÿ'-]*)*)\s*[.!?]?\s*$/i);
+        if (prepoMatch) {
+          const candidate = prepoMatch[1].trim();
+          if (candidate.length >= 3 && !/^(tout|rien|confiance|habitude|faire|ca|cela)$/i.test(candidate)) {
+            garageVille = capitalizeVille(candidate);
+          }
+        }
+      }
       const garageResp = buildGaragePreferenceResponse(lastExtracted, garageVille, garageDept);
       if (garageResp.hasVille) {
         // Ville trouvée dans la préférence → orientation directe
