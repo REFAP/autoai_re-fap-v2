@@ -3622,8 +3622,9 @@ function deterministicRouter(message, extracted, history, metier) {
 
   if (symptome && symptome !== "code_obd") {
     const updatedExtracted = { ...(extracted || DEFAULT_DATA), symptome };
-    // Si marque déjà connue → passer à ville
-    if (extracted?.marque) {
+    // Si marque ET modèle déjà connus → passer à ville
+    // BUG B FIX: ne pas sauter la question modèle si modèle inconnu
+    if (extracted?.marque && extracted?.modele) {
       return { action: "ask_ville", extracted: updatedExtracted };
     }
     return { action: "symptome_response", symptome, extracted: updatedExtracted };
