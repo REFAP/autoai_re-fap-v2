@@ -1044,6 +1044,21 @@ function extractModelFromMessage(text) {
   if (mercMatch) return "Classe " + mercMatch[1].toUpperCase();
   const mercModelMatch = tNorm.match(/\b(gl[abc]|gle|gls|cla|clk)\b/i);
   if (mercModelMatch) return mercModelMatch[1].toUpperCase();
+
+  // Mercedes modèles numériques (220 CDI, 270 CDI, 300 CDI, 350 CDT...)
+  // Guard : exclure les années (2010, 2015...) et les codes postaux
+  if (/mercedes|benz|sprinter|vito|viano/i.test(tNorm)) {
+    const mercNumMatch = tNorm.match(/\b([1-9]\d{2})\s*(cdi|d\b|bluetec|t\b|cdt|cde|amg)?/i);
+    if (mercNumMatch) {
+      const num = parseInt(mercNumMatch[1]);
+      // Plage valide Mercedes : 150-650 (exclut années 2000-2030)
+      if (num >= 150 && num <= 650) {
+        const suffix = mercNumMatch[2] ? " " + mercNumMatch[2].toUpperCase() : "";
+        return mercNumMatch[1] + suffix;
+      }
+    }
+  }
+
   const peugeotMatch = tNorm.match(/\b(1008|108|2008|208|3008|308|408|5008|508|206|207|306|307|407|607|807)\b/);
   if (peugeotMatch) {
     const val = peugeotMatch[1];
@@ -4545,6 +4560,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
