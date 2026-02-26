@@ -834,14 +834,19 @@ function userExpressesGaragePreference(text) {
     && /garage/i.test(t);
 }
 
-function buildGaragePreferenceResponse(extracted) {
+function buildGaragePreferenceResponse(extracted, ville, dept) {
   const data = { ...(extracted || DEFAULT_DATA), garage_confiance: true, demontage: "garage_own" };
-  const replyClean = `Pas de souci, on peut travailler avec ton garage. Un expert Re-FAP va te rappeler pour organiser la prise en charge avec ton garagiste — il s'occupe du démontage/remontage et on gère le nettoyage.\n\nTu es dans quelle ville ?`;
-  if (!extracted?.ville && !extracted?.departement) {
+  if (ville) data.ville = ville;
+  if (dept) data.departement = dept;
+  if (!data.ville && !data.departement) {
     data.next_best_action = "demander_ville";
+    const replyClean = `Pas de souci, on peut travailler avec ton garage. Un expert Re-FAP va te rappeler pour organiser la prise en charge avec ton garagiste — il s'occupe du démontage/remontage et on gère le nettoyage.\n\nTu es dans quelle ville ?`;
+    const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+    return { replyClean, replyFull, extracted: data };
   }
-  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-  return { replyClean, replyFull, extracted: data };
+  // Ville déjà connue → ne pas redemander
+  data.next_best_action = "proposer_devis";
+  return { data, hasVille: true };
 }
 
 function everAskedCity(history) {
@@ -3966,9 +3971,18 @@ export default async function handler(req, res) {
     // OVERRIDE BUG2 : Préférence garage spécifique à tout moment
     // "je préfère le garage de Saclas", "je préfère mon garage habituel"
     // → répondre FAQ garage de confiance sans reset du flow
+    // BUG C FIX: extraire la ville/CP mentionnée dans la phrase
     // ========================================
     if (userExpressesGaragePreference(message)) {
-      return sendResponse(buildGaragePreferenceResponse(lastExtracted));
+      const garageDept = extractDeptFromInput(message);
+      const garageVille = garageDept ? cleanVilleInput(message) : null;
+      const garageResp = buildGaragePreferenceResponse(lastExtracted, garageVille, garageDept);
+      if (garageResp.hasVille) {
+        // Ville trouvée dans la préférence → orientation directe
+        lastExtracted = { ...lastExtracted, ...garageResp.data };
+        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, garageVille, history));
+      }
+      return sendResponse(garageResp);
     }
 
     // ========================================
