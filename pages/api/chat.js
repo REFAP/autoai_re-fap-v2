@@ -2322,7 +2322,8 @@ function buildExpertOrientation(extracted, metier) {
   }
 
  let openQuestion;
-  if (!extracted?.ville && !extracted?.departement) {
+  const askingCity = !extracted?.ville && !extracted?.departement;
+  if (askingCity) {
     // v7.1 fix: ville inconnue → demander avant le pitch technique (fix conv Audi sans orientation)
     openQuestion = "Avant tout, tu es dans quelle ville ? Je te prépare la solution la plus proche.";
   } else if (hasHighKm || hasFapCode || attemptResponses.length > 0) {
@@ -2337,8 +2338,13 @@ function buildExpertOrientation(extracted, metier) {
   parts.push(openQuestion);
 
   const replyClean = parts.join("\n\n");
-  const data = { ...(extracted || DEFAULT_DATA), intention: "diagnostic", next_best_action: "demander_explication_solution" };
+  const nba = askingCity ? "demander_ville" : "demander_explication_solution";
+  const data = { ...(extracted || DEFAULT_DATA), intention: "diagnostic", next_best_action: nba };
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  // Boutons "Oui/Non" uniquement quand on pose la question explication, pas quand on demande la ville
+  if (askingCity) {
+    return { replyClean, replyFull, extracted: data };
+  }
   return {
     replyClean, replyFull, extracted: data,
     suggested_replies: [
