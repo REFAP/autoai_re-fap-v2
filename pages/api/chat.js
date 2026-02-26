@@ -282,7 +282,9 @@ function quickExtract(text) {
   }
 
   // --- CODES OBD ---
-  const codesFound = t.match(/[pPcCbBuU]\s*[\dA-Fa-f]{4}/g);
+  // BUG E FIX: restreindre aux vrais codes OBD powertrain P0xxx-P3xxx
+  // Exclut C/B/U (non FAP), P4xxx+ (inexistants), et codes postaux 5 chiffres
+  const codesFound = t.match(/\bP\s*[0-3]\d{3}(?!\d)/gi);
   if (codesFound) {
     result.codes = codesFound.map((c) => c.toUpperCase().replace(/\s/g, ""));
     const weakSymptoms = [null, "perte_puissance", "fumee", "fumee_noire", "fumee_blanche", "voyant_moteur_seul", "odeur_anormale"];
@@ -495,7 +497,7 @@ function lastAssistantAskedVehicle(history) {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i]?.role === "assistant") {
       const content = String(history[i].raw || history[i].content || "").toLowerCase();
-      if (content.includes("quelle voiture") || content.includes("roules en quoi") || content.includes("comme véhicule") || content.includes("quoi comme voiture") || content.includes("c'est quelle voiture") || content.includes("quelle marque")) {
+      if (content.includes("quelle voiture") || content.includes("roules en quoi") || content.includes("comme véhicule") || content.includes("quoi comme voiture") || content.includes("c'est quelle voiture") || content.includes("quelle marque") || content.includes("quel véhicule")) {
         return true;
       }
       return false;
@@ -825,23 +827,33 @@ function userHasOwnGarage(msg) {
   return /mon garage|j ai (un |mon |deja )(un )?garage|garage (de confiance|habituel|attit)|garagiste|mon meca|j en ai un|oui j ai|deja un garage/.test(t);
 }
 
-// BUG 2 FIX: Détecte les expressions de préférence garage
-// "je préfère le garage de Saclas", "je préfère mon garage habituel",
-// "je préfère un garage pas loin", "le garage de [ville]"
+// BUG 2 FIX: Détecte les expressions de préférence garage (whitelist stricte)
+// OUI : "mon garage", "je préfère...garage", "j'ai déjà un garage",
+//        "garage de confiance", "garage habituel"
+// NON : "je veux un garage", "je cherche un garage", "j'ai besoin d'un garage"
+//        → ces cas = RESCUE override normal
 function userExpressesGaragePreference(text) {
-  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return /(je\s*prefer|prefer.*garage|garage.*prefer|je\s*veux.*garage|je\s*voudrais.*garage|garage\s+de\s+[a-z])/i.test(t)
-    && /garage/i.test(t);
+  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
+  if (/mon\s+garage|mon\s+garagiste|mon\s+meca/i.test(t)) return true;
+  if (/prefer/i.test(t) && /garage/i.test(t)) return true;
+  if (/j\s*ai\s+(deja\s+)?(un\s+)?garage\b/i.test(t)) return true;
+  if (/garage\s+(de\s+confiance|habituel|attit)/i.test(t)) return true;
+  return false;
 }
 
-function buildGaragePreferenceResponse(extracted) {
+function buildGaragePreferenceResponse(extracted, ville, dept) {
   const data = { ...(extracted || DEFAULT_DATA), garage_confiance: true, demontage: "garage_own" };
-  const replyClean = `Pas de souci, on peut travailler avec ton garage. Un expert Re-FAP va te rappeler pour organiser la prise en charge avec ton garagiste — il s'occupe du démontage/remontage et on gère le nettoyage.\n\nTu es dans quelle ville ?`;
-  if (!extracted?.ville && !extracted?.departement) {
+  if (ville) data.ville = ville;
+  if (dept) data.departement = dept;
+  if (!data.ville && !data.departement) {
     data.next_best_action = "demander_ville";
+    const replyClean = `Pas de souci, on peut travailler avec ton garage. Un expert Re-FAP va te rappeler pour organiser la prise en charge avec ton garagiste — il s'occupe du démontage/remontage et on gère le nettoyage.\n\nTu es dans quelle ville ?`;
+    const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+    return { replyClean, replyFull, extracted: data };
   }
-  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
-  return { replyClean, replyFull, extracted: data };
+  // Ville déjà connue → ne pas redemander
+  data.next_best_action = "proposer_devis";
+  return { data, hasVille: true };
 }
 
 function everAskedCity(history) {
@@ -2149,28 +2161,29 @@ function looksLikeCityAnswer(message) {
 function cleanVilleInput(message) {
   let ville = String(message || "").trim();
 
+  // BUG D FIX: normaliser les apostrophes typographiques (''‛) → apostrophe ASCII
+  ville = ville.replace(/[\u2018\u2019\u201B\u0060\u00B4]/g, "'");
+
   // Cas spéciaux — abréviations et ambiguïtés (même logique que extractDeptFromInput)
-  const tLow = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const tLow = ville.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   if (/\bclermont\b/.test(tLow) && !/\boise\b/.test(tLow)) return "Clermont-Ferrand";
   if (/\bst[- ]etienne\b|saint[- ]etienne\b/.test(tLow)) return "Saint-Étienne";
   if (/\bst[- ]nazaire\b|saint[- ]nazaire\b/.test(tLow)) return "Saint-Nazaire";
 
   ville = ville
-    .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |je me trouve |on est |nous sommes |moi c'est |c'est |ici c'est )/i, "")
-    .replace(/^(à |a |au |en |sur |dans le |dans |près de |pres de |vers |du côté de |du cote de |secteur |région |region )/i, "")
+    .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |je me trouve |on est |nous sommes |moi c'est |c'est |ici c'est |je veux |je voudrais |je cherche |j'aimerais |mon garage |mon garagiste )/i, "")
+    .replace(/^(un garage |une solution |un centre |garage )?(habituel |de confiance )?(vite |rapidement |urgent )?(à |a |au |en |sur |dans le |dans |près de |pres de |vers |du côté de |du cote de |secteur |région |region |pour )?(cp |code postal )?/i, "")
+    .replace(/[,;]\s*(c'est|c est|très|tres|assez|super|trop|vraiment).*$/i, "")
     .replace(/[.!?]+$/, "")
     .trim();
 
   // Chercher le nom de ville reconnu dans la phrase (CITY_TO_DEPT) — pour messages longs ET courts ambigus
-  const tNorm = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
-  const hasNonCityWords = /\b(garage|cherche|besoin|propose|suis|habite|centre|fap|carter|demonter|nettoyer)\b/i.test(ville);
+  const tNorm = ville.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
+  const hasNonCityWords = /\b(garage|cherche|besoin|propose|suis|habite|centre|fap|carter|demonter|nettoyer|veux|vite|urgent|proche|pour|mon|leur|dans)\b/i.test(ville);
 
   if (ville.length > 30 || hasNonCityWords) {
-    // Code postal en priorité
-    const postalMatch = ville.match(/\b([a-zA-ZÀ-ÿ\-]+(?:\s+[a-zA-ZÀ-ÿ\-]+)*)\s+(\d{5})\b/);
-    if (postalMatch) return postalMatch[1] + " " + postalMatch[2];
-
-    // CP seul dans la phrase
+    // BUG D FIX: CP seul extrait de la phrase — priorité absolue
+    // Évite de capturer la phrase entière avec le regex greedy "ville + CP"
     const cpAlone = message.match(/\b(\d{5})\b/);
     if (cpAlone) return cpAlone[1];
 
@@ -2491,18 +2504,23 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
 
       assignedCC = { ...idfEquipped[0], reason: "IDF centre express prioritaire" };
 
-      replyClean = `Bonne nouvelle, tu es en Île-de-France — on a ${idfEquipped.length > 1 ? "deux centres équipés" : "un centre équipé"} près de toi :\n\n${ccLines}\n\nTu déposes ton FAP démonté, il repart propre le jour même.`;
-
-      // Si garage partenaire trouvé, le mentionner aussi
-      if (bestGarage && demontage !== "self") {
+      if (demontage !== "self" && bestGarage) {
+        // IDF + intent garage → circuit complet garage partenaire + CC équipé
+        assignedGarage = bestGarage;
         const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
         const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
         const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
-        assignedGarage = bestGarage;
-        replyClean += `\n\nSi tu préfères qu'un garage s'occupe de tout : 🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} peut gérer le démontage/remontage.`;
+        const bestCC = idfEquipped[0];
+        replyClean = `On a un garage partenaire près de toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — démontage et remontage de ton FAP\n🏪 ${bestCC.name}${distLabel(bestCC)} — nettoyage sur place en 4h, 99€ ou 149€\n\nLe garage envoie le FAP directement au CC, tu récupères ton véhicule le jour même ou le lendemain.`;
+        if (idfEquipped.length > 1) {
+          replyClean += `\n\nAutre CC équipé à proximité : ${idfEquipped[1].name}${distLabel(idfEquipped[1])}.`;
+        }
+        replyClean += `\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
+      } else {
+        // IDF + self (ou pas de garage trouvé) → CC équipés seulement
+        replyClean = `Bonne nouvelle, tu es en Île-de-France — on a ${idfEquipped.length > 1 ? "deux centres équipés" : "un centre équipé"} près de toi :\n\n${ccLines}\n\nTu déposes ton FAP démonté, il repart propre le jour même.`;
+        replyClean += `\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option pour ${vehicleInfo} ?`;
       }
-
-      replyClean += `\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option pour ${vehicleInfo} ?`;
 
       // Construire data et retourner
       const data = {
@@ -2776,8 +2794,10 @@ function buildVehicleQuestion(extracted) {
 
 function buildModelQuestion(extracted) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_modele" };
-  const marque = extracted?.marque || "ta voiture";
-  const replyClean = `🚗 Sur une ${marque}, c'est un souci qu'on voit souvent. C'est quel modèle exactement ? (et l'année si tu l'as)`;
+  const marque = extracted?.marque;
+  const replyClean = marque
+    ? `🚗 Sur une ${marque}, c'est un souci qu'on voit souvent. C'est quel modèle exactement ? (et l'année si tu l'as)`
+    : `🚗 C'est un souci qu'on voit souvent. C'est quel modèle exactement ? (et l'année si tu l'as)`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
@@ -3048,7 +3068,7 @@ function buildNonDieselResponse(extracted) {
 function detectSymptom(message) {
   const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   // Codes OBD → traitement séparé
-  if (/\bp[0-9]{4}\b|\bdfp[0-9]+\b|code (erreur|defaut|obd)|code[- ]?p\d/i.test(t)) return "code_obd";
+  if (/\bp[0-3][0-9]{3}\b|\bdfp[0-9]+\b|code (erreur|defaut|obd)|code[- ]?p[0-3]\d/i.test(t)) return "code_obd";
   // Surconsommation — souvent lié FAP encrassé qui force le moteur
   if (/surconsomm|consomm.*(trop|augment|explos|anormal|excess)|plein.*(trop|vite|souvent)|carburant.*(augment|mont|hausse)/i.test(t)) return "surconsommation";
   // Voyant seul (sans perte puissance)
@@ -3466,7 +3486,7 @@ function extractCodesFromHistory(history) {
   for (const h of history) {
     if (h?.role !== "user") continue; // v7.1 fix: ignorer messages bot (évite P2002 fantôme du menu symptômes)
     const content = String(h.content || h.raw || "");
-    const matches = content.toUpperCase().match(/\bP[0-9]{4}\b|\bP[0-9A-F]{4}\b/g);
+    const matches = content.toUpperCase().match(/\bP[0-3][0-9]{3}\b/g);
     if (matches) codes.push(...matches);
   }
   return [...new Set(codes)];
@@ -3605,8 +3625,9 @@ function deterministicRouter(message, extracted, history, metier) {
 
   if (symptome && symptome !== "code_obd") {
     const updatedExtracted = { ...(extracted || DEFAULT_DATA), symptome };
-    // Si marque déjà connue → passer à ville
-    if (extracted?.marque) {
+    // Si marque ET modèle déjà connus → passer à ville
+    // BUG B FIX: ne pas sauter la question modèle si modèle inconnu
+    if (extracted?.marque && extracted?.modele) {
       return { action: "ask_ville", extracted: updatedExtracted };
     }
     return { action: "symptome_response", symptome, extracted: updatedExtracted };
@@ -3964,9 +3985,29 @@ export default async function handler(req, res) {
     // OVERRIDE BUG2 : Préférence garage spécifique à tout moment
     // "je préfère le garage de Saclas", "je préfère mon garage habituel"
     // → répondre FAQ garage de confiance sans reset du flow
+    // BUG C FIX: extraire la ville/CP mentionnée dans la phrase
     // ========================================
     if (userExpressesGaragePreference(message)) {
-      return sendResponse(buildGaragePreferenceResponse(lastExtracted));
+      const garageDept = extractDeptFromInput(message);
+      let garageVille = garageDept ? cleanVilleInput(message) : null;
+      // BUG C FIX: si extractDeptFromInput échoue (ville non répertoriée),
+      // tenter d'extraire le nom de ville après une préposition (à, sur, de, vers)
+      if (!garageVille && !garageDept) {
+        const prepoMatch = message.match(/\b(?:à|a|sur|vers|dans|près\s+de|pres\s+de)\s+([\wÀ-ÿ][\wÀ-ÿ'-]*(?:[-\s]+(?:sur|sous|le|la|les|en|de|du|des|lès|lez)[-\s]+[\wÀ-ÿ][\wÀ-ÿ'-]*)*)\s*[.!?]?\s*$/i);
+        if (prepoMatch) {
+          const candidate = prepoMatch[1].trim();
+          if (candidate.length >= 3 && !/^(tout|rien|confiance|habitude|faire|ca|cela)$/i.test(candidate)) {
+            garageVille = capitalizeVille(candidate);
+          }
+        }
+      }
+      const garageResp = buildGaragePreferenceResponse(lastExtracted, garageVille, garageDept);
+      if (garageResp.hasVille) {
+        // Ville trouvée dans la préférence → orientation directe
+        lastExtracted = { ...lastExtracted, ...garageResp.data };
+        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, garageVille, history));
+      }
+      return sendResponse(garageResp);
     }
 
     // ========================================
@@ -3982,6 +4023,13 @@ export default async function handler(req, res) {
       const rescueAfterLocFailure = lastAssistantAskedPostalCode(history);
 
       if (rescueDept && (rescueHasIntent || rescueAfterLocFailure)) {
+        // Propager l'intent garage du message courant (pas encore dans history)
+        if (!lastExtracted?.demontage || lastExtracted.demontage === "unknown") {
+          if (userSaysSelfRemoval(message)) lastExtracted = { ...lastExtracted, demontage: "self" };
+          else if (userHasOwnGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_own" };
+          else if (userWantsPartnerGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
+          else if (userNeedsGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage" };
+        }
         return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, cleanVilleInput(message), history));
       }
     }
@@ -4024,6 +4072,13 @@ export default async function handler(req, res) {
       if (userSaysSelfRemoval(message)) {
         return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
       } else if (userNeedsGarage(message) || userSaysNo(message)) {
+        // Si le message contient aussi une ville → orientation directe, sans question intermédiaire
+        const deptInMsg = extractDeptFromInput(message);
+        if (deptInMsg) {
+          const villeInMsg = cleanVilleInput(message);
+          lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
+          return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, villeInMsg, history));
+        }
         return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
       }
       if (looksLikeCityAnswer(message)) {
@@ -4065,6 +4120,13 @@ export default async function handler(req, res) {
         const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
         const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
         return sendResponse({ replyClean, replyFull, extracted: data });
+      }
+      // Si le message contient une ville détectable → orientation directe
+      const dept1b2 = extractDeptFromInput(message);
+      if (dept1b2) {
+        const ville1b2 = cleanVilleInput(message);
+        lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
+        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville1b2, history));
       }
       return sendResponse(buildPartnerGarageResponse(lastExtracted, metier));
     }
@@ -4269,6 +4331,34 @@ export default async function handler(req, res) {
     }
     // ========================================
     // (Overrides 5-8 supprimés — gérés par fallback déterministe)
+
+    // ========================================
+    // OVERRIDE BUG A : Essais supplémentaires quand le bot attend véhicule/modèle
+    // "on a aussi fait une regen" quand le bot attendait la marque → merger l'essai, re-demander
+    // ========================================
+    if (lastAssistantAskedVehicle(history) || lastAssistantAskedModel(history)) {
+      const additionalAttempts = detectAdditionalAttempts(message);
+      if (additionalAttempts.length > 0) {
+        const existing = lastExtracted.previous_attempts || "";
+        const newAttempts = additionalAttempts.filter(a => !existing.includes(a));
+        if (newAttempts.length > 0) {
+          lastExtracted.previous_attempts = existing ? `${existing}, ${newAttempts.join(", ")}` : newAttempts.join(", ");
+        }
+        if (lastAssistantAskedModel(history)) {
+          const marqueStr = lastExtracted.marque || "";
+          const replyClean = marqueStr
+            ? `C'est noté. C'est quel modèle de ${marqueStr} exactement ?`
+            : `C'est noté. C'est quel modèle exactement ?`;
+          const data = { ...(lastExtracted || DEFAULT_DATA), previous_attempts: lastExtracted.previous_attempts, next_best_action: "demander_modele" };
+          const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+          return sendResponse({ replyClean, replyFull, extracted: data });
+        }
+        const replyClean = "C'est noté. C'est quelle voiture ?";
+        const data = { ...(lastExtracted || DEFAULT_DATA), previous_attempts: lastExtracted.previous_attempts, next_best_action: "demander_vehicule" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      }
+    }
 
     // v7.0 MOTEUR DÉTERMINISTE — prioritaire sur métier/snippet
     // ========================================
