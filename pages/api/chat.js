@@ -2843,7 +2843,7 @@ function buildFormCTA(extracted) {
     const vehicule = `${extracted.marque}${extracted.modele ? " " + extracted.modele : ""}`;
     lines.push(`🚗 Véhicule : ${vehicule}`);
   }
-  if (extracted?.symptome && extracted.symptome !== "inconnu") {
+  if (extracted?.symptome && extracted.symptome !== "inconnu" && extracted.symptome !== "prix_direct") {
     const symptomeLabels = {
       voyant_fap: "Voyant FAP allumé",
       voyant_fap_puissance: "Voyant FAP + perte de puissance",
