@@ -4008,6 +4008,13 @@ export default async function handler(req, res) {
       const rescueAfterLocFailure = lastAssistantAskedPostalCode(history);
 
       if (rescueDept && (rescueHasIntent || rescueAfterLocFailure)) {
+        // Propager l'intent garage du message courant (pas encore dans history)
+        if (!lastExtracted?.demontage || lastExtracted.demontage === "unknown") {
+          if (userSaysSelfRemoval(message)) lastExtracted = { ...lastExtracted, demontage: "self" };
+          else if (userHasOwnGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_own" };
+          else if (userWantsPartnerGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
+          else if (userNeedsGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage" };
+        }
         return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, cleanVilleInput(message), history));
       }
     }
