@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 6.2 - Ajout mode embed (?embed=1) pour iframe hero re-fap.fr
+// VERSION 6.2.1 - Mode embed compact (?embed=1) pour iframe hero re-fap.fr
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -104,12 +104,11 @@ export default function Home() {
   const [showFormCTA, setShowFormCTA] = useState(false);
   const [conversationData, setConversationData] = useState({});
   const [dynamicReplies, setDynamicReplies] = useState(null);
-  const [isEmbed, setIsEmbed] = useState(false); // v6.2
+  const [isEmbed, setIsEmbed] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Init session + bootstrap cookie + detect embed
   useEffect(() => {
-    // v6.2 — Detect embed mode
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       setIsEmbed(params.get('embed') === '1');
@@ -128,6 +127,14 @@ export default function Home() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, showFormCTA]);
+
+  // Embed mode — fond blanc + pas de scroll body
+  useEffect(() => {
+    if (isEmbed) {
+      document.documentElement.classList.add('embed-mode');
+    }
+    return () => document.documentElement.classList.remove('embed-mode');
+  }, [isEmbed]);
 
   // --------------------------------------------------------
   // ENVOI MESSAGE
@@ -356,7 +363,6 @@ export default function Home() {
               {isLoading ? "..." : "Envoyer"}
             </button>
           </form>
-          {/* Disclaimer masqué en mode embed */}
           {!isEmbed && (
             <p className="disclaimer">FAPexpert est une IA et peut faire des erreurs. Veuillez vérifier les informations.</p>
           )}
@@ -376,43 +382,81 @@ export default function Home() {
           background: #f5f7f5;
         }
 
-        /* v6.2 — Mode embed : fond transparent, s'intègre dans le hero */
+        /* ═══ MODE EMBED — compact, fond blanc, dans iframe 440px ═══ */
         .chat-embed {
-          background: transparent;
+          background: #fff;
           max-width: 100%;
           height: 100%;
+          overflow: hidden;
         }
 
         .chat-embed .chat-messages {
-          background: transparent;
-        }
-
-        .chat-embed .chat-input-wrapper {
-          background: rgba(255,255,255,0.97);
-          border-top: none;
-          border-radius: 0 0 16px 16px;
+          padding: 12px 14px;
+          gap: 8px;
         }
 
         .chat-embed .welcome-message {
-          background: rgba(255,255,255,0.95);
-          border-color: rgba(255,255,255,0.3);
+          padding: 14px 16px;
+          box-shadow: none;
+          border: none;
+          background: #fff;
         }
 
-        .chat-embed .message-assistant .message-content {
-          background: rgba(255,255,255,0.95);
+        .chat-embed .welcome-icon {
+          font-size: 24px;
+          margin: 0 0 6px 0;
+        }
+
+        .chat-embed .welcome-title {
+          font-size: 15px;
+          margin: 0 0 4px 0;
+        }
+
+        .chat-embed .welcome-text {
+          font-size: 13px;
+        }
+
+        .chat-embed .quick-replies {
+          margin-left: 0;
+          gap: 6px;
         }
 
         .chat-embed .quick-reply-btn {
-          background: rgba(255,255,255,0.95);
-          border-color: #fff;
-          color: #2d5a27;
+          padding: 8px 14px;
+          font-size: 13px;
+          width: 100%;
+          text-align: center;
         }
 
-        .chat-embed .quick-reply-btn:hover {
-          background: #689f38;
-          border-color: #689f38;
-          color: white;
+        .chat-embed .chat-input-wrapper {
+          padding: 10px 14px;
+          border-top: 1px solid #e5e7eb;
         }
+
+        .chat-embed .chat-input {
+          padding: 10px 14px;
+          font-size: 14px;
+          border-width: 1.5px;
+        }
+
+        .chat-embed .send-btn {
+          padding: 10px 18px;
+          font-size: 14px;
+        }
+
+        .chat-embed .message {
+          max-width: 90%;
+        }
+
+        .chat-embed .message-content {
+          font-size: 14px;
+          padding: 10px 14px;
+        }
+
+        .chat-embed .message-assistant .message-content {
+          background: #f3f4f6;
+        }
+        /* ═══ FIN MODE EMBED ═══ */
 
         .chat-header {
           background: linear-gradient(135deg, #8bc34a 0%, #689f38 100%);
@@ -700,8 +744,7 @@ export default function Home() {
       <style jsx global>{`
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; background: #f5f7f5; }
-        /* v6.2 — En mode embed, body transparent */
-        ${isEmbed ? 'html, body { background: transparent !important; }' : ''}
+        html.embed-mode, html.embed-mode body { background: #fff !important; overflow: hidden; }
       `}</style>
     </>
   );
