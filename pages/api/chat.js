@@ -829,10 +829,14 @@ function userHasOwnGarage(msg) {
 
 // BUG 2 FIX: Détecte les expressions de préférence garage
 // "je préfère le garage de Saclas", "je préfère mon garage habituel",
-// "je préfère un garage pas loin", "le garage de [ville]"
+// "le garage de [ville]"
+// IMPORTANT: NE PAS matcher "je veux un garage" / "je cherche un garage"
+// qui sont des demandes de recherche (→ gérées par RESCUE override)
 function userExpressesGaragePreference(text) {
   const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return /(je\s*prefer|prefer.*garage|garage.*prefer|je\s*veux.*garage|je\s*voudrais.*garage|garage\s+de\s+[a-z])/i.test(t)
+  // Exclure les demandes de recherche "je veux/cherche un garage"
+  if (/je\s*(veux|cherche|voudrais|aimerais)\s+(un|le|du|des|trouver)\s/i.test(t) && !/prefer/i.test(t)) return false;
+  return /(je\s*prefer|prefer.*garage|garage.*prefer|garage\s+de\s+[a-z]|mon\s+garage|garage\s+(habituel|attit|de\s+confiance))/i.test(t)
     && /garage/i.test(t);
 }
 
