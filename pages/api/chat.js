@@ -4057,6 +4057,13 @@ export default async function handler(req, res) {
       if (userSaysSelfRemoval(message)) {
         return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
       } else if (userNeedsGarage(message) || userSaysNo(message)) {
+        // Si le message contient aussi une ville → orientation directe, sans question intermédiaire
+        const deptInMsg = extractDeptFromInput(message);
+        if (deptInMsg) {
+          const villeInMsg = cleanVilleInput(message);
+          lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
+          return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, villeInMsg, history));
+        }
         return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
       }
       if (looksLikeCityAnswer(message)) {
@@ -4098,6 +4105,13 @@ export default async function handler(req, res) {
         const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
         const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
         return sendResponse({ replyClean, replyFull, extracted: data });
+      }
+      // Si le message contient une ville détectable → orientation directe
+      const dept1b2 = extractDeptFromInput(message);
+      if (dept1b2) {
+        const ville1b2 = cleanVilleInput(message);
+        lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
+        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville1b2, history));
       }
       return sendResponse(buildPartnerGarageResponse(lastExtracted, metier));
     }
