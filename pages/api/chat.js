@@ -827,17 +827,18 @@ function userHasOwnGarage(msg) {
   return /mon garage|j ai (un |mon |deja )(un )?garage|garage (de confiance|habituel|attit)|garagiste|mon meca|j en ai un|oui j ai|deja un garage/.test(t);
 }
 
-// BUG 2 FIX: Détecte les expressions de préférence garage
-// "je préfère le garage de Saclas", "je préfère mon garage habituel",
-// "le garage de [ville]"
-// IMPORTANT: NE PAS matcher "je veux un garage" / "je cherche un garage"
-// qui sont des demandes de recherche (→ gérées par RESCUE override)
+// BUG 2 FIX: Détecte les expressions de préférence garage (whitelist stricte)
+// OUI : "mon garage", "je préfère...garage", "j'ai déjà un garage",
+//        "garage de confiance", "garage habituel"
+// NON : "je veux un garage", "je cherche un garage", "j'ai besoin d'un garage"
+//        → ces cas = RESCUE override normal
 function userExpressesGaragePreference(text) {
-  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  // Exclure les demandes de recherche "je veux/cherche un garage"
-  if (/je\s*(veux|cherche|voudrais|aimerais)\s+(un|le|du|des|trouver)\s/i.test(t) && !/prefer/i.test(t)) return false;
-  return /(je\s*prefer|prefer.*garage|garage.*prefer|garage\s+de\s+[a-z]|mon\s+garage|garage\s+(habituel|attit|de\s+confiance))/i.test(t)
-    && /garage/i.test(t);
+  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
+  if (/mon\s+garage|mon\s+garagiste|mon\s+meca/i.test(t)) return true;
+  if (/prefer/i.test(t) && /garage/i.test(t)) return true;
+  if (/j\s*ai\s+(deja\s+)?(un\s+)?garage\b/i.test(t)) return true;
+  if (/garage\s+(de\s+confiance|habituel|attit)/i.test(t)) return true;
+  return false;
 }
 
 function buildGaragePreferenceResponse(extracted, ville, dept) {
