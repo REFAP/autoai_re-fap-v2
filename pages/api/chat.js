@@ -2521,7 +2521,7 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
         const bestCC = idfEquipped[0];
         replyClean = `On a un garage partenaire près de toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — démontage et remontage de ton FAP\n🏪 ${bestCC.name}${distLabel(bestCC)} — sans rendez-vous, nettoyage sur place en 4h, 99€ ou 149€\n\nLe garage envoie le FAP directement au CC, tu récupères ton véhicule le jour même ou le lendemain.`;
         if (idfEquipped.length > 1) {
-          replyClean += `\n\nAutre CC équipé à proximité : ${idfEquipped[1].name}${distLabel(idfEquipped[1])}.`;
+          replyClean += `\n\nAutre CC équipé à proximité : ${idfEquipped[1].name}${distLabel(idfEquipped[1])} (sans rendez-vous).`;
         }
         replyClean += `\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
       } else {
