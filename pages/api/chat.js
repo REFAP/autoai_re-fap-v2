@@ -1584,7 +1584,7 @@ const CARTER_CASH_LIST = [
 // ============================================================
 const CITY_TO_DEPT = {
   // ===== PRÉFECTURES (96) =====
-  "bourg-en-bresse":"01","laon":"02","moulins":"03","digne-les-bains":"04","digne":"04",
+  "bourg-en-bresse":"01","laon":"02","moulins":"03","moulin":"03","digne-les-bains":"04","digne":"04",
   "gap":"05","nice":"06","privas":"07","charleville-mezieres":"08","charleville":"08",
   "foix":"09","troyes":"10","carcassonne":"11","rodez":"12","marseille":"13",
   "caen":"14","aurillac":"15","angouleme":"16","la rochelle":"17","bourges":"18",
