@@ -282,9 +282,9 @@ function quickExtract(text) {
   }
 
   // --- CODES OBD ---
-  // BUG E FIX: \b avant la lettre pour exclure "cp" → "P7500"
-  // Negative lookahead pour exclure les nombres à 5+ chiffres (codes postaux)
-  const codesFound = t.match(/\b[pPcCbBuU]\s*[\dA-Fa-f]{4}(?![\dA-Fa-f])/g);
+  // BUG E FIX: restreindre aux vrais codes OBD powertrain P0xxx-P3xxx
+  // Exclut C/B/U (non FAP), P4xxx+ (inexistants), et codes postaux 5 chiffres
+  const codesFound = t.match(/\bP\s*[0-3]\d{3}(?!\d)/gi);
   if (codesFound) {
     result.codes = codesFound.map((c) => c.toUpperCase().replace(/\s/g, ""));
     const weakSymptoms = [null, "perte_puissance", "fumee", "fumee_noire", "fumee_blanche", "voyant_moteur_seul", "odeur_anormale"];
@@ -3068,7 +3068,7 @@ function buildNonDieselResponse(extracted) {
 function detectSymptom(message) {
   const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   // Codes OBD → traitement séparé
-  if (/\bp[0-9]{4}\b|\bdfp[0-9]+\b|code (erreur|defaut|obd)|code[- ]?p\d/i.test(t)) return "code_obd";
+  if (/\bp[0-3][0-9]{3}\b|\bdfp[0-9]+\b|code (erreur|defaut|obd)|code[- ]?p[0-3]\d/i.test(t)) return "code_obd";
   // Surconsommation — souvent lié FAP encrassé qui force le moteur
   if (/surconsomm|consomm.*(trop|augment|explos|anormal|excess)|plein.*(trop|vite|souvent)|carburant.*(augment|mont|hausse)/i.test(t)) return "surconsommation";
   // Voyant seul (sans perte puissance)
@@ -3486,7 +3486,7 @@ function extractCodesFromHistory(history) {
   for (const h of history) {
     if (h?.role !== "user") continue; // v7.1 fix: ignorer messages bot (évite P2002 fantôme du menu symptômes)
     const content = String(h.content || h.raw || "");
-    const matches = content.toUpperCase().match(/\bP[0-9]{4}\b|\bP[0-9A-F]{4}\b/g);
+    const matches = content.toUpperCase().match(/\bP[0-3][0-9]{3}\b/g);
     if (matches) codes.push(...matches);
   }
   return [...new Set(codes)];
