@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 6.1 - Formulaire inline chatbot (remplace redirect FormCTA)
+// VERSION 6.2 - Ajout mode embed (?embed=1) pour iframe hero re-fap.fr
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -37,7 +37,6 @@ function getTrackingParams() {
 
 // ============================================================
 // QUICK REPLIES CONFIG — FALLBACK STATIQUE
-// Utilisé uniquement quand le backend n'envoie pas de suggested_replies
 // ============================================================
 const QUICK_REPLIES_CONFIG = {
   initial: [
@@ -76,12 +75,10 @@ function getStaticQuickReplies(messages, showFormCTA) {
   
   const content = (lastAssistant.raw || lastAssistant.content || "").toLowerCase();
   
-  // Détection closing
   if (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement") || content.includes("te rappelle") || content.includes("qu'on te rappelle"))) {
     return QUICK_REPLIES_CONFIG.closing;
   }
   
-  // Détection demande véhicule
   if (
     content.includes("quelle voiture") || 
     content.includes("quel véhicule") || 
@@ -107,10 +104,17 @@ export default function Home() {
   const [showFormCTA, setShowFormCTA] = useState(false);
   const [conversationData, setConversationData] = useState({});
   const [dynamicReplies, setDynamicReplies] = useState(null);
+  const [isEmbed, setIsEmbed] = useState(false); // v6.2
   const messagesEndRef = useRef(null);
 
-  // Init session + bootstrap cookie
+  // Init session + bootstrap cookie + detect embed
   useEffect(() => {
+    // v6.2 — Detect embed mode
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      setIsEmbed(params.get('embed') === '1');
+    }
+
     let storedSessionId = localStorage.getItem("fapexpert_session_id");
     if (!storedSessionId) {
       storedSessionId = generateSessionId();
@@ -175,14 +179,12 @@ export default function Home() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // SUGGESTED REPLIES du backend (prioritaire sur les statiques)
       if (data.suggested_replies && Array.isArray(data.suggested_replies) && data.suggested_replies.length > 0) {
         setDynamicReplies(data.suggested_replies);
       } else {
         setDynamicReplies(null);
       }
 
-      // Accumuler le DATA JSON à chaque réponse bot (pour le formulaire inline)
       const rawReply = data.reply_full || data.reply || "";
       const dataMatch = rawReply.match(/DATA:\s*(\{[\s\S]*?\})\s*$/);
       if (dataMatch) {
@@ -192,7 +194,6 @@ export default function Home() {
         } catch (e) { /* ignore parse error */ }
       }
 
-      // HANDLE ACTION : Formulaire inline chatbot
       if (data.action?.type === "OPEN_FORM") {
         setTimeout(() => setShowFormCTA(true), 800);
       }
@@ -228,7 +229,6 @@ export default function Home() {
     setDynamicReplies(null);
   };
 
-  // Quick replies : backend dynamiques > fallback statiques
   const quickReplies = isLoading ? null
     : showFormCTA ? null
     : dynamicReplies || getStaticQuickReplies(messages, showFormCTA);
@@ -245,24 +245,26 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="chat-container">
-        {/* HEADER */}
-        <header className="chat-header">
-          <div className="header-left">
-            <img 
-              src="https://auto.re-fap.fr/wp-content/uploads/2026/01/Re-Fap_Logo_Couleur.png" 
-              alt="Re-FAP" 
-              className="header-logo" 
-            />
-            <div className="header-text">
-              <h1>FAPexpert</h1>
-              <p className="header-subtitle">Un problème de FAP ? On vous guide.</p>
+      <div className={`chat-container ${isEmbed ? 'chat-embed' : ''}`}>
+        {/* HEADER — masqué en mode embed */}
+        {!isEmbed && (
+          <header className="chat-header">
+            <div className="header-left">
+              <img 
+                src="https://auto.re-fap.fr/wp-content/uploads/2026/01/Re-Fap_Logo_Couleur.png" 
+                alt="Re-FAP" 
+                className="header-logo" 
+              />
+              <div className="header-text">
+                <h1>FAPexpert</h1>
+                <p className="header-subtitle">Un problème de FAP ? On vous guide.</p>
+              </div>
             </div>
-          </div>
-          <button onClick={startNewConversation} className="new-chat-btn">
-            Nouveau
-          </button>
-        </header>
+            <button onClick={startNewConversation} className="new-chat-btn">
+              Nouveau
+            </button>
+          </header>
+        )}
 
         {/* MESSAGES */}
         <main className="chat-messages">
@@ -297,7 +299,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* FORMULAIRE INLINE CHATBOT */}
           {showFormCTA && (
             <div className="message message-assistant cta-message">
               <div className="avatar">🔧</div>
@@ -316,7 +317,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* QUICK REPLIES — dynamiques (backend) ou statiques (fallback) */}
           {quickReplies && !isLoading && (
             <div className="quick-replies">
               {quickReplies.map((qr, idx) => (
@@ -356,7 +356,10 @@ export default function Home() {
               {isLoading ? "..." : "Envoyer"}
             </button>
           </form>
-          <p className="disclaimer">FAPexpert est une IA et peut faire des erreurs. Veuillez vérifier les informations.</p>
+          {/* Disclaimer masqué en mode embed */}
+          {!isEmbed && (
+            <p className="disclaimer">FAPexpert est une IA et peut faire des erreurs. Veuillez vérifier les informations.</p>
+          )}
         </div>
       </div>
 
@@ -371,6 +374,44 @@ export default function Home() {
           margin: 0 auto;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           background: #f5f7f5;
+        }
+
+        /* v6.2 — Mode embed : fond transparent, s'intègre dans le hero */
+        .chat-embed {
+          background: transparent;
+          max-width: 100%;
+          height: 100%;
+        }
+
+        .chat-embed .chat-messages {
+          background: transparent;
+        }
+
+        .chat-embed .chat-input-wrapper {
+          background: rgba(255,255,255,0.97);
+          border-top: none;
+          border-radius: 0 0 16px 16px;
+        }
+
+        .chat-embed .welcome-message {
+          background: rgba(255,255,255,0.95);
+          border-color: rgba(255,255,255,0.3);
+        }
+
+        .chat-embed .message-assistant .message-content {
+          background: rgba(255,255,255,0.95);
+        }
+
+        .chat-embed .quick-reply-btn {
+          background: rgba(255,255,255,0.95);
+          border-color: #fff;
+          color: #2d5a27;
+        }
+
+        .chat-embed .quick-reply-btn:hover {
+          background: #689f38;
+          border-color: #689f38;
+          color: white;
         }
 
         .chat-header {
@@ -659,6 +700,8 @@ export default function Home() {
       <style jsx global>{`
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; background: #f5f7f5; }
+        /* v6.2 — En mode embed, body transparent */
+        ${isEmbed ? 'html, body { background: transparent !important; }' : ''}
       `}</style>
     </>
   );
