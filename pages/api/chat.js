@@ -2776,8 +2776,10 @@ function buildVehicleQuestion(extracted) {
 
 function buildModelQuestion(extracted) {
   const data = { ...(extracted || DEFAULT_DATA), next_best_action: "demander_modele" };
-  const marque = extracted?.marque || "ta voiture";
-  const replyClean = `🚗 Sur une ${marque}, c'est un souci qu'on voit souvent. C'est quel modèle exactement ? (et l'année si tu l'as)`;
+  const marque = extracted?.marque;
+  const replyClean = marque
+    ? `🚗 Sur une ${marque}, c'est un souci qu'on voit souvent. C'est quel modèle exactement ? (et l'année si tu l'as)`
+    : `🚗 C'est un souci qu'on voit souvent. C'est quel modèle exactement ? (et l'année si tu l'as)`;
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
   return { replyClean, replyFull, extracted: data };
 }
