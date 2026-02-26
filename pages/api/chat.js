@@ -3707,8 +3707,12 @@ function deterministicRouter(message, extracted, history, metier) {
       return { action: "obd_response", codeInfo, extracted: { ...updatedExtracted, symptome: "code_obd" } };
     }
 
-    // Marque déjà connue → juste mettre à jour et laisser le fallback cascade gérer
+    // Marque déjà connue → si modèle aussi capturé, répondre avec info technique ;
+    // sinon passthrough silencieux vers la cascade
     if (extracted?.marque && !extracted.marque_brute) {
+      if (updatedExtracted.modele) {
+        return { action: "marque_response", marqueInfo, extracted: updatedExtracted };
+      }
       return { action: "direct_reply", replyClean: null, extracted: updatedExtracted, passthrough: true };
     }
 
