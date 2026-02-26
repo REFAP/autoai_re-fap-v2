@@ -2879,6 +2879,9 @@ function buildFormCTA(extracted) {
     lines.push(`💶 Tarif estimé : 99€ (DV6) ou 149€ (FAP combiné) + main d'œuvre`);
   } else if (extracted?.demontage === "self" || extracted?.centre_proche || (extracted?.departement && IDF_DEPTS_CTA.includes(extracted.departement))) {
     lines.push(`💶 Tarif estimé : 99€ (FAP seul) ou 149€ (FAP combiné avec catalyseur)`);
+  } else if (!extracted?.ville && !extracted?.departement) {
+    // FIX 3: ville inconnue → afficher la fourchette complète
+    lines.push(`💶 Tarif estimé : 99€ à 149€ en centre équipé / 199€ en envoi selon localisation`);
   } else {
     lines.push(`💶 Tarif estimé : 199€ TTC port A/R inclus`);
   }
