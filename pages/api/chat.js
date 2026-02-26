@@ -312,7 +312,8 @@ function quickExtract(text) {
   if (/additif|bardahl|w[uü]rth|liqui.?moly|nettoyant|produit\s*(fap|nettoy)/i.test(t)) {
     result.previous_attempts.push("additif");
   }
-  if (/garage|m[eé]cano|m[eé]canicien|concessionnaire/i.test(t) && /essay|tent|fait|pass[eé]|amen[eé]|confi[eé]|dit|propos/i.test(t)) {
+  if (/garage|garagiste|m[eé]cano|m[eé]canicien|concessionnaire/i.test(t) &&
+      /(([eé]t[eé]|all[eé]|pass[eé])\s*(au|chez|par)|passage\s*(au\s+)?(garage|m[eé]ca|concess)|(garage|garagiste|m[eé]can|concess)\s+(a |m.a |nous\s+a |ont )|(amen[eé]|confi[eé])\s)/i.test(t)) {
     result.previous_attempts.push("garage");
   }
   if (/karcher|nettoy.*(eau|pression)|jet\s*(d.eau|haute)/i.test(t)) {
