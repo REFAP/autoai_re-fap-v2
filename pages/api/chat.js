@@ -4035,7 +4035,11 @@ export default async function handler(req, res) {
       const rescueHasIntent = hasGarageOrLocationIntent(message);
       const rescueAfterLocFailure = lastAssistantAskedPostalCode(history);
 
-      if (rescueDept && (rescueHasIntent || rescueAfterLocFailure)) {
+      // BUG H FIX: aussi réorienter quand l'utilisateur corrige la ville
+      // ("non, à Lyon") — ville déjà connue + nouvelle ville dans le message
+      const rescueIsVilleCorrection = rescueDept && lastExtracted.ville;
+
+      if (rescueDept && (rescueHasIntent || rescueAfterLocFailure || rescueIsVilleCorrection)) {
         // Propager l'intent garage du message courant (pas encore dans history)
         if (!lastExtracted?.demontage || lastExtracted.demontage === "unknown") {
           if (userSaysSelfRemoval(message)) lastExtracted = { ...lastExtracted, demontage: "self" };
@@ -4043,7 +4047,10 @@ export default async function handler(req, res) {
           else if (userWantsPartnerGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
           else if (userNeedsGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage" };
         }
-        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, cleanVilleInput(message), history));
+        // Toujours mettre à jour la ville avec celle du message courant
+        lastExtracted.ville = cleanVilleInput(message);
+        lastExtracted.departement = rescueDept;
+        return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, lastExtracted.ville, history));
       }
     }
 
@@ -4201,6 +4208,9 @@ export default async function handler(req, res) {
         return sendResponse({ replyClean, replyFull, extracted: data });
       }
       const ville = cleanVilleInput(message);
+      // BUG H FIX: toujours mettre à jour la ville, même si déjà remplie
+      lastExtracted.ville = ville;
+      lastExtracted.departement = dept;
       return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
     }
 
