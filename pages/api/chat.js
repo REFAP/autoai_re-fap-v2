@@ -3818,11 +3818,21 @@ function verifySignedCookie(value, secret) {
 export default async function handler(req, res) {
   const origin = req.headers.origin;
 
-  // AUTH
+  // AUTH — Cookie OU Widget Key (pour embed cross-origin)
   const cookieName = process.env.CHAT_COOKIE_NAME || "re_fap_chat";
   const secret = process.env.CHAT_API_TOKEN;
+  const widgetKey = process.env.WIDGET_API_KEY;
   const cookieValue = getCookie(req, cookieName);
-  if (!verifySignedCookie(cookieValue, secret)) {
+
+  // Méthode 1 : Cookie signé (chatbot standalone Vercel)
+  const cookieValid = verifySignedCookie(cookieValue, secret);
+
+  // Méthode 2 : Widget key + origin whitelisted (embed re-fap.fr)
+  const widgetHeader = req.headers["x-refap-widget-key"];
+  const widgetValid = widgetKey && widgetHeader && widgetHeader === widgetKey
+    && origin && ALLOWED_ORIGINS.includes(origin);
+
+  if (!cookieValid && !widgetValid) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -4564,6 +4574,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
