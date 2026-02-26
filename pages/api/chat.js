@@ -4270,6 +4270,34 @@ export default async function handler(req, res) {
     // ========================================
     // (Overrides 5-8 supprimés — gérés par fallback déterministe)
 
+    // ========================================
+    // OVERRIDE BUG A : Essais supplémentaires quand le bot attend véhicule/modèle
+    // "on a aussi fait une regen" quand le bot attendait la marque → merger l'essai, re-demander
+    // ========================================
+    if (lastAssistantAskedVehicle(history) || lastAssistantAskedModel(history)) {
+      const additionalAttempts = detectAdditionalAttempts(message);
+      if (additionalAttempts.length > 0) {
+        const existing = lastExtracted.previous_attempts || "";
+        const newAttempts = additionalAttempts.filter(a => !existing.includes(a));
+        if (newAttempts.length > 0) {
+          lastExtracted.previous_attempts = existing ? `${existing}, ${newAttempts.join(", ")}` : newAttempts.join(", ");
+        }
+        if (lastAssistantAskedModel(history)) {
+          const marqueStr = lastExtracted.marque || "";
+          const replyClean = marqueStr
+            ? `C'est noté. C'est quel modèle de ${marqueStr} exactement ?`
+            : `C'est noté. C'est quel modèle exactement ?`;
+          const data = { ...(lastExtracted || DEFAULT_DATA), previous_attempts: lastExtracted.previous_attempts, next_best_action: "demander_modele" };
+          const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+          return sendResponse({ replyClean, replyFull, extracted: data });
+        }
+        const replyClean = "C'est noté. C'est quelle voiture ?";
+        const data = { ...(lastExtracted || DEFAULT_DATA), previous_attempts: lastExtracted.previous_attempts, next_best_action: "demander_vehicule" };
+        const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+        return sendResponse({ replyClean, replyFull, extracted: data });
+      }
+    }
+
     // v7.0 MOTEUR DÉTERMINISTE — prioritaire sur métier/snippet
     // ========================================
     const deterRoute = deterministicRouter(message, lastExtracted, history, metier);
