@@ -1,6 +1,6 @@
 // /pages/index.js
 // FAPexpert Re-FAP - Interface Chat
-// VERSION 6.2.1 - Mode embed compact (?embed=1) pour iframe hero re-fap.fr
+// VERSION 6.1.1 - Formulaire inline chatbot + support ?q= auto-send (lanceur hero)
 
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
@@ -37,6 +37,7 @@ function getTrackingParams() {
 
 // ============================================================
 // QUICK REPLIES CONFIG — FALLBACK STATIQUE
+// Utilisé uniquement quand le backend n'envoie pas de suggested_replies
 // ============================================================
 const QUICK_REPLIES_CONFIG = {
   initial: [
@@ -75,10 +76,12 @@ function getStaticQuickReplies(messages, showFormCTA) {
   
   const content = (lastAssistant.raw || lastAssistant.content || "").toLowerCase();
   
+  // Détection closing
   if (content.includes("expert re-fap") && (content.includes("gratuit") || content.includes("sans engagement") || content.includes("te rappelle") || content.includes("qu'on te rappelle"))) {
     return QUICK_REPLIES_CONFIG.closing;
   }
   
+  // Détection demande véhicule
   if (
     content.includes("quelle voiture") || 
     content.includes("quel véhicule") || 
@@ -104,16 +107,10 @@ export default function Home() {
   const [showFormCTA, setShowFormCTA] = useState(false);
   const [conversationData, setConversationData] = useState({});
   const [dynamicReplies, setDynamicReplies] = useState(null);
-  const [isEmbed, setIsEmbed] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Init session + bootstrap cookie + detect embed
+  // Init session + bootstrap cookie
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      setIsEmbed(params.get('embed') === '1');
-    }
-
     let storedSessionId = localStorage.getItem("fapexpert_session_id");
     if (!storedSessionId) {
       storedSessionId = generateSessionId();
@@ -128,13 +125,21 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, showFormCTA]);
 
-  // Embed mode — fond blanc + pas de scroll body
+  // v6.1.1 — Auto-send depuis ?q= (lanceur hero re-fap.fr)
   useEffect(() => {
-    if (isEmbed) {
-      document.documentElement.classList.add('embed-mode');
+    if (!sessionId) return;
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const autoQ = params.get('q');
+    if (autoQ && autoQ.trim() && messages.length === 0) {
+      const timer = setTimeout(() => {
+        sendMessage(autoQ.trim());
+        window.history.replaceState({}, '', window.location.pathname);
+      }, 300);
+      return () => clearTimeout(timer);
     }
-    return () => document.documentElement.classList.remove('embed-mode');
-  }, [isEmbed]);
+  }, [sessionId]);
 
   // --------------------------------------------------------
   // ENVOI MESSAGE
@@ -186,12 +191,14 @@ export default function Home() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
+      // SUGGESTED REPLIES du backend (prioritaire sur les statiques)
       if (data.suggested_replies && Array.isArray(data.suggested_replies) && data.suggested_replies.length > 0) {
         setDynamicReplies(data.suggested_replies);
       } else {
         setDynamicReplies(null);
       }
 
+      // Accumuler le DATA JSON à chaque réponse bot (pour le formulaire inline)
       const rawReply = data.reply_full || data.reply || "";
       const dataMatch = rawReply.match(/DATA:\s*(\{[\s\S]*?\})\s*$/);
       if (dataMatch) {
@@ -201,6 +208,7 @@ export default function Home() {
         } catch (e) { /* ignore parse error */ }
       }
 
+      // HANDLE ACTION : Formulaire inline chatbot
       if (data.action?.type === "OPEN_FORM") {
         setTimeout(() => setShowFormCTA(true), 800);
       }
@@ -236,6 +244,7 @@ export default function Home() {
     setDynamicReplies(null);
   };
 
+  // Quick replies : backend dynamiques > fallback statiques
   const quickReplies = isLoading ? null
     : showFormCTA ? null
     : dynamicReplies || getStaticQuickReplies(messages, showFormCTA);
@@ -252,26 +261,24 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className={`chat-container ${isEmbed ? 'chat-embed' : ''}`}>
-        {/* HEADER — masqué en mode embed */}
-        {!isEmbed && (
-          <header className="chat-header">
-            <div className="header-left">
-              <img 
-                src="https://auto.re-fap.fr/wp-content/uploads/2026/01/Re-Fap_Logo_Couleur.png" 
-                alt="Re-FAP" 
-                className="header-logo" 
-              />
-              <div className="header-text">
-                <h1>FAPexpert</h1>
-                <p className="header-subtitle">Un problème de FAP ? On vous guide.</p>
-              </div>
+      <div className="chat-container">
+        {/* HEADER */}
+        <header className="chat-header">
+          <div className="header-left">
+            <img 
+              src="https://auto.re-fap.fr/wp-content/uploads/2026/01/Re-Fap_Logo_Couleur.png" 
+              alt="Re-FAP" 
+              className="header-logo" 
+            />
+            <div className="header-text">
+              <h1>FAPexpert</h1>
+              <p className="header-subtitle">Un problème de FAP ? On vous guide.</p>
             </div>
-            <button onClick={startNewConversation} className="new-chat-btn">
-              Nouveau
-            </button>
-          </header>
-        )}
+          </div>
+          <button onClick={startNewConversation} className="new-chat-btn">
+            Nouveau
+          </button>
+        </header>
 
         {/* MESSAGES */}
         <main className="chat-messages">
@@ -306,6 +313,7 @@ export default function Home() {
             </div>
           )}
 
+          {/* FORMULAIRE INLINE CHATBOT */}
           {showFormCTA && (
             <div className="message message-assistant cta-message">
               <div className="avatar">🔧</div>
@@ -324,6 +332,7 @@ export default function Home() {
             </div>
           )}
 
+          {/* QUICK REPLIES — dynamiques (backend) ou statiques (fallback) */}
           {quickReplies && !isLoading && (
             <div className="quick-replies">
               {quickReplies.map((qr, idx) => (
@@ -363,9 +372,7 @@ export default function Home() {
               {isLoading ? "..." : "Envoyer"}
             </button>
           </form>
-          {!isEmbed && (
-            <p className="disclaimer">FAPexpert est une IA et peut faire des erreurs. Veuillez vérifier les informations.</p>
-          )}
+          <p className="disclaimer">FAPexpert est une IA et peut faire des erreurs. Veuillez vérifier les informations.</p>
         </div>
       </div>
 
@@ -381,82 +388,6 @@ export default function Home() {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           background: #f5f7f5;
         }
-
-        /* ═══ MODE EMBED — compact, fond blanc, dans iframe 440px ═══ */
-        .chat-embed {
-          background: #fff;
-          max-width: 100%;
-          height: 100%;
-          overflow: hidden;
-        }
-
-        .chat-embed .chat-messages {
-          padding: 12px 14px;
-          gap: 8px;
-        }
-
-        .chat-embed .welcome-message {
-          padding: 14px 16px;
-          box-shadow: none;
-          border: none;
-          background: #fff;
-        }
-
-        .chat-embed .welcome-icon {
-          font-size: 24px;
-          margin: 0 0 6px 0;
-        }
-
-        .chat-embed .welcome-title {
-          font-size: 15px;
-          margin: 0 0 4px 0;
-        }
-
-        .chat-embed .welcome-text {
-          font-size: 13px;
-        }
-
-        .chat-embed .quick-replies {
-          margin-left: 0;
-          gap: 6px;
-        }
-
-        .chat-embed .quick-reply-btn {
-          padding: 8px 14px;
-          font-size: 13px;
-          width: 100%;
-          text-align: center;
-        }
-
-        .chat-embed .chat-input-wrapper {
-          padding: 10px 14px;
-          border-top: 1px solid #e5e7eb;
-        }
-
-        .chat-embed .chat-input {
-          padding: 10px 14px;
-          font-size: 14px;
-          border-width: 1.5px;
-        }
-
-        .chat-embed .send-btn {
-          padding: 10px 18px;
-          font-size: 14px;
-        }
-
-        .chat-embed .message {
-          max-width: 90%;
-        }
-
-        .chat-embed .message-content {
-          font-size: 14px;
-          padding: 10px 14px;
-        }
-
-        .chat-embed .message-assistant .message-content {
-          background: #f3f4f6;
-        }
-        /* ═══ FIN MODE EMBED ═══ */
 
         .chat-header {
           background: linear-gradient(135deg, #8bc34a 0%, #689f38 100%);
@@ -744,7 +675,6 @@ export default function Home() {
       <style jsx global>{`
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; background: #f5f7f5; }
-        html.embed-mode, html.embed-mode body { background: #fff !important; overflow: hidden; }
       `}</style>
     </>
   );
