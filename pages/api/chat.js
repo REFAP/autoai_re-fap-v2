@@ -2354,15 +2354,19 @@ function buildExpertOrientation(extracted, metier) {
   const replyClean = parts.join("\n\n");
   const data = { ...(extracted || DEFAULT_DATA), intention: "diagnostic", next_best_action: "demander_explication_solution" };
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+ const isAskingVille = !extracted?.ville && !extracted?.departement;
   return {
-    replyClean, replyFull, extracted: data,
-    suggested_replies: [
-      { label: "Oui, explique-moi", value: "oui" },
-      { label: "Non merci", value: "non merci" },
-    ],
+    replyClean,
+    replyFull,
+    extracted: data,
+    ...(isAskingVille ? {} : {
+      suggested_replies: [
+        { label: "Oui, explique-moi", value: "oui" },
+        { label: "Non merci", value: "non merci" },
+      ],
+    }),
   };
 }
-
 function buildSolutionExplanation(extracted, metier) {
   const solutionBlock = "Le nettoyage en machine professionnelle est la seule façon de retirer les cendres métalliques. Concrètement, le FAP est nettoyé sous pression contrôlée avec un procédé qui retire les suies ET les cendres sans abîmer la céramique. L'état du filtre est vérifié avant et après pour s'assurer que le résultat est bon.";
   const demontageQuestion = "Pour faire ce nettoyage, le FAP doit être démonté du véhicule. Est-ce que tu as la possibilité de le démonter toi-même (ou de le faire démonter par quelqu'un), ou est-ce que tu préfères qu'un garage s'occupe de tout ?";
@@ -4560,6 +4564,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
