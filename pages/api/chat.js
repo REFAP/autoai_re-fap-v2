@@ -823,6 +823,44 @@ function buildLogisticsResponse(extracted) {
   return { replyClean, replyFull, extracted: data };
 }
 
+// META-FEEDBACK: Détecte les messages de frustration liés au flow du bot
+// Ex: "tu me poses 2 questions en même temps", "je viens de le dire", "tu te répètes"
+function userGivesMetaFeedback(text) {
+  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /(poses?\s*\d+\s*question|deux\s*question|plusieurs\s*question|trop\s*de\s*question)/i.test(t)
+    || /(je\s*viens?\s*(de|d)\s*(le\s*|te\s*|vous\s*|me\s*)+(dire|donner|ecrire|envoyer)|je\s*l.ai\s*(deja|dja)\s*(dit|donne|ecrit|envoye))/i.test(t)
+    || /(tu\s*(te\s*)?rep[eè]te|tu\s*boucle|tu\s*redem|deja\s*(repondu|dit|donne)|j.ai\s*deja\s*(repondu|dit|donne))/i.test(t)
+    || /(tu\s*(m.)?ecoutes?\s*(pas|meme\s*pas))/i.test(t)
+    || /(arrete\s*de\s*(me\s*)?(redem|pos|repet))/i.test(t);
+}
+
+function buildMetaFeedbackResponse(extracted, history) {
+  const data = { ...(extracted || DEFAULT_DATA) };
+  // Trouver la dernière question posée par le bot pour la reformuler
+  let lastQuestion = null;
+  if (Array.isArray(history)) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i]?.role === "assistant") {
+        const c = String(history[i].raw || history[i].content || "");
+        const match = c.match(/([^.!?\n]*\?)/);
+        if (match) { lastQuestion = match[1].trim(); break; }
+      }
+    }
+  }
+  let replyClean = "Excuse-moi, je me suis mal exprimé.";
+  if (lastQuestion) {
+    replyClean += ` Pour avancer : ${lastQuestion}`;
+  } else {
+    // Reprendre le flow selon l'état
+    if (!data.marque) { replyClean += " C'est quoi ta voiture ? (marque + modèle)"; data.next_best_action = "demander_marque"; }
+    else if (!data.modele) { replyClean += ` C'est quel modèle exactement ta ${data.marque} ?`; data.next_best_action = "demander_modele"; }
+    else if (!data.ville && !data.departement) { replyClean += " Tu es dans quelle ville ?"; data.next_best_action = "demander_ville"; }
+    else { replyClean += " Comment puis-je t'aider ?"; }
+  }
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
+}
+
 function userHasOwnGarage(msg) {
   const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
   return /mon garage|j ai (un |mon |deja )(un )?garage|garage (de confiance|habituel|attit)|garagiste|mon meca|j en ai un|oui j ai|deja un garage/.test(t);
@@ -1042,9 +1080,12 @@ function extractModelFromMessage(text) {
   }
   const mercMatch = tNorm.match(/\bclass?e?\s*([a-egsv])\b/i);
   if (mercMatch) return "Classe " + mercMatch[1].toUpperCase();
-  // Mercedes compact notation: C220, E250, A180, S350, etc.
+  // Mercedes compact notation: C220, E250, A180, S350, C220CDI, E250CDI, etc.
   const mercCompactMatch = tNorm.match(/\b([a-egsv])(\d{3})\b/i);
   if (mercCompactMatch && /merced|benz/i.test(tNorm)) return "Classe " + mercCompactMatch[1].toUpperCase();
+  // Mercedes compact + suffix without space: C220CDI, E250CDI, A180d, S350BLUETEC
+  const mercCompactSuffixMatch = tNorm.match(/\b([a-egsv])(\d{3})(cdi|d|blue\s*tec)\b/i);
+  if (mercCompactSuffixMatch && /merced|benz/i.test(tNorm)) return "Classe " + mercCompactSuffixMatch[1].toUpperCase();
   const mercModelMatch = tNorm.match(/\b(gl[abc]|gle|gls|cla|clk)\b/i);
   if (mercModelMatch) return mercModelMatch[1].toUpperCase();
   // Mercedes numeric models: 220 CDI, 250 CDI, 320 BlueTEC, etc.
@@ -3948,6 +3989,13 @@ export default async function handler(req, res) {
     // ========================================
     if (userIsInsulting(message)) {
       return sendResponse(buildInsultResponse(lastExtracted));
+    }
+
+    // ========================================
+    // OVERRIDE 0a2 : META-FEEDBACK → Excuse + reformulation
+    // ========================================
+    if (userGivesMetaFeedback(message)) {
+      return sendResponse(buildMetaFeedbackResponse(lastExtracted, history));
     }
 
     // ========================================
