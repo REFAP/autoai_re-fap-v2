@@ -4406,6 +4406,22 @@ export default async function handler(req, res) {
     // "on a aussi fait une regen" quand le bot attendait la marque → merger l'essai, re-demander
     // ========================================
     if (lastAssistantAskedVehicle(history) || lastAssistantAskedModel(history)) {
+      // P4 FIX: quand l'utilisateur répond avec marque+modèle+année en un seul message,
+      // capturer toutes les infos et avancer directement (ne pas redemander le modèle)
+      const marqueInResponse = detectMarque(message);
+      if (marqueInResponse && marqueInResponse.famille !== "diesel_generique") {
+        if (!lastExtracted.marque) lastExtracted.marque = marqueInResponse.marque;
+        const msgModeleV = extractModelFromMessage(message);
+        if (msgModeleV && !lastExtracted.modele) lastExtracted.modele = msgModeleV;
+        const msgAnneeV = extractYearFromMessage(message);
+        if (msgAnneeV && !lastExtracted.annee) lastExtracted.annee = msgAnneeV;
+        const msgMotoV = extractMotorisationFromMessage(message);
+        if (msgMotoV && !lastExtracted.motorisation) lastExtracted.motorisation = msgMotoV;
+        // Si modèle capturé → skip model question, passer au flow suivant
+        if (lastExtracted.modele) {
+          return sendResponse(buildVehiculeResponse(marqueInResponse, lastExtracted));
+        }
+      }
       const additionalAttempts = detectAdditionalAttempts(message);
       if (additionalAttempts.length > 0) {
         const existing = lastExtracted.previous_attempts || "";
