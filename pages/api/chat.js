@@ -139,6 +139,7 @@ const DEFAULT_DATA = {
   garage_confiance: null,
   source: null,
   roulable: null,
+  centre_proche: null,
   engagement_score: null,
   next_best_action: "poser_question",
 };
@@ -196,6 +197,7 @@ function extractDataFromReply(fullReply) {
         garage_confiance: parsed.garage_confiance ?? null,
         source: parsed.source || null,
         roulable: parsed.roulable ?? null,
+        centre_proche: parsed.centre_proche || null,
         engagement_score: parsed.engagement_score || null,
         next_best_action: parsed.next_best_action || "poser_question",
       };
@@ -783,6 +785,23 @@ function userWantsPartnerGarage(msg) {
   return /cherche|trouve|partenaire|pas de garage|j en ai pas|j ai pas de|connais pas|aucun garage|non j ai pas|non pas de/.test(t);
 }
 
+// BUG 1 FIX: Détecte les essais supplémentaires dans un message
+// (ex: "on a aussi fait une regen forcée", "j'ai aussi essayé un additif")
+function detectAdditionalAttempts(text) {
+  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const attempts = [];
+  if (/additif|bardahl|w[uü]rth|liqui.?moly|nettoyant|produit\s*(fap|nettoy)/i.test(t)) attempts.push("additif");
+  if (/r[eé]g[eé]n[eé]?r|regen|roul[eé]?\s*(fort|autoroute|vite)|forc[eé]?\s*(la\s*)?r[eé]g[eé]n|tent[eé].*r[eé]gen/i.test(t)) attempts.push("regeneration_forcee");
+  if (/karcher|nettoy.*(eau|pression)|jet\s*(d.eau|haute)/i.test(t)) attempts.push("karcher");
+  if (/d[eé]fap|supprim.*(fap|filtre)|fap\s*off|downpipe|reprog/i.test(t)) attempts.push("defapage");
+  if (/c[eé]rine|eolys/i.test(t)) attempts.push("additif_cerine");
+  if (/remplac.*(fap|filtre)|fap\s*(neuf|neuve)/i.test(t)) attempts.push("remplacement_envisage");
+  if (/nettoy[eé]?\s*(fap|filtre)|d[eé]j[aà]\s*(fait\s*)?nettoy/i.test(t)) attempts.push("nettoyage_anterieur");
+  if (/acide|vinaigre|soude/i.test(t)) attempts.push("nettoyage_chimique");
+  if (/garage|m[eé]cano|m[eé]canicien|concessionnaire/i.test(t) && /essay|tent|fait|pass/i.test(t)) attempts.push("garage");
+  return attempts;
+}
+
 // P1 FIX: Détecte les questions logistiques sur le démontage
 function userAsksLogisticsQuestion(text) {
   const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -804,6 +823,25 @@ function buildLogisticsResponse(extracted) {
 function userHasOwnGarage(msg) {
   const t = msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['']/g, " ");
   return /mon garage|j ai (un |mon |deja )(un )?garage|garage (de confiance|habituel|attit)|garagiste|mon meca|j en ai un|oui j ai|deja un garage/.test(t);
+}
+
+// BUG 2 FIX: Détecte les expressions de préférence garage
+// "je préfère le garage de Saclas", "je préfère mon garage habituel",
+// "je préfère un garage pas loin", "le garage de [ville]"
+function userExpressesGaragePreference(text) {
+  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /(je\s*prefer|prefer.*garage|garage.*prefer|je\s*veux.*garage|je\s*voudrais.*garage|garage\s+de\s+[a-z])/i.test(t)
+    && /garage/i.test(t);
+}
+
+function buildGaragePreferenceResponse(extracted) {
+  const data = { ...(extracted || DEFAULT_DATA), garage_confiance: true, demontage: "garage_own" };
+  const replyClean = `Pas de souci, on peut travailler avec ton garage. Un expert Re-FAP va te rappeler pour organiser la prise en charge avec ton garagiste — il s'occupe du démontage/remontage et on gère le nettoyage.\n\nTu es dans quelle ville ?`;
+  if (!extracted?.ville && !extracted?.departement) {
+    data.next_best_action = "demander_ville";
+  }
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+  return { replyClean, replyFull, extracted: data };
 }
 
 function everAskedCity(history) {
@@ -1143,6 +1181,7 @@ function mergeExtractedData(previous, current, userMessage, quickData) {
   merged.garage_confiance = current?.garage_confiance ?? quickData?.garage_confiance ?? previous?.garage_confiance ?? null;
   merged.source = current?.source || quickData?.source || previous?.source || null;
   merged.roulable = current?.roulable ?? previous?.roulable ?? null;
+  merged.centre_proche = current?.centre_proche || previous?.centre_proche || null;
   merged.next_best_action = current?.next_best_action || "poser_question";
   if (!merged.marque) {
     const detected = extractVehicleFromMessage(userMessage);
@@ -2807,9 +2846,10 @@ function buildFormCTA(extracted) {
   } else {
     lines.push(`🔧 Solution : Nettoyage Re-FAP — orientation à confirmer`);
   }
+  const IDF_DEPTS_CTA = ["75", "77", "78", "91", "92", "93", "94", "95"];
   if (extracted?.departement === "63" || extracted?.ville?.toLowerCase().includes("clermont")) {
     lines.push(`💶 Tarif estimé : 99€ (DV6) ou 149€ (FAP combiné) + main d'œuvre`);
-  } else if (extracted?.demontage === "self" || extracted?.centre_proche) {
+  } else if (extracted?.demontage === "self" || extracted?.centre_proche || (extracted?.departement && IDF_DEPTS_CTA.includes(extracted.departement))) {
     lines.push(`💶 Tarif estimé : 99€ (FAP seul) ou 149€ (FAP combiné avec catalyseur)`);
   } else {
     lines.push(`💶 Tarif estimé : 199€ TTC port A/R inclus`);
@@ -3921,6 +3961,15 @@ export default async function handler(req, res) {
     }
 
     // ========================================
+    // OVERRIDE BUG2 : Préférence garage spécifique à tout moment
+    // "je préfère le garage de Saclas", "je préfère mon garage habituel"
+    // → répondre FAQ garage de confiance sans reset du flow
+    // ========================================
+    if (userExpressesGaragePreference(message)) {
+      return sendResponse(buildGaragePreferenceResponse(lastExtracted));
+    }
+
+    // ========================================
     // OVERRIDE RESCUE : Ville + intention garage/CC À TOUT MOMENT
     // Bug A : "je suis de/à Besançon propose moi un garage" post-flow
     // Bug B : Code postal après "je n'arrive pas à localiser"
@@ -4032,7 +4081,21 @@ export default async function handler(req, res) {
       if (userAsksLogisticsQuestion(message)) {
         return sendResponse(buildLogisticsResponse(lastExtracted));
       }
+      // BUG 1 FIX: Détecter les essais supplémentaires ("on a aussi fait une regen")
+      // quand le bot attend une ville — merger l'essai et re-demander la ville
       if (!looksLikeCityAnswer(message)) {
+        const additionalAttempts = detectAdditionalAttempts(message);
+        if (additionalAttempts.length > 0) {
+          const existing = lastExtracted.previous_attempts || "";
+          const newAttempts = additionalAttempts.filter(a => !existing.includes(a));
+          if (newAttempts.length > 0) {
+            lastExtracted.previous_attempts = existing ? `${existing}, ${newAttempts.join(", ")}` : newAttempts.join(", ");
+          }
+          const replyClean = "C'est noté. Et du coup, tu es dans quelle ville ?";
+          const data = { ...(lastExtracted || DEFAULT_DATA), previous_attempts: lastExtracted.previous_attempts, next_best_action: "demander_ville" };
+          const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+          return sendResponse({ replyClean, replyFull, extracted: data });
+        }
         const replyClean = "Je n'ai pas bien saisi. Tu es dans quelle ville ou quel département ?";
         const data = { ...(lastExtracted || DEFAULT_DATA), next_best_action: "demander_ville" };
         const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
