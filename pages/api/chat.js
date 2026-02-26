@@ -312,7 +312,7 @@ function quickExtract(text) {
   if (/additif|bardahl|w[uü]rth|liqui.?moly|nettoyant|produit\s*(fap|nettoy)/i.test(t)) {
     result.previous_attempts.push("additif");
   }
-  if (/garage|m[eé]cano|m[eé]canicien|concessionnaire/i.test(t)) {
+  if (/garage|m[eé]cano|m[eé]canicien|concessionnaire/i.test(t) && /essay|tent|fait|pass[eé]|amen[eé]|confi[eé]|dit|propos/i.test(t)) {
     result.previous_attempts.push("garage");
   }
   if (/karcher|nettoy.*(eau|pression)|jet\s*(d.eau|haute)/i.test(t)) {
@@ -3566,6 +3566,18 @@ function deterministicRouter(message, extracted, history, metier) {
     return { action: "direct_reply", replyClean, extracted: data };
   }
 
+  // ---- BUG F FIX: INTENT garage + FAP dès le 1er message ----
+  // "UN GARAGE POUR DEMONTER MON FAP", "je cherche un garage pour mon fap", etc.
+  // Si une ville/CP est aussi présente, ne pas intercepter ici → laisser RESCUE l'orienter
+  if (/garage.*(d[eé]mont|nettoy|fap|filtre|dpf)|d[eé]mont.*(fap|filtre).*garage|(besoin|cherche|veu[xt]|faut).*(garage|quelqu.un).*(fap|filtre|d[eé]mont)|fap.*(garage|d[eé]mont|nettoy)/i.test(t)) {
+    if (!extractDeptFromInput(message)) {
+      const data = { ...(extracted || DEFAULT_DATA), intention: "garage_partner", demontage: "garage", symptome: extracted?.symptome || "fap_bouche_declare", next_best_action: "demander_ville" };
+      const replyClean = `🔧 On a un réseau de 800+ garages partenaires qui gèrent tout — dépose du FAP, nettoyage Re-FAP, et repose. Tu es dans quelle ville ? Je te trouve le garage le plus proche.`;
+      return { action: "direct_reply", replyClean, extracted: data };
+    }
+    // Ville présente → laisser passer pour RESCUE override qui gère ville + orientation
+  }
+
   // 2. Détecter symptôme dans le message
   const symptome = detectSymptom(message);
 
@@ -4066,6 +4078,23 @@ export default async function handler(req, res) {
     // OVERRIDE 1b : Démontage → self/garage
     // ========================================
     if (lastAssistantAskedDemontage(history)) {
+      // BUG G FIX: si l'utilisateur donne une marque au lieu de répondre à la question
+      // démontage, capturer la marque (+ modèle/année si présents) et reprendre le flow
+      const marqueDetectee1b = detectMarque(message);
+      if (marqueDetectee1b && marqueDetectee1b.famille !== "diesel_generique") {
+        lastExtracted = { ...lastExtracted, marque: marqueDetectee1b.marque || lastExtracted.marque };
+        const msgModele1b = extractModelFromMessage(message);
+        if (msgModele1b) lastExtracted.modele = msgModele1b;
+        const msgAnnee1b = extractYearFromMessage(message);
+        if (msgAnnee1b) lastExtracted.annee = msgAnnee1b;
+        if (lastExtracted.modele) {
+          // Marque + modèle connus → demander les essais ou la ville
+          return sendResponse(lastExtracted.previous_attempts
+            ? buildVilleQuestion(lastExtracted)
+            : buildPreviousAttemptsQuestion(lastExtracted, metier));
+        }
+        return sendResponse(buildModelQuestion(lastExtracted));
+      }
       if (userIsInsulting(message)) {
         return sendResponse(buildInsultResponse(lastExtracted));
       }
@@ -4447,8 +4476,15 @@ export default async function handler(req, res) {
     }
 
     // 3. Pas de modèle → demander (sauf flow OBD)
-    if (!isOBDFlow && !lastExtracted.modele && !everAskedModel(history) && !everAskedClosing(history)) {
-      return sendResponse(buildModelQuestion(lastExtracted));
+    // BUG B résiduel FIX: relâcher la garde everAskedModel quand la marque vient
+    // d'être donnée sur ce tour — le bot a pu demander "C'est quel modèle ?" dans
+    // une réponse symptôme précédente (matrice famille), mais l'utilisateur a répondu
+    // avec la marque seule → il faut redemander le modèle
+    if (!isOBDFlow && !lastExtracted.modele && !everAskedClosing(history)) {
+      const marqueJustGiven = !!(quickData.marque || detectMarque(message));
+      if (!everAskedModel(history) || marqueJustGiven) {
+        return sendResponse(buildModelQuestion(lastExtracted));
+      }
     }
 
     // 4. Pas de km → demander
