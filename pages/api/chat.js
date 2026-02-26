@@ -2161,21 +2161,19 @@ function cleanVilleInput(message) {
   if (/\bst[- ]nazaire\b|saint[- ]nazaire\b/.test(tLow)) return "Saint-Nazaire";
 
   ville = ville
-    .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |je me trouve |on est |nous sommes |moi c'est |c'est |ici c'est )/i, "")
-    .replace(/^(à |a |au |en |sur |dans le |dans |près de |pres de |vers |du côté de |du cote de |secteur |région |region )/i, "")
+    .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |je me trouve |on est |nous sommes |moi c'est |c'est |ici c'est |je veux |je voudrais |je cherche |j'aimerais )/i, "")
+    .replace(/^(un garage |une solution |un centre )?(vite |rapidement |urgent )?(à |a |au |en |sur |dans le |dans |près de |pres de |vers |du côté de |du cote de |secteur |région |region )?(cp |code postal )?/i, "")
+    .replace(/[,;]\s*(c'est|c est|très|tres|assez|super|trop|vraiment).*$/i, "")
     .replace(/[.!?]+$/, "")
     .trim();
 
   // Chercher le nom de ville reconnu dans la phrase (CITY_TO_DEPT) — pour messages longs ET courts ambigus
   const tNorm = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
-  const hasNonCityWords = /\b(garage|cherche|besoin|propose|suis|habite|centre|fap|carter|demonter|nettoyer)\b/i.test(ville);
+  const hasNonCityWords = /\b(garage|cherche|besoin|propose|suis|habite|centre|fap|carter|demonter|nettoyer|veux|vite|urgent)\b/i.test(ville);
 
   if (ville.length > 30 || hasNonCityWords) {
-    // Code postal en priorité
-    const postalMatch = ville.match(/\b([a-zA-ZÀ-ÿ\-]+(?:\s+[a-zA-ZÀ-ÿ\-]+)*)\s+(\d{5})\b/);
-    if (postalMatch) return postalMatch[1] + " " + postalMatch[2];
-
-    // CP seul dans la phrase
+    // BUG D FIX: CP seul extrait de la phrase — priorité absolue
+    // Évite de capturer la phrase entière avec le regex greedy "ville + CP"
     const cpAlone = message.match(/\b(\d{5})\b/);
     if (cpAlone) return cpAlone[1];
 
