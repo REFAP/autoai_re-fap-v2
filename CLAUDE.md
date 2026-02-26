@@ -64,108 +64,167 @@ Au 25/02/2026 — 5 centres équipés :
 
 Les autres Carter-Cash sont des **points dépôt** (envoi 48-72h, 199€).
 
----
-
-## Bugs identifiés à corriger (analyse conversations 24/02/2026)
-
-### 🔴 BUG P0 — Boucle infinie sur symptôme hors flow standard
-**Conv** : `565a7b02`
-**Symptôme** : L'utilisateur entre un symptôme textuel libre
-("Message risque de colmatage FAP") qui ne matche aucun bouton du flow.
-Le bot répond correctement la 1ère fois, puis perd le contexte du symptôme
-quand l'utilisateur donne sa marque. Il boucle ensuite indéfiniment entre
-"quel symptôme ?" et "quelle marque ?" sans jamais avancer.
-**Correction attendue** : capturer le symptôme dès le 1er message même s'il
-est exprimé librement (pas via bouton), et ne plus le redemander.
-
-### 🔴 BUG P1 — "Je n'ai pas bien saisi" sur question logistique légitime
-**Conv** : `6ea21933`
-**Symptôme** : L'utilisateur demande "Il faut démonter le FAP moi-même ?"
-ou "Je dois démonter le FAP ?". Le bot répond "Je n'ai pas bien saisi.
-Tu es dans quelle ville ?" — deux fois de suite.
-**Correction attendue** : détecter les questions sur la logistique du démontage
-et répondre avec la FAQ correspondante :
-> "Pas forcément. Si tu choisis un garage partenaire, il s'occupe de tout —
-> démontage, envoi, remontage. Si tu veux faire moins cher, tu peux démonter
-> toi-même et déposer le FAP directement au Carter-Cash."
-Puis reprendre le flow normalement.
-
-### 🟡 BUG P2 — "Merci" relance le flow au lieu de clore
-**Conv** : `ed55001f`
-**Symptôme** : Après la réponse au tarif, l'utilisateur dit "merci" (signal
-de fin de conversation). Le bot répond "C'est quelle voiture ?"
-**Correction attendue** : détecter les messages de clôture ("merci",
-"merci beaucoup", "ok merci", "bonne journée", "au revoir", "c'est bon")
-et répondre :
-> "Avec plaisir ! Si tu as d'autres questions sur ton FAP, n'hésite pas."
-Sans relancer le flow.
-
-### 🟡 BUG P3 — Rappel en doublon (résumé affiché deux fois)
-**Conv** : `c12347d2`
-**Symptôme** : Quand l'utilisateur dit "oui" puis "oui je veux être rappelé",
-le résumé de rappel s'affiche deux fois identique.
-**Correction attendue** : si un résumé de rappel a déjà été envoyé dans la
-conversation, ne pas le renvoyer — répondre simplement :
-> "C'est noté, tu seras rappelé dans les meilleurs délais !"
-
-### 🟡 BUG P4 — Marque redemandée malgré info déjà donnée
-**Convs** : `3a685322`, et nombreuses autres (58 occurrences relevées)
-**Symptôme** : L'utilisateur donne marque + modèle + année dans un seul message,
-le bot extrait seulement la marque puis redemande le modèle/année au lieu de
-les avoir capturés directement.
-**Correction attendue** : parser le message initial pour extraire en une fois
-marque + modèle + année quand ils sont présents dans la même phrase.
+**Règle IDF** : Pour les départements 75, 77, 78, 91, 92, 93, 94, 95 — proposer
+EN PRIORITÉ Thiais + Sarcelles avec tarifs 99€/149€. Ne mentionner l'envoi 199€
+qu'en dernier recours (CC équipés > 80km, impossible en IDF).
 
 ---
 
-## Comportements attendus (non régresser)
+## Cas de référence validés — NE PAS CASSER
 
-Ces conversations fonctionnent bien — ne pas les casser :
+Ces séquences fonctionnent en prod et servent de tests de non-régression obligatoires.
+Tester R1-R8 après CHAQUE commit.
 
-- **`c12347d2`** : Renault Mégane 3 → flow complet marque/modèle/essai/ville/rappel ✅
-- **`3a685322`** : Peugeot 508 mode dégradé → diagnostic correct + orientation CC équipé ✅
-- **`13f4cd`** : "Je cherche un garage qui gère tout" → entrée directe ville ✅
-- Réponse au tarif simple : "99€ à 149€ chez CC, 199€ en envoi" ✅
-- Localisation par code postal ou nom de ville ✅
-- Réponse FAQ défapage illégal ✅
+| Réf | Séquence | Résultat attendu |
+|-----|----------|-----------------|
+| R1 | "voyant" → "BMW" → "X3 2018" → essais → ville → rappel | Flow complet sans boucle |
+| R2 | "fap bouché j'ai besoin d'un garage sur paris" | Garage partenaire + Thiais + Sarcelles en une réponse |
+| R3 | CP 75000 → "oui je veux être rappelé" | Résumé affiche 99€/149€, pas 199€ |
+| R4 | "mon garage habituel" | FAQ garage de confiance sans reset du flow |
+| R5 | "ok merci" | Clôture propre, pas de relance flow |
+| R6 | "il faut démonter le FAP moi-même ?" | FAQ logistique démontage |
+| R7 | Conv `c12347d2` : "voyant" → Renault → Mégane 3 2011 → regen → ville → rappel | Flow complet |
+| R8 | Conv `3a685322` : Peugeot 508 mode dégradé → localisation → CC équipé IDF | Orientation correcte |
 
 ---
 
-## Intentions connues du moteur déterministe
+## ⚠️ Leçon critique — Architecture overrides (25/02/2026)
 
-Le bot doit reconnaître (au minimum) ces intentions utilisateur :
+**chat.js contient ~30 overrides exécutés dans un ordre précis.**
+Des patches successifs sans cartographie préalable ont créé des conflits
+qui ont rendu le bot instable (10+ sessions correctives le 25/02).
+
+### RÈGLE ABSOLUE avant toute modification
+
+1. **Cartographier** tous les overrides (ligne, condition, action, conflits potentiels)
+2. **Valider la cartographie** avant de toucher quoi que ce soit
+3. **Un commit par correction**, tester R1-R8 après chaque commit
+4. **Si un test échoue → revert immédiat**, pas de fix supplémentaire par-dessus
+
+### Zones de conflit identifiées à surveiller
+
+**`userExpressesGaragePreference()`** — doit matcher UNIQUEMENT :
+```
+✅ "mon garage" (possessif explicite)
+✅ "je préfère mon garage"
+✅ "j'ai déjà un garage"
+✅ "garage habituel / de confiance / attitré"
+
+❌ "je veux un garage"        → RESCUE normal
+❌ "je cherche un garage"     → RESCUE normal
+❌ "j'ai besoin d'un garage"  → RESCUE normal
+❌ "un garage pour démonter"  → RESCUE normal
+```
+
+**Override 1b (ligne ~4053)** — intercepte AVANT le RESCUE.
+Risque : capture les marques de voiture si le bot était en mode "attendait garage".
+Ne pas modifier sans tester R1 et R2.
+
+**Override 1b2 (ligne ~4085)** — fallthrough.
+Risque : peut ignorer la ville contenue dans le message courant.
+
+**`detectAdditionalAttempts()`** — doit couvrir Override 1b ET 1c.
+Actuellement ne couvre que 1c (attend ville) — bug connu (BUG A ci-dessous).
+
+---
+
+## Corrections appliquées en prod (au 26/02/2026)
+
+### ✅ Session 1 — 24/02 matin
+- P0 : Boucle infinie sur symptôme libre ("risque de colmatage FAP")
+- P1 : "Je n'ai pas bien saisi" sur question logistique
+- P2 : "Merci" relance le flow → clôture propre
+- P3 : Résumé rappel en doublon → message simple
+- P4 : Marque + modèle + année capturés en une passe
+
+### ✅ Session 2 — 24/02 soir (audit complet)
+- "ok merci" → clôture (shadow fix)
+- Sainte-Luce-sur-Loire equipped:true
+- Bloc dupliqué getMissingDataQuestion supprimé
+- everGaveExpertOrientation faux positif corrigé
+- FAQ ne force plus demander_vehicule si véhicule déjà connu
+- Anti-boucle question véhicule
+- CP 75000 non parsé comme km
+
+### ✅ Session 3 — 25/02
+- "voyant" seul reconnu comme symptôme valide
+- IDF prioritaire : Thiais + Sarcelles pour depts 75-78, 91-95
+- Multi-essais : "on a aussi fait une regen" mergé (Override 1c)
+- Grammaire "Sur une ta voiture" corrigée
+- centre_proche propagé dans DATA JSON → tarif IDF correct dans résumé
+- userExpressesGaragePreference() resserrée aux possessifs
+
+---
+
+## Bugs en attente — session suivante
+
+### 🟡 BUG A — detectAdditionalAttempts() trop restrictif
+**Séquence qui échoue** :
+```
+USER : voyant
+BOT  : C'est quelle voiture ?
+USER : on a aussi fait une regen sans succès
+BOT  : Sur une [regen]... ← interprète "regen" comme une marque
+```
+**Cause** : ne couvre que Override 1c (attend ville), pas Override 1b (attend marque)
+**Correction** : étendre à Override 1b — si message contient mots-clés essais
+(regen, additif, karcher...), merger l'essai et re-demander le véhicule
+
+### 🟡 BUG B — Deux questions simultanées
+**Séquence** : bot pose ville ET modèle dans le même message
+**Correction** : une seule question à la fois — modèle prioritaire sur ville
+
+### 🟡 BUG C — Ville dans préférence garage non mémorisée
+**Séquence** : "mon garage habituel à Saclas" → bot redemande la ville
+**Correction** : extraire ville depuis le message et stocker dans lastExtracted.ville
+
+### 🟡 BUG D — Localisation = phrase entière dans résumé
+**Séquence** : "je veux un garage dans CP 75000" → résumé affiche la phrase entière
+**Correction** : cleanVilleInput() extrait uniquement le CP/ville
+
+### 🟡 BUG E — Code postal parsé comme code OBD
+**Séquence** : "75000" → affiché comme "P7500" dans le résumé
+**Correction** : restreindre détection OBD aux patterns P0xxx/P1xxx/P2xxx/P3xxx uniquement
+
+---
+
+## Intentions reconnues du moteur
 
 ```
-symptome_voyant          → "voyant allumé", "voyant FAP", "voyant moteur"
+symptome_voyant          → "voyant allumé", "voyant FAP", "voyant moteur", "voyant" seul ✅
 symptome_puissance       → "perte de puissance", "mode dégradé", "bridé"
 symptome_fumee           → "fume", "fumée noire/blanche"
 symptome_ct              → "contrôle technique refusé", "CT"
 symptome_obd             → "code erreur", "P2002", "P2458", "valise"
-symptome_colmatage       → "risque de colmatage", "message FAP"  ← à améliorer
+symptome_colmatage       → "risque de colmatage", "message FAP" ✅
 marque_vehicule          → liste des marques reconnues
-demande_garage           → "garage", "démonter", "repose", "gère tout"
+demande_garage_recherche → "je veux un garage", "je cherche un garage" → RESCUE
+demande_garage_propre    → "mon garage", "je préfère mon garage" → FAQ garage confiance
 demande_prix             → "combien", "tarif", "prix", "coûte"
-demande_logistique       → "je dois démonter", "faut démonter", "moi-même"  ← à ajouter
-cloture                  → "merci", "ok merci", "bonne journée", "au revoir"  ← à ajouter
+demande_logistique       → "je dois démonter", "faut démonter", "moi-même" ✅
+cloture                  → "merci", "ok merci", "bonne journée", "au revoir" ✅
 rappel                   → "oui je veux être rappelé", "rappel", "être rappelé"
 ```
 
 ---
 
-## Métriques de référence (avant/après correction)
+## Métriques de référence
 
-| Métrique              | Avant moteur déterministe | Après 22/02 |
-|-----------------------|--------------------------|-------------|
-| Taux orientation      | 30%                      | 82%         |
-| Taux "Je n'ai pas bien saisi" | élevé             | 8 occurrences / 322 convs |
-| Boucles infinies      | —                        | 1 identifiée (P0) |
-| Clôtures mal gérées   | —                        | 2 identifiées (P2, P3) |
+| Métrique | Avant 22/02 | État actuel | Objectif |
+|----------|-------------|-------------|----------|
+| Taux orientation | 30% | 82%+ | >85% |
+| "Je n'ai pas bien saisi" | élevé | ~3/conv | <1/conv |
+| Boucles infinies | fréquentes | 0 | 0 |
+| Tarif IDF résumé | 199€ | 99€/149€ ✅ | 99€/149€ |
 
 ---
 
 ## Conventions de code
 
-- Ne pas modifier le comportement du flow nominal (étapes 1 à 7)
-- Tester chaque correction avec les messages verbatim des conversations citées
-- Pas de régression sur les convs `c12347d2` et `3a685322`
-- Conserver les logs DATA: en fin de message assistant (utilisés pour le dashboard)
+- **Toujours cartographier les overrides AVANT de modifier**
+- Un commit par bug dans l'ordre de priorité
+- Tester R1-R8 après chaque commit avant de pusher
+- Conserver les logs DATA: en fin de message assistant (utilisés par le dashboard)
+- Ne jamais modifier `buildLocationOrientationResponse()` sans tester R2 et R3
+- Ne jamais modifier `userExpressesGaragePreference()` sans tester R2 et R4
+- En cas de doute → revert, pas de patch supplémentaire par-dessus un patch cassé
