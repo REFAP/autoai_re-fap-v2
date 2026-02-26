@@ -282,7 +282,9 @@ function quickExtract(text) {
   }
 
   // --- CODES OBD ---
-  const codesFound = t.match(/[pPcCbBuU]\s*[\dA-Fa-f]{4}/g);
+  // BUG E FIX: \b avant la lettre pour exclure "cp" → "P7500"
+  // Negative lookahead pour exclure les nombres à 5+ chiffres (codes postaux)
+  const codesFound = t.match(/\b[pPcCbBuU]\s*[\dA-Fa-f]{4}(?![\dA-Fa-f])/g);
   if (codesFound) {
     result.codes = codesFound.map((c) => c.toUpperCase().replace(/\s/g, ""));
     const weakSymptoms = [null, "perte_puissance", "fumee", "fumee_noire", "fumee_blanche", "voyant_moteur_seul", "odeur_anormale"];
