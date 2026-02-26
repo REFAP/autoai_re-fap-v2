@@ -2153,8 +2153,15 @@ function looksLikeCityAnswer(message) {
   // Accepté : département seul (2 chiffres)
   if (/^\d{2}$/.test(t)) return true;
 
+  // BUG I FIX: Nettoyer les prépositions ("à ", "a ", "dans le ", "dans l'", "en ")
+  // et les apostrophes avant le test regex ville
+  const tClean = t
+    .replace(/^(à|a|au|en|sur|vers|dans le|dans l[''e]?|du côté de|du cote de|pres de|près de)\s+/i, "")
+    .replace(/['']/g, " ")
+    .trim();
+
   // Accepté : ressemble à un nom de ville (lettres, tirets, espaces)
-  if (/^[a-zA-ZÀ-ÿ\-]{2,}(\s+[a-zA-ZÀ-ÿ\-]+)*(\s+\d{5})?$/.test(t)) return true;
+  if (/^[a-zA-ZÀ-ÿ\-]{2,}(\s+[a-zA-ZÀ-ÿ\-]+)*(\s+\d{5})?$/.test(tClean)) return true;
 
   return false;
 }
