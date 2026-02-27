@@ -18,7 +18,16 @@ function cleanMessageForDisplay(content) {
   }
   return text.trim();
 }
-
+function renderMarkdown(text) {
+  if (!text) return "";
+  return text
+    // liens [texte](url)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#689f38;text-decoration:underline;">$1</a>')
+    // liens tel: [texte](tel:xxx)
+    .replace(/\[([^\]]+)\]\((tel:[^\)]+)\)/g, '<a href="$2" style="color:#689f38;text-decoration:underline;">$1</a>')
+    // italique *texte*
+    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+}
 function generateSessionId() {
   return "session_" + Date.now() + "_" + Math.random().toString(36).substring(2, 11);
 }
@@ -299,7 +308,10 @@ export default function Home() {
                 className={`message ${msg.role === "user" ? "message-user" : "message-assistant"}`}
               >
                 {msg.role === "assistant" && <div className="avatar">🔧</div>}
-                <div className="message-content">{displayContent}</div>
+              <div
+  className="message-content"
+  dangerouslySetInnerHTML={{ __html: renderMarkdown(displayContent) }}
+/>
               </div>
             );
           })}
@@ -523,7 +535,8 @@ export default function Home() {
           border-radius: 16px;
           line-height: 1.5;
           font-size: 15px;
-          white-space: pre-wrap;
+         white-space: pre-wrap;
+word-break: break-word;
         }
 
         .message-user .message-content {
@@ -679,3 +692,4 @@ export default function Home() {
     </>
   );
 }
+
