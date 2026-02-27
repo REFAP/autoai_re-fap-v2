@@ -4,7 +4,7 @@
 //   - Override RESCUE : ville+intent garage/CC à TOUT moment du flow (Bug A)
 //   - Fix CP follow-up : CP après échec localisation → orientation (Bug B)
 //   - Anti-boucle : Mistral même réponse 2x → fermeture propre (Bug C)
-//   - Override 2 élargi : "pas d'autres choses", "c'est bon", "merci" → fermeture
+//   - Override 2 élargi : "pas d'autres choses", "c'est bon", "merci"F → fermeture
 //   - lastAssistantAskedClosingQuestion : détecte "Autre chose à signaler ?"
 // CHANGELOG v6.3:
 //   - Re-FAP Clermont-Ferrand : isRefapCenter, full-service, dépose directe, nettoyage 4h
@@ -2737,8 +2737,8 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
 // ============================================================
 // PRIORITÉ FEATURED_PARTNER_GARAGES : 33, 44, 59, 69, 93, 94
 // ============================================================
-if (dept && FEATURED_PARTNER_GARAGES[dept] && demontage !== "self") {
-  const featuredGarage = FEATURED_PARTNER_GARAGES[dept];
+const featuredGarage = dept ? FEATURED_PARTNER_GARAGES[dept] : null;
+if (featuredGarage) {
    // ── TYPE multi_garages (ex: Marseille dept 13) ──
   if (featuredGarage.type === "multi_garages" && demontage !== "self") {
     const cc = featuredGarage.cc;
@@ -5222,6 +5222,7 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
