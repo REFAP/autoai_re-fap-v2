@@ -2707,7 +2707,7 @@ if (featuredGarage.cc_list) {
     : "";
 
   replyClean =
-    `OK, ${villeDisplay}. Re-FAP a présélectionné des garages partenaires près de chez toi — ils prennent en charge ta voiture de A à Z.\n\n` +
+    `OK, pour les environs de ${villeDisplay}. Re-FAP a présélectionné des garages partenaires près de chez toi — ils prennent en charge ta voiture de A à Z.\n\n` +
     `① 🔧 Le garage dépose ton FAP et l'amène au Carter-Cash\n` +
     `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
     `② 🏭 Nettoyage en machine au Carter-Cash Re-FAP — ${prixCCDetail}\n` +
@@ -2723,7 +2723,7 @@ if (featuredGarage.cc_list) {
   // ── CAS 2 : 69 et 33 — garage autonome, Re-FAP prend en charge le nettoyage ──
 else if (["69", "33"].includes(dept)) {
   replyClean =
-    `OK, ${villeDisplay}. Re-FAP a présélectionné un garage spécialiste FAP près de chez toi — il prend en charge ta voiture de A à Z.\n\n` +
+    `OK, pour les environs de ${villeDisplay}. Re-FAP a présélectionné un garage spécialiste FAP près de chez toi — il prend en charge ta voiture de A à Z.\n\n` +
     `① 🔧 Le garage dépose et confie ton FAP à Re-FAP\n` +
     `   *(si le garage ne peut pas l'amener, tu le déposes toi-même)*\n` +
    `② 🏭 Re-FAP prend en charge le nettoyage en machine — ${prixCCDetail}\n` +
@@ -2754,7 +2754,7 @@ else if (["69", "33"].includes(dept)) {
     : "";
 
   replyClean =
-    `OK, ${villeDisplay}. Re-FAP a présélectionné un garage partenaire près de chez toi — il prend en charge ta voiture de A à Z.\n\n` +
+    `OK, pour les environs de ${villeDisplay}. Re-FAP a présélectionné un garage partenaire près de chez toi — il prend en charge ta voiture de A à Z.\n\n` +
     `① 🔧 Le garage dépose ton FAP et l'amène au Carter-Cash Re-FAP\n` +
     `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
     `② 🏭 Nettoyage en machine :\n` +
@@ -4877,6 +4877,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
