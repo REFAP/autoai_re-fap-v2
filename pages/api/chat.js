@@ -1596,14 +1596,15 @@ const CARTER_CASH_LIST = [
 // FEATURED_PARTNER_GARAGES — Garages partenaires mis en avant par département
 const FEATURED_PARTNER_GARAGES = {
   "69": {
-    nom: "Garage Auto Electricité",
-    ville: "Lyon",
+    nom: "Garage Auto Électricité",
+    ville: "Villeurbanne",
     dept: "69",
-     tel : "0478683545",
-     Adresse : "33 rue Lançon, 69100 Villeurbanne", 
+    adresse: "33 Rue de Lançon, 69100 Villeurbanne",
+    tel: "04 78 68 35 45",
     stars: 4.7,
     url: "https://share.google/KPFwFjqV8x9nDpBkM",
-    note: "Expert en FAP, 4,7⭐ Google",
+    horaires: "Lun-Ven 7h30-12h / 13h30-18h",
+    note: "Spécialiste FAP, 4,7⭐ Google",
   },
 };
 // CITY_TO_DEPT — 457 villes françaises → code département
@@ -2528,8 +2529,7 @@ if (dept && FEATURED_PARTNER_GARAGES[dept]) {
     }
   }
 
-  replyClean = `OK, ${villeDisplay}. On a un partenaire de confiance près de chez toi :\n\n🔧 ${featuredGarage.nom} — ${featuredGarage.note}\n🌐 ${featuredGarage.url}${ccLine}\n\nLe garage s'occupe du démontage/remontage, on gère le nettoyage FAP de ton côté.\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
-
+ replyClean = `OK, ${villeDisplay}. On a un garage spécialiste FAP près de chez toi :\n\n🔧 ${featuredGarage.nom}\n📍 ${featuredGarage.adresse}\n📞 ${featuredGarage.tel} — ${featuredGarage.horaires}\n⭐ ${featuredGarage.stars}/5 Google → ${featuredGarage.url}\n\nLe garage s'occupe du démontage/remontage, on gère le nettoyage FAP. Tu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
   const data = {
     ...(extracted || DEFAULT_DATA),
     intention: "rdv",
@@ -4637,6 +4637,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
