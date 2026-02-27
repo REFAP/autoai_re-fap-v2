@@ -1627,6 +1627,11 @@ const FEATURED_PARTNER_GARAGES = {
     url: "https://share.google/VkrTLft13vx47auyV",
     horaires: "À confirmer",
     note: "Partenaire Re-FAP actif",
+    cc_equipe: {
+      nom: "Carter-Cash Sainte-Luce-sur-Loire",
+      adresse: "24 Rte de Paris, 44980 Sainte-Luce-sur-Loire",
+      url: "https://share.google/dQlZqvTziCIqxSh9d",
+    },
     partenaires_secondaires: [
       {
         nom: "Garage Delko Carquefou",
@@ -1648,7 +1653,8 @@ const FEATURED_PARTNER_GARAGES = {
     cc_list: [
       {
         cc_nom: "Carter-Cash Villeneuve-d'Ascq",
-        cc_distance_label: "VA",
+        cc_adresse: "8 Rue du Frenelet, 59650 Villeneuve-d'Ascq",
+        cc_url: "https://share.google/Dl7cBR8DJt7poyhAZ",
         garage_principal: {
           nom: "Garage Express Auto",
           adresse: "233 Rue de l'Alma, 59100 Roubaix",
@@ -1659,7 +1665,8 @@ const FEATURED_PARTNER_GARAGES = {
       },
       {
         cc_nom: "Carter-Cash Lambres-lez-Douai",
-        cc_distance_label: "Douai",
+        cc_adresse: "36 Rte Nationale, 59552 Lambres-lez-Douai",
+        cc_url: "https://share.google/NNiMTO527aqhXBLbV",
         garage_principal: {
           nom: "YK Auto",
           adresse: "31 Rue Albert Charton, 59270 Courchelettes",
@@ -1710,6 +1717,11 @@ const FEATURED_PARTNER_GARAGES = {
     url: "https://share.google/i4H6F8rbr1DBfSTP7",
     horaires: "À confirmer",
     note: "Partenaire Re-FAP actif",
+    cc_equipe: {
+      nom: "Carter-Cash Sarcelles",
+      adresse: "2 Rue du Père Heude, 95200 Sarcelles",
+      url: "https://share.google/WClUmYLuY2mjcO25t",
+    },
     partenaires_secondaires: [
       {
         nom: "Garage Auto Concept",
@@ -1737,6 +1749,11 @@ const FEATURED_PARTNER_GARAGES = {
     url: "https://share.google/cJFZbKAb5NqoCx9OA",
     horaires: "À confirmer",
     note: "Partenaire Re-FAP actif",
+    cc_equipe: {
+      nom: "Carter-Cash Thiais",
+      adresse: "7 Rue des Alouettes, 94320 Thiais",
+      url: "https://share.google/hPtXw2SqdgHCSNnwf",
+    },
     partenaires_secondaires: [
       {
         nom: "Garage de Thiais",
@@ -2673,12 +2690,13 @@ if (dept && FEATURED_PARTNER_GARAGES[dept]) {
     : "";
 
   // ── CAS 1 : Dept 59 — multi-CC avec garage dédié chacun ──
- if (featuredGarage.cc_list) {
+if (featuredGarage.cc_list) {
   const ccBloc = featuredGarage.cc_list.map(item =>
-    `🏪 ${item.cc_nom}\n` +
-    `   🔧 ${item.garage_principal.nom} — ${item.garage_principal.adresse}\n` +
-    `   📞 [${item.garage_principal.tel}](tel:${item.garage_principal.tel.replace(/\s/g,"")})\n` +
-    `   [📍 Voir sur Maps](${item.garage_principal.url})`
+    `🏪 [${item.cc_nom}](${item.cc_url}) — sans RDV, FAP traité sous 4h\n` +
+    `   📍 ${item.cc_adresse}\n` +
+    `   🔧 Garage dépose/repose : ${item.garage_principal.nom}\n` +
+    `   📍 ${item.garage_principal.adresse}\n` +
+    `   📞 [${item.garage_principal.tel}](tel:${item.garage_principal.tel.replace(/\s/g,"")}) — [📍 Maps](${item.garage_principal.url})`
   ).join("\n\n");
 
   const secondaires = featuredGarage.partenaires_secondaires || [];
@@ -2703,12 +2721,13 @@ if (dept && FEATURED_PARTNER_GARAGES[dept]) {
 }
 
   // ── CAS 2 : 69 et 33 — garage autonome, Re-FAP prend en charge le nettoyage ──
- else if (["69", "33"].includes(dept)) {
+else if (["69", "33"].includes(dept)) {
   replyClean =
     `OK, ${villeDisplay}. Re-FAP a présélectionné un garage spécialiste FAP près de chez toi — il prend en charge ta voiture de A à Z.\n\n` +
-    `① 🔧 Le garage dépose ton FAP et l'amène chez Re-FAP\n` +
+    `① 🔧 Le garage dépose et confie ton FAP à Re-FAP\n` +
     `   *(si le garage ne peut pas l'amener, tu le déposes toi-même)*\n` +
-    `② 🏭 Nettoyage en machine Re-FAP — ${prixCCDetail}\n` +
+    `② 🏭 Re-FAP prend en charge le nettoyage en machine — ${prixCCDetail}\n` +
+    `   ⏱ FAP traité et retourné sous 48h\n` +
     `③ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
     `*Garage sélectionné par Re-FAP pour son sérieux, son expertise FAP et ses tarifs compétitifs.*\n\n` +
     `---\n\n` +
@@ -2721,6 +2740,11 @@ if (dept && FEATURED_PARTNER_GARAGES[dept]) {
 }
   // ── CAS 3 : 44, 93, 94 — parcours complet garage → CC → garage ──
  else {
+  const cc = featuredGarage.cc_equipe;
+  const ccLine = cc
+    ? `🏪 [${cc.nom}](${cc.url}) — sans RDV, FAP traité sous 4h\n   📍 ${cc.adresse}`
+    : `🏪 Carter-Cash Re-FAP — sans RDV, FAP traité sous 4h`;
+
   const secondaires = featuredGarage.partenaires_secondaires || [];
   const secondairesBlock = secondaires.length > 0
     ? "\n\nAutres garages partenaires dans ton secteur :\n" + secondaires.map(g =>
@@ -2728,17 +2752,13 @@ if (dept && FEATURED_PARTNER_GARAGES[dept]) {
       ).join("\n")
     : "";
 
-  const ccEquipe = equipMentionable ? nearestEquip : null;
-  const ccLine = ccEquipe
-    ? `🏪 ${ccEquipe.name} (${ccEquipe.city})${distLabel(ccEquipe)}`
-    : `🏪 Carter-Cash Re-FAP`;
-
   replyClean =
     `OK, ${villeDisplay}. Re-FAP a présélectionné un garage partenaire près de chez toi — il prend en charge ta voiture de A à Z.\n\n` +
     `① 🔧 Le garage dépose ton FAP et l'amène au Carter-Cash Re-FAP\n` +
     `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
-    `② 🏭 Nettoyage en machine — ${prixCCDetail}\n` +
+    `② 🏭 Nettoyage en machine :\n` +
     `   ${ccLine}\n` +
+    `   ${prixCCDetail}\n` +
     `③ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
     `*Garages sélectionnés par Re-FAP pour leur sérieux, leur expertise FAP et leurs tarifs compétitifs.*\n\n` +
     `---\n\n` +
@@ -2749,7 +2769,6 @@ if (dept && FEATURED_PARTNER_GARAGES[dept]) {
     `❓ Une difficulté ? Appelle Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
     `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 }
-
   const data = {
     ...(extracted || DEFAULT_DATA),
     intention: "rdv",
@@ -4857,6 +4876,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
