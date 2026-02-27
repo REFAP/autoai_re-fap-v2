@@ -2781,8 +2781,8 @@ if (dept && FEATURED_PARTNER_GARAGES[dept] && demontage !== "self") {
       `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
       `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 
-    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(lastExtracted)}`, extracted: lastExtracted };
-  }
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
+      }
   // ── TYPE multi_garages + self removal ──
    // ── TYPE multi_garages + self removal ──
   if (featuredGarage.type === "multi_garages" && demontage === "self") {
@@ -2803,7 +2803,7 @@ if (dept && FEATURED_PARTNER_GARAGES[dept] && demontage !== "self") {
       `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
       `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
 
-   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(lastExtracted)}`, extracted: lastExtracted };
+   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
   }
   const nearestEquip = cc.closestEquipped;
   const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
@@ -5222,6 +5222,7 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
