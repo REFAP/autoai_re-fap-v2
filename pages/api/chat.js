@@ -1599,9 +1599,11 @@ const FEATURED_PARTNER_GARAGES = {
     nom: "Garage Auto Electricité",
     ville: "Lyon",
     dept: "69",
+     tel : "0478683545",
+     Adresse : "33 rue Lançon, 69100 Villeurbanne", 
     stars: 4.7,
     url: "https://share.google/KPFwFjqV8x9nDpBkM",
-    note: "Spécialiste électronique auto, 4,7⭐ Google",
+    note: "Expert en FAP, 4,7⭐ Google",
   },
 };
 // CITY_TO_DEPT — 457 villes françaises → code département
@@ -4635,6 +4637,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
