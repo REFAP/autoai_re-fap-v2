@@ -1604,8 +1604,8 @@ const FEATURED_PARTNER_GARAGES = {
     ville: "Marseille",
     cc: {
       nom: "Carter-Cash Marseille Les Arnavaux",
-      adresse: "722 MIN Les Arnavaux, Rue Jean Queillau, 13014 Marseille",
-      url: "https://maps.google.com/?q=Carter-Cash+Marseille+Les+Arnavaux+722+MIN+Les+Arnavaux+13014"
+      adresse: "Rue Jean Queillau, 722 MIN Les Arnavaux, 13014 Marseille",
+      url: "https://www.google.com/maps/search/?api=1&query=43.3331566,5.3857660"
     },
     garages: [
       {
@@ -5222,6 +5222,7 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
