@@ -1606,7 +1606,7 @@ const FEATURED_PARTNER_GARAGES = {
     horaires: "Lun-Ven 7h30-12h / 13h30-18h",
     note: "Spécialiste FAP, 4,7⭐ Google",
   },
-"33": {
+  "33": {
     nom: "Midas Le Haillan",
     ville: "Le Haillan",
     dept: "33",
@@ -1616,6 +1616,143 @@ const FEATURED_PARTNER_GARAGES = {
     url: "https://share.google/Ry7mc288FrJSqElde",
     horaires: "Lun-Ven jusqu'à 18h30",
     note: "Spécialiste FAP, 4,4⭐ Google (536 avis)",
+  },
+  "44": {
+    nom: "Garage Amana Detailing",
+    ville: "Carquefou",
+    dept: "44",
+    adresse: "2a Av. Syrma, 44470 Carquefou",
+    tel: "02 53 35 38 95",
+    stars: null,
+    url: "https://share.google/VkrTLft13vx47auyV",
+    horaires: "À confirmer",
+    note: "Partenaire Re-FAP actif",
+    partenaires_secondaires: [
+      {
+        nom: "Garage Delko Carquefou",
+        adresse: "18 Rue du Moulin de la Garde, 44470 Carquefou",
+        tel: "02 40 34 27 44",
+        url: "https://share.google/FsPyJZlkJs9HCOWh5",
+        note: "Partenaire Re-FAP actif, réseau Delko",
+      },
+      {
+        nom: "Garage des Anglais - Bosch Car Service",
+        adresse: "39 Bd des Anglais, 44100 Nantes",
+        tel: "02 40 16 22 16",
+        url: "https://share.google/9mloG4OGKgGMs1LWV",
+        note: "4,8⭐ Google (299 avis)",
+      },
+    ],
+  },
+  "59": {
+    cc_list: [
+      {
+        cc_nom: "Carter-Cash Villeneuve-d'Ascq",
+        cc_distance_label: "VA",
+        garage_principal: {
+          nom: "Garage Express Auto",
+          adresse: "233 Rue de l'Alma, 59100 Roubaix",
+          tel: "03 20 24 43 74",
+          url: "https://share.google/DnebJs7NZzisIvfYQ",
+          note: "Partenaire Re-FAP actif",
+        },
+      },
+      {
+        cc_nom: "Carter-Cash Lambres-lez-Douai",
+        cc_distance_label: "Douai",
+        garage_principal: {
+          nom: "YK Auto",
+          adresse: "31 Rue Albert Charton, 59270 Courchelettes",
+          tel: "07 65 77 10 97",
+          url: "https://share.google/ATiKs2OpnIyzrYAvt",
+          note: "5⭐ Google, à 1 km du CC",
+        },
+      },
+    ],
+    partenaires_secondaires: [
+      {
+        nom: "Garage Morelle",
+        adresse: "535 Haute Rive, 59553 Cuincy",
+        tel: "03 27 92 15 41",
+        url: "https://share.google/v4mnuHA5S7opc2JXn",
+        note: "4,9⭐ Google (177 avis)",
+      },
+      {
+        nom: "Garage Maio",
+        adresse: "342 Rue Lefebvre d'Orval, 59500 Douai",
+        tel: "03 27 88 61 61",
+        url: "https://share.google/fUqftTMRkoGsdoL1q",
+        note: "4,9⭐ Google",
+      },
+      {
+        nom: "Garage 1000 Autos",
+        adresse: "10 Rue du Dronckaert, 59223 Roncq",
+        tel: "07 63 57 55 77",
+        url: "https://share.google/Fo9jfmVo2MTM9olDt",
+        note: "Partenaire Re-FAP actif",
+      },
+      {
+        nom: "Garage SB Performance",
+        adresse: "19 Rue de la Mackellerie, 59100 Roubaix",
+        tel: "06 77 65 22 51",
+        url: "https://share.google/RX9ID0IIe89ci4syD",
+        note: "5⭐ Google",
+      },
+    ],
+  },
+  "93": {
+    nom: "Garage Voitex",
+    ville: "Stains",
+    dept: "93",
+    adresse: "75 Rue Jean Jaurès, 93240 Stains",
+    tel: "01 49 51 48 34",
+    stars: null,
+    url: "https://share.google/i4H6F8rbr1DBfSTP7",
+    horaires: "À confirmer",
+    note: "Partenaire Re-FAP actif",
+    partenaires_secondaires: [
+      {
+        nom: "Garage Auto Concept",
+        adresse: "93800 Epinay-sur-Seine",
+        tel: "01 48 26 80 23",
+        url: "https://share.google/m3hezYTmi8dsWyHKT",
+        note: "4,9⭐ Google (329 avis)",
+      },
+      {
+        nom: "Garage Des Pros",
+        adresse: "93350 Le Bourget",
+        tel: "07 49 64 40 57",
+        url: "https://share.google/g9Wgqgla1wPC35ZMX",
+        note: "4,8⭐ Google (87 avis)",
+      },
+    ],
+  },
+  "94": {
+    nom: "Garage M Perf",
+    ville: "L'Haÿ-les-Roses",
+    dept: "94",
+    adresse: "66 Rue Gabriel Péri, 94240 L'Haÿ-les-Roses",
+    tel: "01 82 01 51 01",
+    stars: null,
+    url: "https://share.google/cJFZbKAb5NqoCx9OA",
+    horaires: "À confirmer",
+    note: "Partenaire Re-FAP actif",
+    partenaires_secondaires: [
+      {
+        nom: "Garage de Thiais",
+        adresse: "109 Av. du Général de Gaulle, 94320 Thiais",
+        tel: "01 48 52 10 50",
+        url: "https://share.google/6IA279ADiqxWIQNdv",
+        note: "À proximité immédiate Carter-Cash Thiais",
+      },
+      {
+        nom: "Fix A Car",
+        adresse: "18 All. de Bretagne, 94320 Thiais",
+        tel: "07 51 48 31 81",
+        url: "https://share.google/dC1ntZ9tW31pYfx1V",
+        note: "Partenaire Carter-Cash",
+      },
+    ],
   },
 };
 // CITY_TO_DEPT — 457 villes françaises → code département
@@ -2521,33 +2658,71 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
     return `🔧 Re-FAP Clermont-Ferrand — ${center.address}\n📞 ${center.phone}\n\nMachine Re-FAP sur place. ${prixFAP}.\n\nPrise en charge totale possible. Devis en ligne : ${center.website}`;
   };
 // ============================================================
-// PRIORITÉ DEPT 69 (LYON) : Garage Auto Electricité
+// PRIORITÉ FEATURED_PARTNER_GARAGES : 33, 44, 59, 69, 93, 94
 // ============================================================
 if (dept && FEATURED_PARTNER_GARAGES[dept]) {
   const featuredGarage = FEATURED_PARTNER_GARAGES[dept];
   const nearestEquip = cc.closestEquipped;
   const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
 
-  let ccLine = "";
-  if (equipMentionable) {
-    ccLine = nearestEquip.isRefapCenter
-      ? `\n🏪 Re-FAP ${nearestEquip.city}${distLabel(nearestEquip)} — machine sur place, nettoyage en 4h (${prixCCDetail})`
-      : `\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — sans rendez-vous, nettoyage sur place en 4h (${prixCCDetail})`;
-  } else {
-    const depot = cc.closestDepot;
-    if (depot) {
-      ccLine = `\n🏪 ${depot.name} (${depot.city})${distLabel(depot)} — point dépôt sans rendez-vous, retour 48-72h (${prixEnvoi})`;
-    }
+  const secondaires = featuredGarage.partenaires_secondaires || [];
+  const secondairesBlock = secondaires.length > 0
+    ? "\n\nAutres garages partenaires :\n" + secondaires.map(g =>
+        `🔧 ${g.nom} — ${g.adresse}${g.tel ? " — 📞 " + g.tel : ""} (${g.note})`
+      ).join("\n")
+    : "";
+
+  // ── CAS 1 : Dept 59 — multi-CC avec garage dédié chacun ──
+  if (featuredGarage.cc_list) {
+    const ccBloc = featuredGarage.cc_list.map(item =>
+      `🏪 ${item.cc_nom} (${item.cc_distance_label})\n` +
+      `   🔧 ${item.garage_principal.nom}\n` +
+      `   📍 ${item.garage_principal.adresse} — 📞 ${item.garage_principal.tel}`
+    ).join("\n\n");
+
+    replyClean = `OK, ${villeDisplay}. On a deux centres Re-FAP équipés dans ton secteur :\n\n${ccBloc}` +
+      `${secondairesBlock}\n\n① Dépose garage ② Nettoyage 4h CC (${prixCCDetail}) ③ Repose\n` +
+      `💬 04 73 37 88 21\n\nTu veux qu'on organise pour ${vehicleInfo} ?`;
   }
 
- replyClean = `OK, ${villeDisplay}. On a un garage spécialiste FAP près de chez toi :\n\n🔧 ${featuredGarage.nom}\n📍 ${featuredGarage.adresse}\n📞 ${featuredGarage.tel} — ${featuredGarage.horaires}\n⭐ ${featuredGarage.stars}/5 Google → ${featuredGarage.url}\n\nLe garage s'occupe du démontage/remontage, on gère le nettoyage FAP. Tu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
+  // ── CAS 2 : 69 et 33 — garage autonome, Re-FAP prend en charge le nettoyage ──
+  else if (["69", "33"].includes(dept)) {
+    replyClean = `OK, ${villeDisplay}. On a un garage spécialiste FAP près de chez toi :\n\n` +
+      `🔧 ${featuredGarage.nom}\n` +
+      `📍 ${featuredGarage.adresse}\n` +
+      `📞 ${featuredGarage.tel} — ${featuredGarage.horaires}\n` +
+      `⭐ ${featuredGarage.stars}/5 Google → ${featuredGarage.url}\n\n` +
+      `① 🔧 Dépose du FAP chez ${featuredGarage.nom}\n` +
+      `② 🏭 Re-FAP prend en charge le nettoyage (${prixCCDetail})\n` +
+      `③ 🔧 Repose du FAP au même garage\n\n` +
+      `💬 Une question ? 04 73 37 88 21\n\n` +
+      `Tu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
+  }
+
+  // ── CAS 3 : 44, 93, 94 — parcours complet garage → CC → garage ──
+  else {
+    const ccEquipe = equipMentionable ? nearestEquip : null;
+    const ccLine = ccEquipe
+      ? `🏪 ${ccEquipe.name} (${ccEquipe.city})${distLabel(ccEquipe)} — nettoyage 4h (${prixCCDetail})`
+      : `🏪 Carter-Cash Re-FAP — nettoyage 4h (${prixCCDetail})`;
+
+    replyClean = `OK, ${villeDisplay}. Parcours complet :\n\n` +
+      `① 🔧 Dépose : ${featuredGarage.nom} — ${featuredGarage.adresse}\n` +
+      `📞 ${featuredGarage.tel} → ${featuredGarage.url}\n\n` +
+      `② ${ccLine}\n\n` +
+      `③ 🔧 Repose au même garage` +
+      `${secondairesBlock}\n\n` +
+      `💬 04 73 37 88 21\n\n` +
+      `Tu veux qu'on organise pour ${vehicleInfo} ?`;
+  }
+
   const data = {
     ...(extracted || DEFAULT_DATA),
     intention: "rdv",
     ville: villeDisplay || null,
     departement: dept || null,
     next_best_action: "proposer_devis",
-    centre_proche: equipMentionable ? `Carter-Cash ${nearestEquip.city}` : featuredGarage.nom,
+    centre_proche: featuredGarage.nom,
   };
   const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
 
@@ -4648,6 +4823,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
