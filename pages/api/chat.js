@@ -1593,7 +1593,17 @@ const CARTER_CASH_LIST = [
   {name:"Carter-Cash Aulnay-sous-Bois",city:"Aulnay-sous-Bois",postal:"93600",dept:"93",equipped:false,lat:48.938,lng:2.497},
   {name:"Carter-Cash Saint-Ouen-l'Aumone",city:"Saint-Ouen-l'Aumone",postal:"95310",dept:"95",equipped:false,lat:49.053,lng:2.122},
 ];
-
+// FEATURED_PARTNER_GARAGES — Garages partenaires mis en avant par département
+const FEATURED_PARTNER_GARAGES = {
+  "69": {
+    nom: "Garage Auto Electricité",
+    ville: "Lyon",
+    dept: "69",
+    stars: 4.7,
+    url: "https://share.google/KPFwFjqV8x9nDpBkM",
+    note: "Spécialiste électronique auto, 4,7⭐ Google",
+  },
+};
 // CITY_TO_DEPT — 457 villes françaises → code département
 // Préfectures + sous-préfectures + villes courantes
 // ============================================================
@@ -4625,6 +4635,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
