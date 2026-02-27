@@ -691,6 +691,9 @@ function lastAssistantAskedDemontage(history) {
       if (content.includes("démonter le fap toi-même") && content.includes("garage s'occupe")) {
         return true;
       }
+       if (content.includes("tu peux démonter le fap toi-même") || content.includes("démonter le fap toi-même (ou l'as déjà fait)")) {
+        return true;
+      }
       return false;
     }
   }
@@ -3876,10 +3879,13 @@ function deterministicRouter(message, extracted, history, metier) {
   if (nonDieselKeywords.test(t) && isTalkingAboutCar) return { action: "non_diesel" };
 
   // ---- INTENT : "près de chez moi" → sauter directement à la ville ----
-  if (/pr[eè]s.*(chez|moi|maison)|autour.*(moi|chez)|[àa] proximit[eé]|le plus proche|trouver.*(centre|carter|garage)|faire nettoyer.*(fap|filtre)/i.test(t)) {
-    const data = { ...(extracted || DEFAULT_DATA), intention: "localisation", next_best_action: "demander_ville" };
-    const replyClean = `📍 Pas de problème ! Tu es dans quelle ville ? Je te trouve le centre Re-FAP ou Carter-Cash le plus proche.`;
-    return { action: "direct_reply", replyClean, extracted: data };
+ if (/pr[eè]s.*(chez|moi|maison)|autour.*(moi|chez)|[àa] proximit[eé]|le plus proche|trouver.*(centre|carter|garage)|faire nettoyer.*(fap|filtre)/i.test(t)) {
+    const data = { ...(extracted || DEFAULT_DATA), intention: "localisation", next_best_action: "demander_demontage" };
+    const replyClean = `Pour t'orienter au mieux — tu peux démonter le FAP toi-même (ou l'as déjà fait), ou tu as besoin qu'un garage s'occupe de tout ?`;
+    return { action: "direct_reply", replyClean, extracted: data, suggested_replies: [
+      { label: "🔧 Je démonte moi-même", value: "je le demonte moi-meme" },
+      { label: "🏠 J'ai besoin d'un garage", value: "j'ai besoin d'un garage" },
+    ]};
   }
 
   // ---- INTENT : "garage tout-en-un" → dépose + nettoyage + repose ----
@@ -4773,9 +4779,11 @@ export default async function handler(req, res) {
       if (deterRoute.action === "obd_response") {
         return sendResponse(buildOBDResponse(deterRoute.codeInfo, deterRoute.extracted || lastExtracted));
       }
-      if (deterRoute.action === "direct_reply" && !deterRoute.passthrough) {
+     if (deterRoute.action === "direct_reply" && !deterRoute.passthrough) {
         const data = deterRoute.extracted || lastExtracted;
-        return sendResponse({ replyClean: deterRoute.replyClean, replyFull: `${deterRoute.replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data });
+        const resp = { replyClean: deterRoute.replyClean, replyFull: `${deterRoute.replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+        if (deterRoute.suggested_replies) resp.suggested_replies = deterRoute.suggested_replies;
+        return sendResponse(resp);
       }
       if (deterRoute.action === "direct_reply" && deterRoute.passthrough) {
         // Mise à jour silencieuse de lastExtracted → continue vers le fallback cascade
@@ -4877,6 +4885,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
