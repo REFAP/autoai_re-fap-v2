@@ -2680,7 +2680,7 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
 // ============================================================
 // PRIORITÉ FEATURED_PARTNER_GARAGES : 33, 44, 59, 69, 93, 94
 // ============================================================
-if (dept && FEATURED_PARTNER_GARAGES[dept]) {
+if (dept && FEATURED_PARTNER_GARAGES[dept] && demontage !== "self") {
   const featuredGarage = FEATURED_PARTNER_GARAGES[dept];
   const nearestEquip = cc.closestEquipped;
   const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
@@ -4885,6 +4885,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
