@@ -2496,7 +2496,48 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
       : "99€ (FAP type DV6 PSA) ou 149€ (FAP combiné avec catalyseur) + main d'œuvre démontage/remontage/réinitialisation selon le véhicule";
     return `🔧 Re-FAP Clermont-Ferrand — ${center.address}\n📞 ${center.phone}\n\nMachine Re-FAP sur place. ${prixFAP}.\n\nPrise en charge totale possible. Devis en ligne : ${center.website}`;
   };
+// ============================================================
+// PRIORITÉ DEPT 69 (LYON) : Garage Auto Electricité
+// ============================================================
+if (dept && FEATURED_PARTNER_GARAGES[dept]) {
+  const featuredGarage = FEATURED_PARTNER_GARAGES[dept];
+  const nearestEquip = cc.closestEquipped;
+  const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
 
+  let ccLine = "";
+  if (equipMentionable) {
+    ccLine = nearestEquip.isRefapCenter
+      ? `\n🏪 Re-FAP ${nearestEquip.city}${distLabel(nearestEquip)} — machine sur place, nettoyage en 4h (${prixCCDetail})`
+      : `\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — sans rendez-vous, nettoyage sur place en 4h (${prixCCDetail})`;
+  } else {
+    const depot = cc.closestDepot;
+    if (depot) {
+      ccLine = `\n🏪 ${depot.name} (${depot.city})${distLabel(depot)} — point dépôt sans rendez-vous, retour 48-72h (${prixEnvoi})`;
+    }
+  }
+
+  replyClean = `OK, ${villeDisplay}. On a un partenaire de confiance près de chez toi :\n\n🔧 ${featuredGarage.nom} — ${featuredGarage.note}\n🌐 ${featuredGarage.url}${ccLine}\n\nLe garage s'occupe du démontage/remontage, on gère le nettoyage FAP de ton côté.\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
+
+  const data = {
+    ...(extracted || DEFAULT_DATA),
+    intention: "rdv",
+    ville: villeDisplay || null,
+    departement: dept || null,
+    next_best_action: "proposer_devis",
+    centre_proche: equipMentionable ? `Carter-Cash ${nearestEquip.city}` : featuredGarage.nom,
+  };
+  const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
+
+  return {
+    replyClean, replyFull, extracted: data,
+    assignment: null,
+    garageAssignment: { garage_name: featuredGarage.nom, garage_reseau: "PARTENAIRE_FEATURED" },
+    suggested_replies: [
+      { label: "✅ Oui, rappelez-moi", value: "oui je veux être rappelé" },
+      { label: "Non merci", value: "non merci" },
+    ],
+  };
+}
   // ============================================================
   // RECHERCHE GARAGE PARTENAIRE (si demontage != self && != garage_own)
   // ============================================================
@@ -4584,6 +4625,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
