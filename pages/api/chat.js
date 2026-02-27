@@ -2726,8 +2726,9 @@ else if (["69", "33"].includes(dept)) {
     `OK, ${villeDisplay}. Re-FAP a présélectionné un garage spécialiste FAP près de chez toi — il prend en charge ta voiture de A à Z.\n\n` +
     `① 🔧 Le garage dépose et confie ton FAP à Re-FAP\n` +
     `   *(si le garage ne peut pas l'amener, tu le déposes toi-même)*\n` +
-    `② 🏭 Re-FAP prend en charge le nettoyage en machine — ${prixCCDetail}\n` +
-    `   ⏱ FAP traité et retourné sous 48h\n` +
+   `② 🏭 Re-FAP prend en charge le nettoyage en machine — ${prixCCDetail}\n` +
+`   ⏱ FAP acheminé en express au centre Re-FAP le plus proche\n` +
+`   📦 Frais de port aller-retour : 99€ TTC — retour sous 48h\n` +
     `③ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
     `*Garage sélectionné par Re-FAP pour son sérieux, son expertise FAP et ses tarifs compétitifs.*\n\n` +
     `---\n\n` +
@@ -4876,6 +4877,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
