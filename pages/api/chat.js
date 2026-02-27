@@ -1606,6 +1606,17 @@ const FEATURED_PARTNER_GARAGES = {
     horaires: "Lun-Ven 7h30-12h / 13h30-18h",
     note: "Spécialiste FAP, 4,7⭐ Google",
   },
+"33": {
+    nom: "Midas Le Haillan",
+    ville: "Le Haillan",
+    dept: "33",
+    adresse: "96 Av. Pasteur, 33185 Le Haillan",
+    tel: "05 56 01 23 16",
+    stars: 4.4,
+    url: "https://share.google/Ry7mc288FrJSqElde",
+    horaires: "Lun-Ven jusqu'à 18h30",
+    note: "Spécialiste FAP, 4,4⭐ Google (536 avis)",
+  },
 };
 // CITY_TO_DEPT — 457 villes françaises → code département
 // Préfectures + sous-préfectures + villes courantes
@@ -4637,6 +4648,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
