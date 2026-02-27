@@ -4340,7 +4340,7 @@ export default async function handler(req, res) {
     // ========================================
     // OVERRIDE P1 : Question logistique démontage à tout moment
     // ========================================
-    if (userAsksLogisticsQuestion(message)) {
+    if (userAsksLogisticsQuestion(message) && !lastAssistantAskedDemontage(history)) {
       return sendResponse(buildLogisticsResponse(lastExtracted));
     }
 
@@ -4885,6 +4885,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
