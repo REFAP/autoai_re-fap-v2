@@ -1598,8 +1598,63 @@ const CARTER_CASH_LIST = [
   {name:"Carter-Cash Aulnay-sous-Bois",city:"Aulnay-sous-Bois",postal:"93600",dept:"93",equipped:false,lat:48.938,lng:2.497},
   {name:"Carter-Cash Saint-Ouen-l'Aumone",city:"Saint-Ouen-l'Aumone",postal:"95310",dept:"95",equipped:false,lat:49.053,lng:2.122},
 ];
-// FEATURED_PARTNER_GARAGES — Garages partenaires mis en avant par département
 const FEATURED_PARTNER_GARAGES = {
+  "13": {
+    type: "multi_garages",
+    ville: "Marseille",
+    cc: {
+      nom: "Carter-Cash Marseille Les Arnavaux",
+      adresse: "722 MIN Les Arnavaux, Rue Jean Queillau, 13014 Marseille",
+      url: "https://maps.google.com/?q=Carter-Cash+Marseille+Les+Arnavaux+722+MIN+Les+Arnavaux+13014"
+    },
+    garages: [
+      {
+        nom: "Eurorepar Garage Achard",
+        adresse: "10 Rue Achard, 13004 Marseille",
+        tel: "04 91 49 08 19",
+        url: "https://maps.google.com/?q=Eurorepar+Garage+Achard+10+Rue+Achard+13004+Marseille",
+        note: "4.8",
+        nb_avis: 128,
+        reseau: "Eurorepar"
+      },
+      {
+        nom: "Centre Auto Car's Design 13",
+        adresse: "2 Rue Neuve Sainte-Anne, 13003 Marseille",
+        tel: "04 91 81 82 42",
+        url: "https://maps.google.com/?q=Centre+Auto+Cars+Design+13+2+Rue+Neuve+Sainte-Anne+13003+Marseille",
+        note: "4.8",
+        nb_avis: 325,
+        reseau: "Indépendant"
+      },
+      {
+        nom: "Garage Des Felibres",
+        adresse: "62 Rue Charles Kaddouz, 13012 Marseille",
+        tel: "04 91 87 34 69",
+        url: "https://maps.google.com/?q=Garage+Des+Felibres+62+Rue+Charles+Kaddouz+13012+Marseille",
+        note: "4.7",
+        nb_avis: 49,
+        reseau: "Indépendant"
+      },
+      {
+        nom: "Garage De L'avenir",
+        adresse: "151 Rue du Camas, 13005 Marseille",
+        tel: "04 91 92 49 19",
+        url: "https://maps.google.com/?q=Garage+De+L+avenir+151+Rue+du+Camas+13005+Marseille",
+        note: "4.8",
+        nb_avis: 86,
+        reseau: "Indépendant"
+      }
+    ],
+    partenaires_secondaires: [
+      {
+        nom: "Midas Marseille La Valentine",
+        adresse: "242 Rte des Trois Lucs, 13011 Marseille",
+        tel: "04 91 27 03 37",
+        url: "https://maps.google.com/?q=Midas+Marseille+La+Valentine+242+Route+des+Trois+Lucs+13011",
+        note: "4.6⭐ (366 avis)"
+      }
+    ]
+  },
   "69": {
     nom: "Garage Auto Électricité",
     ville: "Villeurbanne",
@@ -2684,6 +2739,71 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
 // ============================================================
 if (dept && FEATURED_PARTNER_GARAGES[dept] && demontage !== "self") {
   const featuredGarage = FEATURED_PARTNER_GARAGES[dept];
+   // ── TYPE multi_garages (ex: Marseille dept 13) ──
+  if (featuredGarage.type === "multi_garages" && demontage !== "self") {
+    const cc = featuredGarage.cc;
+    const garages = featuredGarage.garages || [];
+    const secondaires = featuredGarage.partenaires_secondaires || [];
+
+    const garagesBloc = garages.map(g =>
+      `🏠 ${g.nom}${g.reseau ? ` *(${g.reseau})*` : ""}\n` +
+      `📍 ${g.adresse}\n` +
+      `📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")}) · [📍 Maps](${g.url})` +
+      (g.note ? ` · ${g.note}⭐ *(${g.nb_avis} avis)*` : "")
+    ).join("\n\n");
+
+    const secondairesBloc = secondaires.length > 0
+      ? "\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🔩 Autres garages partenaires dans ton secteur :\n\n" +
+        secondaires.map(g =>
+          `🏠 ${g.nom} — ${g.adresse}\n` +
+          `📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")}) · [📍 Maps](${g.url})` +
+          (g.note ? ` · ${g.note}` : "")
+        ).join("\n\n")
+      : "";
+
+    replyClean =
+      `OK, pour les environs de ${villeDisplay}. Re-FAP a présélectionné des garages près de chez toi — ils prennent en charge ta voiture de A à Z.\n\n` +
+      `① 🔧 Le garage démonte le FAP de ton véhicule\n` +
+      `② 🚗 Il le dépose sans RDV au Carter-Cash Re-FAP\n` +
+      `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
+      `③ 🏭 Nettoyage en machine sur place — sous 4h\n` +
+      `④ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
+      `💶 ${prixCCDetail}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `🏪 [${cc.nom}](${cc.url})\n` +
+      `✅ Sans RDV — FAP traité sous 4h\n` +
+      `📍 ${cc.adresse}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `🔩 Garages dépose/repose sélectionnés par Re-FAP :\n\n` +
+      `${garagesBloc}` +
+      `${secondairesBloc}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+      `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
+
+    return sendResponse({ replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(lastExtracted)}`, extracted: lastExtracted });
+  }
+   // ── TYPE multi_garages + self removal ──
+  if (featuredGarage.type === "multi_garages" && demontage === "self") {
+    const cc = featuredGarage.cc;
+
+    replyClean =
+      `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a un Carter-Cash équipé tout près.\n\n` +
+      `① 🔧 Tu démontes le FAP de ton véhicule\n` +
+      `② 🚗 Tu le déposes sans RDV au Carter-Cash\n` +
+      `③ 🏭 Nettoyage en machine — suies + cendres retirées, contrôle avant/après\n` +
+      `④ 🔧 Tu remontes le FAP et réinitialises le voyant\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `🏪 [${cc.nom}](${cc.url})\n` +
+      `✅ Sans RDV — FAP traité sous 4h\n` +
+      `📍 ${cc.adresse}\n` +
+      `💶 ${prixCCDetail}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+      `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
+
+    return sendResponse({ replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(lastExtracted)}`, extracted: lastExtracted });
+  }
   const nearestEquip = cc.closestEquipped;
   const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
 
@@ -5101,6 +5221,7 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
