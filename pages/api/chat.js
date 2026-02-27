@@ -691,9 +691,11 @@ function lastAssistantAskedDemontage(history) {
       if (content.includes("démonter le fap toi-même") && content.includes("garage s'occupe")) {
         return true;
       }
-       if (content.includes("tu peux démonter le fap toi-même") || content.includes("démonter le fap toi-même (ou l'as déjà fait)")) {
-        return true;
-      }
+       if (content.includes("tu peux démonter le fap toi-même") || 
+    content.includes("démonter le fap toi-même (ou l'as déjà fait)") ||
+    content.includes("tu peux démonter le fap toi-même (ou l'as déjà fait)")) {
+  return true;
+}
       return false;
     }
   }
@@ -4457,11 +4459,20 @@ export default async function handler(req, res) {
         return sendResponse(buildInsultResponse(lastExtracted));
       }
       if (userSaysSelfRemoval(message)) {
-        return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
-      } else if (userNeedsGarage(message) || userSaysNo(message)) {
-        // Si le message contient aussi une ville → orientation directe, sans question intermédiaire
-        const deptInMsg = extractDeptFromInput(message);
-        if (deptInMsg) {
+  lastExtracted.demontage = "self";
+  if (lastExtracted.ville || lastExtracted.departement) {
+    return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, lastExtracted.ville || lastExtracted.departement, history));
+  }
+  return sendResponse(buildSelfRemovalResponse(lastExtracted, metier));
+} else if (userNeedsGarage(message) || userSaysNo(message)) {
+  // Si ville déjà stockée → orientation directe
+  if (lastExtracted.ville || lastExtracted.departement) {
+    lastExtracted.demontage = "garage_partner";
+    return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, lastExtracted.ville || lastExtracted.departement, history));
+  }
+  // Si le message contient aussi une ville → orientation directe, sans question intermédiaire
+  const deptInMsg = extractDeptFromInput(message);
+  if (deptInMsg) {
           const villeInMsg = cleanVilleInput(message);
           lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
           return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, villeInMsg, history));
@@ -4550,6 +4561,23 @@ export default async function handler(req, res) {
         const replyFull = `${replyClean}\nDATA: ${safeJsonStringify(data)}`;
         return sendResponse({ replyClean, replyFull, extracted: data });
       }
+       const deptCheck = extractDeptFromInput(message);
+if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unknown")) {
+  const villeCheck = cleanVilleInput(message);
+  lastExtracted.ville = villeCheck;
+  lastExtracted.departement = deptCheck;
+  const data = { ...lastExtracted, next_best_action: "demander_demontage" };
+  const replyClean = `Pour les environs de ${capitalizeVille(villeCheck)} — tu peux démonter le FAP toi-même (ou l'as déjà fait), ou tu as besoin qu'un garage s'occupe de tout ?`;
+  return sendResponse({ 
+    replyClean, 
+    replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, 
+    extracted: data,
+    suggested_replies: [
+      { label: "🔧 Je démonte moi-même", value: "je le demonte moi-meme" },
+      { label: "🏠 J'ai besoin d'un garage", value: "j'ai besoin d'un garage" },
+    ]
+  });
+}
       const dept = extractDeptFromInput(message);
       if (!dept) {
         const replyClean = "Je n'arrive pas à localiser ça. Tu peux me donner le code postal ou le numéro de département ?";
@@ -4885,6 +4913,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
