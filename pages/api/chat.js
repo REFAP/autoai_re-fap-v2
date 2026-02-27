@@ -2697,18 +2697,22 @@ if (dept && FEATURED_PARTNER_GARAGES[dept] && demontage !== "self") {
   // ── CAS 1 : Dept 59 — multi-CC avec garage dédié chacun ──
 if (featuredGarage.cc_list) {
   const ccBloc = featuredGarage.cc_list.map(item =>
-    `🏪 [${item.cc_nom}](${item.cc_url}) — sans RDV, FAP traité sous 4h\n` +
-    `   📍 ${item.cc_adresse}\n` +
-    `   🔧 Garage dépose/repose : ${item.garage_principal.nom}\n` +
+    `🏪 [${item.cc_nom}](${item.cc_url})\n` +
+    `✅ Sans RDV — FAP traité sous 4h\n` +
+    `📍 ${item.cc_adresse}\n\n` +
+    `   🔩 Garage dépose/repose :\n` +
+    `   🏠 ${item.garage_principal.nom}\n` +
     `   📍 ${item.garage_principal.adresse}\n` +
-    `   📞 [${item.garage_principal.tel}](tel:${item.garage_principal.tel.replace(/\s/g,"")}) — [📍 Maps](${item.garage_principal.url})`
-  ).join("\n\n");
+    `   📞 [${item.garage_principal.tel}](tel:${item.garage_principal.tel.replace(/\s/g,"")}) · [📍 Maps](${item.garage_principal.url})`
+  ).join("\n\n━━━━━━━━━━━━━━━━━━━━━\n\n");
 
   const secondaires = featuredGarage.partenaires_secondaires || [];
   const secondairesBlock = secondaires.length > 0
-    ? "\n\nAutres garages partenaires dans ton secteur :\n" + secondaires.map(g =>
-        `🔧 ${g.nom} — ${g.adresse}\n   📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")}) — [📍 Maps](${g.url}) (${g.note})`
-      ).join("\n")
+    ? "\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🔩 Autres garages partenaires dans ton secteur :\n\n" + secondaires.map(g => {
+        const stars = g.note?.match(/[\d,.]+⭐/)?.[0];
+        return `🏠 ${g.nom} — ${g.adresse}\n` +
+          `📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")}) · [📍 Maps](${g.url})${stars ? ' · ' + stars : ''}`;
+      }).join("\n\n")
     : "";
 
   replyClean =
@@ -2718,11 +2722,12 @@ if (featuredGarage.cc_list) {
     `② 🏭 Nettoyage en machine au Carter-Cash Re-FAP — ${prixCCDetail}\n` +
     `③ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
     `*Garages sélectionnés par Re-FAP pour leur sérieux, leur expertise FAP et leurs tarifs compétitifs.*\n\n` +
-    `---\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `${ccBloc}` +
     `${secondairesBlock}\n\n` +
-    `❓ Une difficulté ? Appelle Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
-    `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+    `Tu veux qu'on organiser la prise en charge pour ${vehicleInfo} ?`;
 }
 
   // ── CAS 2 : 69 et 33 — garage autonome, Re-FAP prend en charge le nettoyage ──
@@ -2731,17 +2736,18 @@ else if (["69", "33"].includes(dept)) {
     `OK, pour les environs de ${villeDisplay}. Re-FAP a présélectionné un garage spécialiste FAP près de chez toi — il prend en charge ta voiture de A à Z.\n\n` +
     `① 🔧 Le garage dépose et confie ton FAP à Re-FAP\n` +
     `   *(si le garage ne peut pas l'amener, tu le déposes toi-même)*\n` +
-   `② 🏭 Re-FAP prend en charge le nettoyage en machine — ${prixCCDetail}\n` +
-`   ⏱ FAP acheminé en express au centre Re-FAP le plus proche\n` +
-`   📦 Frais de port aller-retour : 99€ TTC — retour sous 48h\n` +
+    `② 🏭 Re-FAP prend en charge le nettoyage en machine — ${prixCCDetail}\n` +
+    `   ⏱ FAP acheminé en express au centre Re-FAP le plus proche\n` +
+    `   📦 Frais de port aller-retour : 99€ TTC — retour sous 48h\n` +
     `③ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
     `*Garage sélectionné par Re-FAP pour son sérieux, son expertise FAP et ses tarifs compétitifs.*\n\n` +
-    `---\n\n` +
-    `🔧 ${featuredGarage.nom}\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `🏠 ${featuredGarage.nom}\n` +
     `📍 ${featuredGarage.adresse}\n` +
-    `📞 [${featuredGarage.tel}](tel:${featuredGarage.tel.replace(/\s/g,"")}) — ${featuredGarage.horaires}\n` +
-    `⭐ ${featuredGarage.stars}/5 — [📍 Voir sur Maps](${featuredGarage.url})\n\n` +
-    `❓ Une difficulté ? Appelle Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+    `📞 [${featuredGarage.tel}](tel:${featuredGarage.tel.replace(/\s/g,"")}) · ${featuredGarage.horaires}\n` +
+    `[📍 Voir sur Maps](${featuredGarage.url})${featuredGarage.stars ? ' · ' + featuredGarage.stars + '⭐' : ''}\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
     `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 }
   // ── CAS 3 : 44, 93, 94 — parcours complet garage → CC → garage ──
@@ -2751,11 +2757,13 @@ else if (["69", "33"].includes(dept)) {
     ? `🏪 [${cc.nom}](${cc.url}) — sans RDV, FAP traité sous 4h\n   📍 ${cc.adresse}`
     : `🏪 Carter-Cash Re-FAP — sans RDV, FAP traité sous 4h`;
 
-  const secondaires = featuredGarage.partenaires_secondaires || [];
+const secondaires = featuredGarage.partenaires_secondaires || [];
   const secondairesBlock = secondaires.length > 0
-    ? "\n\nAutres garages partenaires dans ton secteur :\n" + secondaires.map(g =>
-        `🔧 ${g.nom} — ${g.adresse}\n   📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")}) — [📍 Maps](${g.url}) (${g.note})`
-      ).join("\n")
+    ? "\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🔩 Autres garages partenaires dans ton secteur :\n\n" + secondaires.map(g => {
+        const stars = g.note?.match(/[\d,.]+⭐/)?.[0];
+        return `🏠 ${g.nom} — ${g.adresse}\n` +
+          `📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")}) · [📍 Maps](${g.url})${stars ? ' · ' + stars : ''}`;
+      }).join("\n\n")
     : "";
 
   replyClean =
@@ -2767,12 +2775,13 @@ else if (["69", "33"].includes(dept)) {
     `   ${prixCCDetail}\n` +
     `③ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
     `*Garages sélectionnés par Re-FAP pour leur sérieux, leur expertise FAP et leurs tarifs compétitifs.*\n\n` +
-    `---\n\n` +
-    `🔧 ${featuredGarage.nom}\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `🏠 ${featuredGarage.nom}\n` +
     `📍 ${featuredGarage.adresse}\n` +
-    `📞 [${featuredGarage.tel}](tel:${featuredGarage.tel.replace(/\s/g,"")}) — [📍 Voir sur Maps](${featuredGarage.url})` +
+    `📞 [${featuredGarage.tel}](tel:${featuredGarage.tel.replace(/\s/g,"")}) · [📍 Voir sur Maps](${featuredGarage.url})` +
     `${secondairesBlock}\n\n` +
-    `❓ Une difficulté ? Appelle Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
     `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 }
   const data = {
@@ -4923,6 +4932,7 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
