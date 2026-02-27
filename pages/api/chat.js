@@ -4338,7 +4338,16 @@ export default async function handler(req, res) {
         return sendResponse({ replyClean, replyFull, extracted: data });
       }
     }
-
+// OVERRIDE SWITCH : Utilisateur veut changer de mode (self → garage)
+if (lastExtracted.demontage === "self" && 
+    /garage|prend.*(tout|charge)|s.occupe.*tout|quelqu.un.*s.occupe|tout.*en.*charge|prise.*en.*charge/i.test(message)) {
+  lastExtracted.demontage = "garage_partner";
+  const ville = lastExtracted.ville || lastExtracted.departement;
+  if (ville) {
+    return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, ville, history));
+  }
+  return sendResponse(buildGarageTypeQuestion(lastExtracted, metier));
+}
     // ========================================
     // OVERRIDE P1 : Question logistique démontage à tout moment
     // ========================================
@@ -4393,12 +4402,13 @@ export default async function handler(req, res) {
 
       if (rescueDept && (rescueHasIntent || rescueAfterLocFailure || rescueIsVilleCorrection)) {
         // Propager l'intent garage du message courant (pas encore dans history)
-        if (!lastExtracted?.demontage || lastExtracted.demontage === "unknown") {
-          if (userSaysSelfRemoval(message)) lastExtracted = { ...lastExtracted, demontage: "self" };
-          else if (userHasOwnGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_own" };
-          else if (userWantsPartnerGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
-          else if (userNeedsGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage" };
-        }
+       if (!lastExtracted?.demontage || lastExtracted.demontage === "unknown" || lastExtracted.demontage === "self") {
+  if (userSaysSelfRemoval(message)) lastExtracted = { ...lastExtracted, demontage: "self" };
+  else if (userHasOwnGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_own" };
+  else if (userWantsPartnerGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
+  else if (userNeedsGarage(message)) lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
+  else if (/garage/i.test(message)) lastExtracted = { ...lastExtracted, demontage: "garage_partner" };
+}
         // Toujours mettre à jour la ville avec celle du message courant
         lastExtracted.ville = cleanVilleInput(message);
         lastExtracted.departement = rescueDept;
@@ -4913,6 +4923,7 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
