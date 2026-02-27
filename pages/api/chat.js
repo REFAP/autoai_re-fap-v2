@@ -2906,9 +2906,21 @@ const secondaires = featuredGarage.partenaires_secondaires || [];
       if (best.isRefapCenter) {
         replyClean = `Bonne nouvelle, le centre Re-FAP est directement à ${best.city} !\n\n${buildRefapCenterBlock(best, "self")}\n\nTu veux qu'on te prépare la prise en charge pour ${vehicleInfo} ?`;
       } else {
-        replyClean = `Bonne nouvelle ! Il y a un Carter-Cash équipé d'une machine Re-FAP près de chez toi : ${best.name} (${best.postal} ${best.city})${distLabel(best)}. Tu y déposes ton FAP démonté sans rendez-vous, nettoyage sur place en ~4h.\n\nTarifs : ${prixCCDetail}.\n\nTu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
-      }
-
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a un Carter-Cash équipé tout près.\n\n` +
+  `① 🔧 Tu démontes le FAP de ton véhicule\n` +
+  `② 🚗 Tu le déposes sans RDV au Carter-Cash (~4h sur place)\n` +
+  `③ 🏭 Nettoyage en machine — suies + cendres retirées, contrôle avant/après\n` +
+  `④ 🔧 Tu remontes le FAP et réinitialises le voyant\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🏪 ${best.name}${distLabel(best)}\n` +
+  `✅ Sans RDV — FAP traité sous 4h\n` +
+  `📍 ${best.postal} ${best.city}\n` +
+  `💶 ${prixCCDetail}\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
+}
     } else {
       const closestDepotCC = cc.closestDepot;
       const nearestEquip = cc.closestEquipped;
@@ -2920,29 +2932,88 @@ const secondaires = featuredGarage.partenaires_secondaires || [];
         const equippedMention = nearestEquip.isRefapCenter
           ? `le centre Re-FAP Clermont-Ferrand${distLabel(nearestEquip)} — nettoyage sur place en 4h (${prixCCDetail}).`
           : `le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — là-bas c'est sans rendez-vous, nettoyage sur place en 4h (${prixCCDetail}).`;
-        replyClean = `OK, près de chez toi il y a le ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y déposes ton FAP démonté sans rendez-vous, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon, ${equippedMention}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
-
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. Tu as deux options selon la distance.\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🏪 ${closestDepotCC.name}${distLabel(closestDepotCC)}\n` +
+  `✅ Sans RDV — Point dépôt\n` +
+  `📍 ${closestDepotCC.postal} ${closestDepotCC.city}\n` +
+  `💶 199€ TTC — nettoyage + port aller-retour inclus\n` +
+  `⏱ FAP envoyé au centre Re-FAP — retour sous 48-72h\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `Ou si tu préfères le nettoyage sur place :\n\n` +
+  `🏪 ${nearestEquip.isRefapCenter ? "Re-FAP " + nearestEquip.city : nearestEquip.name + " (" + nearestEquip.city + ")"}${distLabel(nearestEquip)}\n` +
+  `✅ Sans RDV — FAP traité sous 4h\n` +
+  `💶 ${prixCCDetail}\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
       } else if (equipMentionable) {
         assignedCC = { ...nearestEquip, reason: "centre express le plus proche" };
         // 🆕 Re-FAP Clermont
         if (nearestEquip.isRefapCenter) {
           replyClean = `Le centre Re-FAP le plus proche c'est à ${nearestEquip.city}${distLabel(nearestEquip)} !\n\n${buildRefapCenterBlock(nearestEquip, "self")}\n\nTu veux qu'on te prépare la prise en charge ?`;
         } else {
-          replyClean = `Le Carter-Cash équipé le plus proche de chez toi c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — nettoyage sur place en ~4h (${prixCCDetail}). Sinon, tu peux aussi déposer ton FAP sans rendez-vous dans n'importe quel Carter-Cash (point dépôt) : envoi 48-72h, ${prixEnvoi} port inclus.${closestDepotCC ? ` Le plus proche : ${closestDepotCC.name}${distLabel(closestDepotCC)}.` : ""}\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
-        }
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. Tu as deux options.\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}\n` +
+  `✅ Sans RDV — FAP traité sous 4h\n` +
+  `💶 ${prixCCDetail}\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  (closestDepotCC
+    ? `Ou point dépôt plus proche :\n\n` +
+      `🏪 ${closestDepotCC.name}${distLabel(closestDepotCC)}\n` +
+      `✅ Sans RDV — Point dépôt\n` +
+      `📍 ${closestDepotCC.postal} ${closestDepotCC.city}\n` +
+      `💶 199€ TTC — nettoyage + port aller-retour inclus\n` +
+      `⏱ Retour sous 48-72h\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n`
+    : `Ou dépôt dans n'importe quel Carter-Cash :\n` +
+      `💶 199€ TTC — nettoyage + port aller-retour inclus · Retour sous 48-72h\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n`) +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;        }
 
       } else if (closestDepotCC) {
         assignedCC = { ...closestDepotCC, reason: "depot standard le plus proche" };
-        replyClean = `OK, le Carter-Cash le plus proche de chez toi c'est ${closestDepotCC.name} (${closestDepotCC.postal} ${closestDepotCC.city})${distLabel(closestDepotCC)}. C'est un point dépôt : tu y déposes ton FAP démonté sans rendez-vous, il est envoyé au centre Re-FAP et te revient en 48-72h pour ${prixEnvoi} port inclus.\n\nSinon tu peux aussi nous l'envoyer directement par transporteur (même tarif, même délai).\n\nTu veux qu'un expert Re-FAP t'oriente sur la meilleure option ?`;
-
+replyClean =
+  `OK, pour les environs de ${villeDisplay}.\n\n` +
+  `① 🔧 Tu démontes le FAP de ton véhicule\n` +
+  `② 🚗 Tu le déposes sans RDV au Carter-Cash le plus proche\n` +
+  `③ 🏭 Re-FAP nettoie le FAP — suies + cendres retirées, contrôle avant/après\n` +
+  `④ 📦 Retour sous 48-72h · Tu remontes le FAP et réinitialises le voyant\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🏪 ${closestDepotCC.name}${distLabel(closestDepotCC)}\n` +
+  `✅ Sans RDV — Point dépôt\n` +
+  `📍 ${closestDepotCC.postal} ${closestDepotCC.city}\n` +
+  `💶 199€ TTC — nettoyage + port aller-retour inclus\n` +
+  `⏱ Retour sous 48-72h\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP te confirme les détails ?`;
       } else {
         replyClean = `Pour ton secteur, la solution la plus simple c'est l'envoi direct : tu nous envoies ton FAP démonté par transporteur, on le nettoie et on te le retourne en 48-72h, ${prixEnvoi} port inclus. Tu veux qu'un expert Re-FAP t'envoie les détails ?`;
       }
     }
 
   } else if (demontage === "garage_own") {
-    replyClean = `OK, ${villeDisplay}. On va préparer tout ça pour ton garagiste.\n\nUn expert Re-FAP va te rappeler pour :\n→ Répondre aux questions techniques que ton garagiste pourrait avoir\n→ Lui envoyer les infos sur le process et les tarifs\n→ Organiser l'envoi et le retour du FAP\n\nL'objectif c'est que ton garagiste soit à l'aise pour faire le job, même si c'est la première fois. Tu veux qu'on te rappelle ?`;
-
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. Voilà comment ça se passe avec ton garage.\n\n` +
+  `① 🔧 Ton garagiste démonte le FAP\n` +
+  `② 🚗 Il le dépose sans RDV au Carter-Cash le plus proche\n` +
+  `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
+  `③ 🏭 Re-FAP nettoie le FAP — suies + cendres retirées, contrôle avant/après\n` +
+  `④ 📦 Retour sous 48-72h — ton garagiste remonte et réinitialise\n\n` +
+  `💶 199€ TTC — nettoyage + port aller-retour inclus\n` +
+  `   + main d'œuvre de ton garagiste (dépose/repose selon véhicule)\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `Si ton garagiste ne connaît pas encore Re-FAP — pas de souci.\n` +
+  `Un expert Re-FAP peut l'appeler directement pour lui expliquer le process\n` +
+  `et répondre à ses questions techniques.\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'on te rappelle pour organiser tout ça ?`;
   } else if (demontage === "garage" || demontage === "garage_partner") {
     // ================================================================
     // v6.3 : CIRCUIT GARAGE PARTENAIRE + CC
@@ -2961,8 +3032,23 @@ const secondaires = featuredGarage.partenaires_secondaires || [];
         const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
         const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
         const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
-        replyClean = `OK, ${villeDisplay}. J'ai trouvé un circuit complet près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe du démontage et du remontage de ton FAP.\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — sans rendez-vous, nettoyage sur place en ~4h (${prixCCDetail}).\n\nConcrètement : le garage démonte le FAP, le dépose au Carter-Cash, on le nettoie et le garage le remonte. Tu n'as qu'un seul interlocuteur.\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
-      }
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. On a un circuit complet près de chez toi.\n\n` +
+  `① 🔧 Le garage démonte le FAP de ton véhicule\n` +
+  `② 🚗 Il le dépose sans RDV au Carter-Cash Re-FAP\n` +
+  `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
+  `③ 🏭 Nettoyage en machine sur place — sous 4h\n` +
+  `④ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}\n` +
+  `✅ Sans RDV — FAP traité sous 4h\n` +
+  `💶 ${prixCCDetail}\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🔩 Garage dépose/repose :\n` +
+  `🏠 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)}\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;      }
     } else if (bestGarage && closestDepotCC) {
       // Garage partenaire + CC dépôt → tarif envoi
       assignedCC = { ...closestDepotCC, reason: "circuit garage+depot" };
@@ -2970,16 +3056,44 @@ const secondaires = featuredGarage.partenaires_secondaires || [];
       const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
       const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
       const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
-      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage, envoi au centre Re-FAP, remontage.\n\nLe Carter-Cash le plus proche c'est ${closestDepotCC.name}${distLabel(closestDepotCC)} (point dépôt sans rendez-vous, 48-72h). Le garage peut y déposer le FAP ou l'envoyer directement — on s'organise au mieux.\n\nCôté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
-
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. On a un garage partenaire près de chez toi.\n\n` +
+  `① 🔧 Le garage démonte le FAP de ton véhicule\n` +
+  `② 🚗 Il le dépose sans RDV au Carter-Cash le plus proche\n` +
+  `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
+  `③ 🏭 Re-FAP nettoie le FAP — suies + cendres retirées, contrôle avant/après\n` +
+  `④ 📦 Retour sous 48-72h — le garage remonte et réinitialise le voyant\n\n` +
+  `💶 199€ TTC — nettoyage + port aller-retour inclus\n` +
+  `   + main d'œuvre du garage (dépose/repose selon véhicule)\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🔩 Garage dépose/repose :\n` +
+  `🏠 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)}\n\n` +
+  `🏪 Point dépôt : ${closestDepotCC.name}${distLabel(closestDepotCC)}\n` +
+  `✅ Sans RDV\n` +
+  `📍 ${closestDepotCC.postal} ${closestDepotCC.city}\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
     } else if (bestGarage) {
       // Garage partenaire sans CC proche → envoi direct
       assignedGarage = bestGarage;
       const nomContainsReseau = bestGarage.reseau && bestGarage.nom && bestGarage.nom.toUpperCase().includes(bestGarage.reseau.toUpperCase());
       const garageLabel = nomContainsReseau ? `${bestGarage.nom}` : (bestGarage.reseau && bestGarage.reseau !== "INDEPENDANT" ? `${bestGarage.nom} (${bestGarage.reseau})` : bestGarage.nom);
       const garageVille = bestGarage.ville ? `, ${bestGarage.ville}` : "";
-      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi :\n\n🔧 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)} — il s'occupe de tout : démontage du FAP, envoi au centre Re-FAP, remontage et réinitialisation.\n\nCôté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.\n\nTu veux qu'un expert Re-FAP organise la prise en charge ?`;
-
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. On a un garage partenaire près de chez toi.\n\n` +
+  `① 🔧 Le garage démonte le FAP de ton véhicule\n` +
+  `② 📦 Il envoie le FAP au centre Re-FAP (étiquette fournie)\n` +
+  `③ 🏭 Re-FAP nettoie le FAP — suies + cendres retirées, contrôle avant/après\n` +
+  `④ 📦 Retour sous 48-72h — le garage remonte et réinitialise le voyant\n\n` +
+  `💶 199€ TTC — nettoyage + port aller-retour inclus\n` +
+  `   + main d'œuvre du garage (dépose/repose selon véhicule)\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🔩 Garage partenaire :\n` +
+  `🏠 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)}\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
     } else if (equipMentionable) {
       // Pas de garage mais centre équipé proche
       assignedCC = { ...nearestEquip, reason: "centre express garage non trouve" };
@@ -3011,8 +3125,22 @@ const secondaires = featuredGarage.partenaires_secondaires || [];
         replyClean = `Bonne nouvelle, le centre Re-FAP est directement à ${nearestEquip.city} et s'occupe de tout !\n\n${buildRefapCenterBlock(nearestEquip, "unknown")}\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
       } else {
         assignedGarage = bestGarage;
-        replyClean = `OK, ${villeDisplay}. Bonne nouvelle, on a un garage partenaire et un Carter-Cash équipé pas loin :\n\n🔧 ${bestGarage.nom}${garageDistLabel(bestGarage)} — pour le démontage/remontage\n🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — sans rendez-vous, nettoyage sur place en ~4h (${prixCCDetail})\n\nSi tu préfères démonter toi-même, tu peux déposer le FAP directement au CC sans rendez-vous. Sinon le garage s'occupe de tout.\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
-      }
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. On a un circuit complet près de chez toi.\n\n` +
+  `① 🔧 Le garage démonte le FAP *(ou toi-même si tu préfères)*\n` +
+  `② 🚗 FAP déposé sans RDV au Carter-Cash Re-FAP\n` +
+  `③ 🏭 Nettoyage en machine sur place — sous 4h\n` +
+  `④ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}\n` +
+  `✅ Sans RDV — FAP traité sous 4h\n` +
+  `💶 ${prixCCDetail}\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🔩 Garage dépose/repose :\n` +
+  `🏠 ${bestGarage.nom}${garageDistLabel(bestGarage)}\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;      }
 
     } else if (bestGarage && nearestDepot) {
       assignedCC = { ...nearestDepot, reason: "circuit garage+depot auto" };
@@ -3024,16 +3152,40 @@ const secondaires = featuredGarage.partenaires_secondaires || [];
           ? `\n\nLe centre Re-FAP le plus proche c'est à ${nearestEquip.city}${distLabel(nearestEquip)} — machine sur place, nettoyage en 4h (${prixCCDetail}).`
           : `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — sans rendez-vous, nettoyage sur place en 4h (${prixCCDetail}).`;
       }
-      replyClean = `OK, ${villeDisplay}. On a un garage partenaire près de chez toi : ${bestGarage.nom}${garageDistLabel(bestGarage)} qui peut gérer le démontage/remontage. Et le ${nearestDepot.name}${distLabel(nearestDepot)} pour le nettoyage (envoi 48-72h, ${prixEnvoi}).${equippedHint}\n\nTu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
-
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. On a un garage partenaire et un point dépôt près de chez toi.\n\n` +
+  `① 🔧 Le garage démonte le FAP *(ou toi-même si tu préfères)*\n` +
+  `② 🚗 FAP déposé sans RDV au Carter-Cash le plus proche\n` +
+  `③ 🏭 Re-FAP nettoie le FAP — retour sous 48-72h\n` +
+  `④ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
+  `💶 199€ TTC — nettoyage + port aller-retour inclus\n` +
+  `   + main d'œuvre du garage (dépose/repose selon véhicule)\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🔩 Garage dépose/repose :\n` +
+  `🏠 ${bestGarage.nom}${garageDistLabel(bestGarage)}\n\n` +
+  `🏪 Point dépôt : ${nearestDepot.name}${distLabel(nearestDepot)}\n` +
+  `✅ Sans RDV · 📍 ${nearestDepot.postal} ${nearestDepot.city}\n\n` +
+  (equippedHint ? `${equippedHint}\n\n` : ``) +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
     } else if (equipMentionable && nearestEquip.distance <= 80) {
       assignedCC = { ...nearestEquip, reason: "centre express proche" };
       // 🆕 Re-FAP Clermont
       if (nearestEquip.isRefapCenter) {
         replyClean = `Bonne nouvelle, le centre Re-FAP est à ${nearestEquip.city}${distLabel(nearestEquip)} — machine sur place, nettoyage en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
       } else {
-        replyClean = `OK, ${villeDisplay}. Bonne nouvelle, il y a un Carter-Cash équipé d'une machine Re-FAP pas loin : ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}. Si tu déposes ton FAP démonté sans rendez-vous, nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
-      }
+replyClean =
+  `OK, pour les environs de ${villeDisplay}. Il y a un Carter-Cash équipé près de chez toi.\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🏪 ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)}\n` +
+  `✅ Sans RDV — FAP traité sous 4h\n` +
+  `💶 ${prixCCDetail}\n\n` +
+  `Tu peux y déposer ton FAP démonté directement.\n` +
+  `On a aussi des garages partenaires dans ton secteur si tu as besoin d'une prise en charge complète.\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;      }
 
     } else if (nearestDepot) {
       assignedCC = { ...nearestDepot, reason: "depot standard le plus proche" };
@@ -3044,11 +3196,28 @@ const secondaires = featuredGarage.partenaires_secondaires || [];
           ? `\n\nLe centre Re-FAP le plus proche c'est à ${nearestEquip.city}${distLabel(nearestEquip)} — machine sur place, nettoyage en 4h (${prixCCDetail}).`
           : `\n\nLe Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — sans rendez-vous, nettoyage sur place en 4h (${prixCCDetail}).`;
       }
-      replyClean = `OK, ${villeDisplay}. Il y a le ${nearestDepot.name} (${nearestDepot.postal} ${nearestDepot.city})${distLabel(nearestDepot)} qui est un point dépôt (envoi 48-72h, ${prixEnvoi}). On a aussi des garages partenaires dans ton secteur pour la prise en charge complète.${equippedHint}\n\nLe mieux c'est qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
-
+replyClean =
+  `OK, pour les environs de ${villeDisplay}.\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `🏪 ${nearestDepot.name}${distLabel(nearestDepot)}\n` +
+  `✅ Sans RDV — Point dépôt\n` +
+  `📍 ${nearestDepot.postal} ${nearestDepot.city}\n` +
+  `💶 199€ TTC — nettoyage + port aller-retour inclus\n` +
+  `⏱ Retour sous 48-72h\n\n` +
+  (equippedHint ? `${equippedHint}\n\n` : ``) +
+  `On a aussi des garages partenaires dans ton secteur pour une prise en charge complète.\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
     } else {
-      replyClean = `OK, ${villeDisplay}. On a des centres Carter-Cash et plus de 800 garages partenaires en France. Pour ${vehicleInfo}, le mieux c'est qu'un expert Re-FAP vérifie le centre le plus adapté près de chez toi et te confirme le prix exact. Tu veux qu'on te rappelle ?`;
-    }
+replyClean =
+  `OK, pour les environs de ${villeDisplay}.\n\n` +
+  `On a 94 centres Carter-Cash et 800+ garages partenaires en France.\n` +
+  `Pour ${vehicleInfo}, un expert Re-FAP vérifie le circuit le plus adapté\n` +
+  `et te confirme le prix exact (99€, 149€ ou 199€ port inclus selon le cas).\n\n` +
+  `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+  `❓ Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  `Tu veux qu'on te rappelle ?`;    }
   }
 const data = {
     ...(extracted || DEFAULT_DATA),
@@ -4932,6 +5101,7 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
