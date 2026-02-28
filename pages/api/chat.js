@@ -1667,6 +1667,127 @@ const FEATURED_PARTNER_GARAGES = {
     horaires: "Lun-Ven 7h30-12h / 13h30-18h",
     note: "Spécialiste FAP, 4,7⭐ Google",
   },
+  "31": {
+    type: "multi_garages_geo",
+    ville: "Toulouse",
+    cc_list: [
+      {
+        code: "CC_TOULOUSE_PURPAN",
+        nom: "Carter-Cash Toulouse Purpan",
+        adresse: "35 Rue Bernard Ventadour, 31300 Toulouse",
+        lat: 43.5978,
+        lng: 1.4051,
+        url: "https://www.google.com/maps/search/?api=1&query=35+Rue+Bernard+Ventadour+31300+Toulouse",
+        garages: [
+          {
+            nom: "MIDI SERVICE Groupe Midi Diesel",
+            adresse: "2 Rue du Général Lionel de Marmier, 31300 Toulouse",
+            tel: "05 61 42 80 11",
+            url: "https://maps.google.com/?q=MIDI+SERVICE+Groupe+Midi+Diesel+31300+Toulouse",
+            note: "4.6", nb_avis: 314, reseau: "Indépendant"
+          },
+          {
+            nom: "Speedy Toulouse Saint-Simon",
+            adresse: "344 Rte de Saint-Simon, 31000 Toulouse",
+            tel: "05 61 40 52 97",
+            url: "https://maps.google.com/?q=Speedy+344+Rte+Saint-Simon+31000+Toulouse",
+            note: "4.6", nb_avis: 308, reseau: "Speedy"
+          },
+          {
+            nom: "POINT S Toulouse Bonnefoy",
+            adresse: "30 Rue du Faubourg Bonnefoy, 31500 Toulouse",
+            tel: "05 34 25 93 54",
+            url: "https://maps.google.com/?q=POINT+S+Toulouse+Bonnefoy+31500",
+            note: "4.9", nb_avis: 257, reseau: "Point S"
+          },
+          {
+            nom: "CARS Automobile Bosch Car Service",
+            adresse: "ZI Thibaud, 4 Rue Labouche, 31100 Toulouse",
+            tel: "05 34 63 92 38",
+            url: "https://maps.google.com/?q=CARS+Automobile+Bosch+Car+Service+Toulouse",
+            note: "4.7", nb_avis: 223, reseau: "Bosch Car Service"
+          }
+        ]
+      },
+      {
+        code: "CC_TOULOUSE_PORTET",
+        nom: "Carter-Cash Portet-sur-Garonne",
+        adresse: "36 Avenue des Palanques, 31120 Portet-sur-Garonne",
+        lat: 43.5280,
+        lng: 1.4060,
+        url: "https://www.google.com/maps/search/?api=1&query=36+Avenue+des+Palanques+31120+Portet-sur-Garonne",
+        garages: [
+          {
+            nom: "Garage PHM Automobiles",
+            adresse: "5 Allée des Sports, 31120 Portet-sur-Garonne",
+            tel: "05 62 87 68 06",
+            url: "https://maps.google.com/?q=Garage+PHM+Automobiles+Portet-sur-Garonne",
+            note: "4.3", nb_avis: 91, reseau: "Indépendant"
+          },
+          {
+            nom: "Transporter Workshop",
+            adresse: "20 Avenue de Pradié, 31120 Portet-sur-Garonne",
+            tel: "05 82 95 48 90",
+            url: "https://maps.google.com/?q=Transporter+Workshop+Portet-sur-Garonne",
+            note: "4.3", nb_avis: 124, reseau: "Indépendant"
+          },
+          {
+            nom: "Eurorepar Marin Automobiles",
+            adresse: "48 BIS Avenue des Pyrénées, 31270 Frouzins",
+            tel: "05 61 92 69 22",
+            url: "https://maps.google.com/?q=Eurorepar+Marin+Automobiles+Frouzins",
+            note: "4.6", nb_avis: 90, reseau: "Eurorepar"
+          },
+          {
+            nom: "Garage Marclann",
+            adresse: "11 Boulevard des Pyrénées, 31270 Villeneuve-Tolosane",
+            tel: "05 61 92 37 52",
+            url: "https://maps.google.com/?q=Garage+Marclann+Villeneuve-Tolosane",
+            note: "4.9", nb_avis: 167, reseau: "Indépendant"
+          }
+        ]
+      },
+      {
+        code: "CC_TOULOUSE_LUNION",
+        nom: "Carter-Cash L'Union",
+        adresse: "Route de Lavaur, 31240 L'Union",
+        lat: 43.6620,
+        lng: 1.4970,
+        url: "https://www.google.com/maps/search/?api=1&query=Route+de+Lavaur+31240+L+Union",
+        garages: [
+          {
+            nom: "HVF Automobiles",
+            adresse: "81 Chemin de Bessayre, 31240 Saint-Jean",
+            tel: "05 62 89 49 49",
+            url: "https://maps.google.com/?q=HVF+Automobiles+Saint-Jean+31240",
+            note: "4.9", nb_avis: 150, reseau: "Indépendant"
+          },
+          {
+            nom: "GPAuto",
+            adresse: "7 Impasse Castelviel, 31180 Rouffiac-Tolosan",
+            tel: "07 67 81 68 69",
+            url: "https://maps.google.com/?q=GPAuto+Rouffiac-Tolosan",
+            note: "4.8", nb_avis: 65, reseau: "Indépendant"
+          },
+          {
+            nom: "TEAMAXE Toulouse",
+            adresse: "36 Rue Georges Ohnet, 31200 Toulouse",
+            tel: "05 61 63 33 00",
+            url: "https://maps.google.com/?q=TEAMAXE+Toulouse+31200",
+            note: "4.7", nb_avis: 525, reseau: "Indépendant"
+          },
+          {
+            nom: "Castel Auto",
+            adresse: "14 Rue des Vignes, 31780 Castelginest",
+            tel: "05 61 70 19 82",
+            url: "https://maps.google.com/?q=Castel+Auto+Castelginest+31780",
+            note: "4.7", nb_avis: 122, reseau: "Indépendant"
+          }
+        ]
+      }
+    ],
+    partenaires_secondaires: []
+  },
   "33": {
     nom: "Midas Le Haillan",
     ville: "Le Haillan",
@@ -1921,7 +2042,7 @@ const CITY_TO_DEPT = {
   // 30
   "ales":"30","bagnols-sur-ceze":"30","le vigan":"30",
   // 31
-  "muret":"31","saint-gaudens":"31",
+  "muret":"31","saint-gaudens":"31","portet-sur-garonne":"31","l'union":"31","lunion":"31","aucamville":"31","blagnac":"31","colomiers":"31","tournefeuille":"31","frouzins":"31","villeneuve-tolosane":"31","castelginest":"31","rouffiac-tolosan":"31","saint-jean":"31",
   // 32
   "condom":"32","mirande":"32",
   // 33
@@ -2806,6 +2927,80 @@ if (featuredGarage) {
 
     replyClean =
       `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a un Carter-Cash équipé tout près.\n\n` +
+      `① 🔧 Tu démontes le FAP de ton véhicule\n` +
+      `② 🚗 Tu le déposes sans RDV au Carter-Cash\n` +
+      `③ 🏭 Nettoyage en machine — suies + cendres retirées, contrôle avant/après\n` +
+      `④ 🔧 Tu remontes le FAP et réinitialises le voyant\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `${ccBloc}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+      `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
+
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
+  }
+
+  // ── TYPE multi_garages_geo (ex: Toulouse dept 31) — multi-CC avec garages groupés par proximité ──
+  if (featuredGarage.type === "multi_garages_geo" && demontage !== "self") {
+    const ccListGeo = featuredGarage.cc_list || [];
+    const secondaires = featuredGarage.partenaires_secondaires || [];
+
+    const ccBlocs = ccListGeo.map(cc => {
+      const garagesBloc = (cc.garages || []).map(g =>
+        `   🏠 ${g.nom}${g.reseau ? ` *(${g.reseau})*` : ""}\n` +
+        `   📍 ${g.adresse}\n` +
+        `   📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")}) · [📍 Maps](${g.url})` +
+        (g.note ? ` · ${g.note}⭐ *(${g.nb_avis} avis)*` : "")
+      ).join("\n\n");
+
+      return `🏪 [${cc.nom}](${cc.url})\n` +
+        `✅ Sans RDV — FAP traité sous 4h\n` +
+        `📍 ${cc.adresse}\n\n` +
+        `   🔩 Garages dépose/repose sélectionnés par Re-FAP :\n\n` +
+        garagesBloc;
+    }).join("\n\n━━━━━━━━━━━━━━━━━━━━━\n\n");
+
+    const secondairesBloc = secondaires.length > 0
+      ? "\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🔩 Autres garages partenaires dans ton secteur :\n\n" +
+        secondaires.map(g =>
+          `🏠 ${g.nom} — ${g.adresse}\n` +
+          `📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")}) · [📍 Maps](${g.url})` +
+          (g.note ? ` · ${g.note}` : "")
+        ).join("\n\n")
+      : "";
+
+    replyClean =
+      `OK, pour les environs de ${villeDisplay}. Re-FAP a présélectionné des garages partenaires près de chez toi — ils prennent en charge ta voiture de A à Z.\n\n` +
+      `① 🔧 Le garage démonte le FAP de ton véhicule\n` +
+      `② 🚗 Il le dépose sans RDV au Carter-Cash Re-FAP\n` +
+      `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
+      `③ 🏭 Nettoyage en machine sur place — sous 4h\n` +
+      `④ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
+      `💶 ${prixCCDetail}\n\n` +
+      `*Garages sélectionnés par Re-FAP pour leur sérieux, leur expertise FAP et leurs tarifs compétitifs.*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `${ccBlocs}` +
+      `${secondairesBloc}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+      `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
+
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
+  }
+
+  // ── TYPE multi_garages_geo + self removal ──
+  if (featuredGarage.type === "multi_garages_geo" && demontage === "self") {
+    const ccListGeo = featuredGarage.cc_list || [];
+
+    const ccBloc = ccListGeo.map(cc =>
+      `🏪 [${cc.nom}](${cc.url})\n` +
+      `✅ Sans RDV — FAP traité sous 4h\n` +
+      `📍 ${cc.adresse}\n` +
+      `💶 ${prixCCDetail}`
+    ).join("\n\n━━━━━━━━━━━━━━━━━━━━━\n\n");
+
+    replyClean =
+      `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a des Carter-Cash équipés tout près.\n\n` +
       `① 🔧 Tu démontes le FAP de ton véhicule\n` +
       `② 🚗 Tu le déposes sans RDV au Carter-Cash\n` +
       `③ 🏭 Nettoyage en machine — suies + cendres retirées, contrôle avant/après\n` +
