@@ -1670,6 +1670,7 @@ const FEATURED_PARTNER_GARAGES = {
   "31": {
     type: "multi_garages_geo",
     ville: "Toulouse",
+    depot_only: true,
     cc_list: [
       {
         code: "CC_TOULOUSE_PURPAN",
@@ -2954,7 +2955,9 @@ if (featuredGarage) {
       ).join("\n\n");
 
       return `🏪 [${cc.nom}](${cc.url})\n` +
-        `✅ Sans RDV — FAP traité sous 4h\n` +
+        (featuredGarage.depot_only
+          ? `📦 Sans RDV — Point dépôt Re-FAP · Retour 48-72h\n`
+          : `✅ Sans RDV — FAP traité sous 4h\n`) +
         `📍 ${cc.adresse}\n\n` +
         `   🔩 Garages dépose/repose sélectionnés par Re-FAP :\n\n` +
         garagesBloc;
@@ -2974,9 +2977,13 @@ if (featuredGarage) {
       `① 🔧 Le garage démonte le FAP de ton véhicule\n` +
       `② 🚗 Il le dépose sans RDV au Carter-Cash Re-FAP\n` +
       `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
-      `③ 🏭 Nettoyage en machine sur place — sous 4h\n` +
+      (featuredGarage.depot_only
+        ? `③ 📦 Le FAP est expédié au centre Re-FAP Carter-Cash — retour sous 48-72h\n`
+        : `③ 🏭 Nettoyage en machine sur place — sous 4h\n`) +
       `④ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
-      `💶 ${prixCCDetail}\n\n` +
+      (featuredGarage.depot_only
+        ? `💶 199€ TTC — nettoyage + port aller-retour inclus\n\n`
+        : `💶 ${prixCCDetail}\n\n`) +
       `*Garages sélectionnés par Re-FAP pour leur sérieux, leur expertise FAP et leurs tarifs compétitifs.*\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `${ccBlocs}` +
@@ -2994,16 +3001,22 @@ if (featuredGarage) {
 
     const ccBloc = ccListGeo.map(cc =>
       `🏪 [${cc.nom}](${cc.url})\n` +
-      `✅ Sans RDV — FAP traité sous 4h\n` +
+      (featuredGarage.depot_only
+        ? `📦 Sans RDV — Point dépôt Re-FAP · Retour 48-72h\n`
+        : `✅ Sans RDV — FAP traité sous 4h\n`) +
       `📍 ${cc.adresse}\n` +
-      `💶 ${prixCCDetail}`
+      (featuredGarage.depot_only
+        ? `💶 199€ TTC — nettoyage + port aller-retour inclus`
+        : `💶 ${prixCCDetail}`)
     ).join("\n\n━━━━━━━━━━━━━━━━━━━━━\n\n");
 
     replyClean =
       `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a des Carter-Cash équipés tout près.\n\n` +
       `① 🔧 Tu démontes le FAP de ton véhicule\n` +
       `② 🚗 Tu le déposes sans RDV au Carter-Cash\n` +
-      `③ 🏭 Nettoyage en machine — suies + cendres retirées, contrôle avant/après\n` +
+      (featuredGarage.depot_only
+        ? `③ 📦 Le FAP est expédié au centre Re-FAP Carter-Cash — retour sous 48-72h\n`
+        : `③ 🏭 Nettoyage en machine — suies + cendres retirées, contrôle avant/après\n`) +
       `④ 🔧 Tu remontes le FAP et réinitialises le voyant\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `${ccBloc}\n\n` +
