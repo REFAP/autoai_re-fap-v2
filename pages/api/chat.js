@@ -1602,10 +1602,11 @@ const FEATURED_PARTNER_GARAGES = {
   "13": {
     type: "multi_garages",
     ville: "Marseille",
-    cc: {
+   cc: {
       nom: "Carter-Cash Marseille Les Arnavaux",
       adresse: "Rue Jean Queillau, 722 MIN Les Arnavaux, 13014 Marseille",
-      url: "https://www.google.com/maps/search/?api=1&query=43.3331566,5.3857660"
+      url: "https://www.google.com/maps/search/?api=1&query=43.3331566,5.3857660",
+      code: "CC_MARSEILLE_ARNAVAUX"
     },
     garages: [
       {
@@ -2739,11 +2740,19 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
 // ============================================================
 const featuredGarage = dept ? FEATURED_PARTNER_GARAGES[dept] : null;
 if (featuredGarage) {
-   // ── TYPE multi_garages (ex: Marseille dept 13) ──
+ // ── TYPE multi_garages (ex: Marseille dept 13) ──
   if (featuredGarage.type === "multi_garages" && demontage !== "self") {
-    const cc = featuredGarage.cc;
+    const ccList = featuredGarage.cc ? [featuredGarage.cc] : (featuredGarage.cc_list || []);
     const garages = featuredGarage.garages || [];
     const secondaires = featuredGarage.partenaires_secondaires || [];
+
+    const ccBloc = ccList.map(cc =>
+      `🏪 [${cc.nom}](${cc.url})\n` +
+      (cc.code === "CC_MARSEILLE_ARNAVAUX"
+        ? `⏳ *Machine disponible dès le 11 mars 2026 — en attendant, dépôt possible (envoi 48-72h)*\n`
+        : `✅ Sans RDV — FAP traité sous 4h\n`) +
+      `📍 ${cc.adresse}`
+    ).join("\n\n━━━━━━━━━━━━━━━━━━━━━\n\n");
 
     const garagesBloc = garages.map(g =>
       `🏠 ${g.nom}${g.reseau ? ` *(${g.reseau})*` : ""}\n` +
@@ -2770,9 +2779,7 @@ if (featuredGarage) {
       `④ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
       `💶 ${prixCCDetail}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `🏪 [${cc.nom}](${cc.url})\n` +
-      `✅ Sans RDV — FAP traité sous 4h\n` +
-      `📍 ${cc.adresse}\n\n` +
+      `${ccBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `🔩 Garages dépose/repose sélectionnés par Re-FAP :\n\n` +
       `${garagesBloc}` +
@@ -2782,11 +2789,20 @@ if (featuredGarage) {
       `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
-      }
+  }
+
   // ── TYPE multi_garages + self removal ──
-   // ── TYPE multi_garages + self removal ──
   if (featuredGarage.type === "multi_garages" && demontage === "self") {
-    const cc = featuredGarage.cc;
+    const ccList = featuredGarage.cc ? [featuredGarage.cc] : (featuredGarage.cc_list || []);
+
+    const ccBloc = ccList.map(cc =>
+      `🏪 [${cc.nom}](${cc.url})\n` +
+      (cc.code === "CC_MARSEILLE_ARNAVAUX"
+        ? `⏳ *Machine disponible dès le 11 mars 2026 — en attendant, dépôt possible (envoi 48-72h)*\n`
+        : `✅ Sans RDV — FAP traité sous 4h\n`) +
+      `📍 ${cc.adresse}\n` +
+      `💶 ${prixCCDetail}`
+    ).join("\n\n━━━━━━━━━━━━━━━━━━━━━\n\n");
 
     replyClean =
       `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a un Carter-Cash équipé tout près.\n\n` +
@@ -2795,13 +2811,13 @@ if (featuredGarage) {
       `③ 🏭 Nettoyage en machine — suies + cendres retirées, contrôle avant/après\n` +
       `④ 🔧 Tu remontes le FAP et réinitialises le voyant\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `🏪 [${cc.nom}](${cc.url})\n` +
-      `✅ Sans RDV — FAP traité sous 4h\n` +
-      `📍 ${cc.adresse}\n` +
-      `💶 ${prixCCDetail}\n\n` +
+      `${ccBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
       `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
+
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
+  }
 
    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
   }
@@ -5222,6 +5238,7 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
