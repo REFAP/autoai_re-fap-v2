@@ -3097,6 +3097,7 @@ if (featuredGarage) {
         `Si ton garage te propose autre chose (additif, nettoyage sur place, karcher…), demande-lui de contacter Re-FAP directement :\n` +
         `👉 [auto.re-fap.fr](https://auto.re-fap.fr)\n` +
         `📞 Julien — Expert Re-FAP : **[04 73 37 88 21](tel:0473378821)**\n\n` +
+        `💡 Et si ton garage ne souhaite pas se déplacer chez Carter-Cash, tu peux tout à fait déposer et récupérer le FAP toi-même — c'est simple et ça ne change rien à la garantie.\n\n` +
         (otherCC ? `Autre CC équipé : [${otherCC.nom}](${otherCC.url}) — ${otherCC.adresse}\n\n` : "") +
         `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
     }
