@@ -2819,8 +2819,6 @@ if (featuredGarage) {
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
   }
 
-   return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
-  }
   const nearestEquip = cc.closestEquipped;
   const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
 
@@ -5238,6 +5236,7 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
+
 
 
 
