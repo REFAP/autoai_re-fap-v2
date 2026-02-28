@@ -2953,11 +2953,12 @@ if (featuredGarage) {
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `${ccBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `🔩 Garages dépose/repose sélectionnés par Re-FAP :\n\n` +
+      `🔩 Garages dépose/repose identifiés par Re-FAP :\n\n` +
       `${garagesBloc}` +
       `${secondairesBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       wordingBloc + `\n\n` +
+      disclaimerGarages() + `\n\n` +
       `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
@@ -2998,6 +2999,7 @@ if (featuredGarage) {
       (machineOK
         ? `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n`
         : wordingRefapDepot(ccList[0]?.nom || "Carter-Cash") + `\n\n`) +
+      disclaimerGarages() + `\n\n` +
       `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
