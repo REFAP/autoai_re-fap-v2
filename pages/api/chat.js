@@ -3011,7 +3011,9 @@ if (featuredGarage) {
     ).join("\n\n━━━━━━━━━━━━━━━━━━━━━\n\n");
 
     replyClean =
-      `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a des Carter-Cash équipés tout près.\n\n` +
+      (featuredGarage.depot_only
+        ? `OK, pour les environs de ${villeDisplay}. Il y a plusieurs Carter-Cash points dépôt Re-FAP près de chez toi.\n\n`
+        : `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a des Carter-Cash équipés tout près.\n\n`) +
       `① 🔧 Tu démontes le FAP de ton véhicule\n` +
       `② 🚗 Tu le déposes sans RDV au Carter-Cash\n` +
       (featuredGarage.depot_only
