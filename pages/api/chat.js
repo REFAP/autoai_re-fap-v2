@@ -1,5 +1,7 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 6.3.2
+// FAPexpert Re-FAP — VERSION 6.3.3
+// CHANGELOG v6.3.3:
+//   - IDF: pool 242 garages géocodés, sélection dynamique haversine user→garage
 // CHANGELOG v6.3.2:
 //   - Override RESCUE : ville+intent garage/CC à TOUT moment du flow (Bug A)
 //   - Fix CP follow-up : CP après échec localisation → orientation (Bug B)
@@ -1598,6 +1600,2671 @@ const CARTER_CASH_LIST = [
   {name:"Carter-Cash Aulnay-sous-Bois",city:"Aulnay-sous-Bois",postal:"93600",dept:"93",equipped:false,lat:48.938,lng:2.497},
   {name:"Carter-Cash Saint-Ouen-l'Aumone",city:"Saint-Ouen-l'Aumone",postal:"95310",dept:"95",equipped:false,lat:49.053,lng:2.122},
 ];
+const IDF_GARAGE_POOL = [
+  {
+    "nom": "SPEEDWAY PARIS",
+    "adresse": "237 Rue Marcadet, 75018 Paris, France",
+    "lat": 48.892451,
+    "lng": 2.329985,
+    "note": 4.6,
+    "nb_avis": 1041,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "35 Bd Bessières, 75017 Paris, France",
+    "lat": 48.897349,
+    "lng": 2.324865,
+    "note": 4.2,
+    "nb_avis": 264,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas PARIS 18 - LA FOURCHE",
+    "adresse": "40 Av. de Saint-Ouen, 75018 Paris, France",
+    "lat": 48.889772,
+    "lng": 2.326526,
+    "note": 4.2,
+    "nb_avis": 188,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Midas PARIS 20 - PYRENEES",
+    "adresse": "276-278 Rue des Pyrénées, 75020 Paris, France",
+    "lat": 48.870349,
+    "lng": 2.394204,
+    "note": 4.3,
+    "nb_avis": 341,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Serrurier Paris 20 Dépannage 24/7",
+    "adresse": "317 Rue des Pyrénées, 75020 Paris, France",
+    "lat": 48.870882,
+    "lng": 2.393107,
+    "note": 4.8,
+    "nb_avis": 202,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AD Garage Expert EURO PARTS PANTIN",
+    "adresse": "128 Av. du Général Leclerc, 93500 Pantin, France",
+    "lat": 48.900168,
+    "lng": 2.410497,
+    "note": 4.6,
+    "nb_avis": 85,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Ad garage"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "300 Av. Paul Vaillant-Couturier, 93000 Bobigny, France",
+    "lat": 48.906676,
+    "lng": 2.455653,
+    "note": 4.3,
+    "nb_avis": 203,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Carrosserie Lecourbe",
+    "adresse": "44 Rue Lecourbe, 75015 Paris, France",
+    "lat": 48.84414,
+    "lng": 2.307507,
+    "note": 4.9,
+    "nb_avis": 329,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "102 Bd de l'Hôpital, 75013 Paris, France",
+    "lat": 48.836222,
+    "lng": 2.358688,
+    "note": 4.3,
+    "nb_avis": 584,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas PARIS 04 - CELESTINS",
+    "adresse": "24-26 Quai des Célestins, 75004 Paris, France",
+    "lat": 48.852588,
+    "lng": 2.360143,
+    "note": 4.2,
+    "nb_avis": 412,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "MINI BYmyCAR Paris Rive Droite",
+    "adresse": "101 BIS Av. du Général Michel Bizot, 75012 Paris, France",
+    "lat": 48.83888,
+    "lng": 2.403984,
+    "note": 4.6,
+    "nb_avis": 557,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "130 Bd Diderot 124 A, 75012 Paris, France",
+    "lat": 48.847355,
+    "lng": 2.388214,
+    "note": 4.2,
+    "nb_avis": 379,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "238 Rue de Charenton, 75012 Paris, France",
+    "lat": 48.839242,
+    "lng": 2.388806,
+    "note": 4.8,
+    "nb_avis": 255,
+    "cc": "Thiais",
+    "score": 13,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Euromaster Gilbert et Fils Paris 20",
+    "adresse": "23 Rue des Pyrénées, 75020 Paris, France",
+    "lat": 48.849138,
+    "lng": 2.406365,
+    "note": 4.7,
+    "nb_avis": 202,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Midas PARIS 20 - NATION",
+    "adresse": "90 Boulevard de Charonne, 75020 Paris, France",
+    "lat": 48.853438,
+    "lng": 2.397126,
+    "note": 4.5,
+    "nb_avis": 658,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Antilock",
+    "adresse": "129 Rue de Montreuil, 75011 Paris, France",
+    "lat": 48.851234,
+    "lng": 2.397383,
+    "note": 4.8,
+    "nb_avis": 178,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Renault Montrouge - Groupe Losange Autos",
+    "adresse": "59 Av. Aristide Briand, 92120 Montrouge, France",
+    "lat": 48.81723,
+    "lng": 2.325794,
+    "note": 4.6,
+    "nb_avis": 1267,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "GARAGE DE L’ÉGLISE - CITROËN - PEUGEOT",
+    "adresse": "55 Bd de Vanves, 92320 Châtillon, France",
+    "lat": 48.806918,
+    "lng": 2.285477,
+    "note": 4.6,
+    "nb_avis": 330,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "MécaServices",
+    "adresse": "23 Rue Gabriel Péri, 92120 Montrouge, France",
+    "lat": 48.817919,
+    "lng": 2.322568,
+    "note": 4.8,
+    "nb_avis": 144,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "NEUBAUER // FIAT - ABARTH - JEEP - ALFA ROMEO // PARIS 15",
+    "adresse": "31 Rue Saint-Amand, 75015 Paris, France",
+    "lat": 48.834346,
+    "lng": 2.30871,
+    "note": 4.7,
+    "nb_avis": 867,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Celo Gaz",
+    "adresse": "12 Rue de Campo-Formio, 75013 Paris, France",
+    "lat": 48.833887,
+    "lng": 2.360818,
+    "note": 4.6,
+    "nb_avis": 205,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Garage des 2 moulins",
+    "adresse": "26 Rue du Maréchal Juin, 94700 Maisons-Alfort, France",
+    "lat": 48.815342,
+    "lng": 2.430207,
+    "note": 4.8,
+    "nb_avis": 218,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Top tint",
+    "adresse": "80 Rue Paul Vaillant Couturier, 94140 Alfortville, France",
+    "lat": 48.811041,
+    "lng": 2.416589,
+    "note": 4.8,
+    "nb_avis": 314,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Dans la station Total, 4 bis Av. de la Liberté, 94220 Charenton-le-Pont, France",
+    "lat": 48.821764,
+    "lng": 2.402384,
+    "note": 4.5,
+    "nb_avis": 137,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Dacia Maisons-Alfort - Groupe Sofibrie",
+    "adresse": "8 Av. du Professeur Cadiot, 94700 Maisons-Alfort, France",
+    "lat": 48.806026,
+    "lng": 2.429805,
+    "note": 4.9,
+    "nb_avis": 225,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Midas BOULOGNE PTE ST CLOUD",
+    "adresse": "22-24 Av. Édouard Vaillant, 92100 Boulogne-Billancourt, France",
+    "lat": 48.836708,
+    "lng": 2.252875,
+    "note": 4.2,
+    "nb_avis": 633,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "MOOVRIDER AUBERVILLIERS - Vente & Atelier de Réparation - Trottinettes & Vélos électriques - LES MOINS CHERS D'IDF SANS RDV",
+    "adresse": "17 Rue Régine Gosset, 93300 Aubervilliers, France",
+    "lat": 48.91618,
+    "lng": 2.375119,
+    "note": 4.7,
+    "nb_avis": 2046,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "RENAULT SERVICE PLUS",
+    "adresse": "111-115 Av. Jean Mermoz, 93120 La Courneuve, France",
+    "lat": 48.932635,
+    "lng": 2.40977,
+    "note": 4.7,
+    "nb_avis": 198,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Allocourroies",
+    "adresse": "17 Rue Lepilleur, 93120 La Courneuve, France",
+    "lat": 48.9234,
+    "lng": 2.410599,
+    "note": 4.9,
+    "nb_avis": 220,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Sl - jantes",
+    "adresse": "2 Rue René Thuillier, 93700 Drancy, France",
+    "lat": 48.927795,
+    "lng": 2.439746,
+    "note": 4.8,
+    "nb_avis": 334,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Abdapneu drancy",
+    "adresse": "55 Av. Jean Jaurès, 93700 Drancy, France",
+    "lat": 48.920934,
+    "lng": 2.449405,
+    "note": 4.8,
+    "nb_avis": 566,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "146 Av. Henri Barbusse, 93700 Drancy, France",
+    "lat": 48.920542,
+    "lng": 2.453095,
+    "note": 4.4,
+    "nb_avis": 378,
+    "cc": "Sarcelles",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "88 Rue d'Aulnay, 93270 Sevran, France",
+    "lat": 48.939858,
+    "lng": 2.514017,
+    "note": 4.7,
+    "nb_avis": 388,
+    "cc": "Sarcelles",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "First Stop",
+    "adresse": "30 Rue Lucien Chapelain, 93140 Bondy, France",
+    "lat": 48.912619,
+    "lng": 2.485664,
+    "note": 4.6,
+    "nb_avis": 463,
+    "cc": "Sarcelles",
+    "score": 11,
+    "reseau": "First stop"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "40 Av. de Rosny, 93250 Villemomble, France",
+    "lat": 48.885313,
+    "lng": 2.504121,
+    "note": 4.5,
+    "nb_avis": 488,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "DOCTEUR VAG SUR RDV SMS",
+    "adresse": "16 bis Rue Parmentier, 93110 Rosny-sous-Bois, France",
+    "lat": 48.877312,
+    "lng": 2.506335,
+    "note": 4.9,
+    "nb_avis": 875,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Dacia Villemomble - Groupe Autosphere",
+    "adresse": "25 Rte de Noisy, 93250 Villemomble, France",
+    "lat": 48.883187,
+    "lng": 2.497281,
+    "note": 4.8,
+    "nb_avis": 442,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AXIAL - Carrosserie des 3 Communes",
+    "adresse": "106 Av. de Rosny, 93250 Villemomble, France",
+    "lat": 48.883125,
+    "lng": 2.498986,
+    "note": 4.8,
+    "nb_avis": 204,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "3 Bd Aristide Briand, 93330 Neuilly-sur-Marne, France",
+    "lat": 48.854987,
+    "lng": 2.520211,
+    "note": 4.5,
+    "nb_avis": 444,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "AD Garage Expert MCA",
+    "adresse": "25 Rte de Montmorency, 95330 Domont, France",
+    "lat": 49.018222,
+    "lng": 2.315477,
+    "note": 4.5,
+    "nb_avis": 149,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Ad garage"
+  },
+  {
+    "nom": "ECOUEN AUTOMOBILES Garage Renault",
+    "adresse": "70 Rue du Maréchal Leclerc, 95440 Écouen, France",
+    "lat": 49.021842,
+    "lng": 2.384635,
+    "note": 4.9,
+    "nb_avis": 314,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Midas PIERREFITTE",
+    "adresse": "53-57 Bd Jean Mermoz Pierrefitte Sur Seine, 93380 Saint Denis, France",
+    "lat": 48.96805,
+    "lng": 2.364482,
+    "note": 4.3,
+    "nb_avis": 126,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "107 Rue du Luat, 95350 Saint-Brice-sous-Forêt, France",
+    "lat": 49.006154,
+    "lng": 2.353161,
+    "note": 4.5,
+    "nb_avis": 533,
+    "cc": "Sarcelles",
+    "score": 12,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas SAINT BRICE",
+    "adresse": "1 Av. Robert Schuman, 95350 Saint-Brice-sous-Forêt, France",
+    "lat": 49.006198,
+    "lng": 2.352859,
+    "note": 4.5,
+    "nb_avis": 215,
+    "cc": "Sarcelles",
+    "score": 12,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "L'Atelier d'Edmond by B2r",
+    "adresse": "27 Q Rue de la Gare, 95170 Deuil-la-Barre, France",
+    "lat": 48.975389,
+    "lng": 2.334992,
+    "note": 4.8,
+    "nb_avis": 141,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Diag Power , Spécialiste BM.W",
+    "adresse": "5 Rue Nadar, 95320 Saint-Leu-la-Forêt, France",
+    "lat": 49.003855,
+    "lng": 2.251434,
+    "note": 4.9,
+    "nb_avis": 324,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AD Garage Expert FRADIS SANNOIS GARAGE AD EXPERT",
+    "adresse": "173 Bd Gambetta, 95110 Sannois, France",
+    "lat": 48.979405,
+    "lng": 2.236506,
+    "note": 4.4,
+    "nb_avis": 195,
+    "cc": "Sarcelles",
+    "score": 13,
+    "reseau": "Garage ad"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Centre Cial Les Portes De Tave, 95150 Taverny, France",
+    "lat": 49.026767,
+    "lng": 2.20654,
+    "note": 4.4,
+    "nb_avis": 553,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas SANNOIS",
+    "adresse": "173 Bis Bd Gambetta, 95110 Sannois, France",
+    "lat": 48.979442,
+    "lng": 2.236867,
+    "note": 4.7,
+    "nb_avis": 595,
+    "cc": "Sarcelles",
+    "score": 12,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Clé de Voiture et Programmation Serruprogauto",
+    "adresse": "95320 Saint-Leu-la-Forêt, France",
+    "lat": 49.013301,
+    "lng": 2.242938,
+    "note": 5.0,
+    "nb_avis": 402,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "BG Automobiles",
+    "adresse": "136 Rue du 18 Juin, 95120 Ermont, France",
+    "lat": 48.993067,
+    "lng": 2.247313,
+    "note": 5.0,
+    "nb_avis": 384,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AUTOFILMS",
+    "adresse": "39 Bd Jean Allemane, 95100 Argenteuil, France",
+    "lat": 48.951481,
+    "lng": 2.253694,
+    "note": 4.9,
+    "nb_avis": 658,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Garage A.T.S",
+    "adresse": "Chem. des Glaisières, 95100 Argenteuil, France",
+    "lat": 48.964035,
+    "lng": 2.230516,
+    "note": 4.7,
+    "nb_avis": 205,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "RENAULT ENGHIEN MONTMORENCY - ROUSSEAU AUTOMOBILE",
+    "adresse": "150 Av. de la Division Leclerc, 95160 Montmorency, France",
+    "lat": 48.972788,
+    "lng": 2.310294,
+    "note": 4.5,
+    "nb_avis": 1343,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Volkswagen Garges-lès-Gonesse",
+    "adresse": "1 Rue Marcel Cerdan, 95140 Garges-lès-Gonesse, France",
+    "lat": 48.961926,
+    "lng": 2.402668,
+    "note": 4.5,
+    "nb_avis": 1643,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Point S - Saint-Ouen-l'Aumône (FTA)",
+    "adresse": "78 Rue de Paris, 95310 Saint-Ouen-l'Aumône, France",
+    "lat": 49.038084,
+    "lng": 2.118162,
+    "note": 4.9,
+    "nb_avis": 191,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "Point S - Auvers sur Oise (CFT AUTOMOBILES)",
+    "adresse": "11 Rue Parmentier, 95430 Auvers-sur-Oise, France",
+    "lat": 49.071334,
+    "lng": 2.15329,
+    "note": 4.6,
+    "nb_avis": 131,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "AS Autosécurité EUROPE CONTROLE GOUSSAINVILLE",
+    "adresse": "15 Rte de Roissy, 95190 Goussainville, France",
+    "lat": 49.012423,
+    "lng": 2.475461,
+    "note": 4.8,
+    "nb_avis": 351,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Tech Contrôle Auto 95",
+    "adresse": "8 Rue le Corbusier, 95190 Goussainville, France",
+    "lat": 49.019493,
+    "lng": 2.462482,
+    "note": 4.8,
+    "nb_avis": 151,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AD Garage Expert ABDA MECANIQUE",
+    "adresse": "24 Av. Albert Sarraut, 95190 Goussainville, France",
+    "lat": 49.026935,
+    "lng": 2.462337,
+    "note": 4.4,
+    "nb_avis": 76,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Ad garage"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Dans la station Total, 193 Rue Henri Barbusse, 95100 Argenteuil, France",
+    "lat": 48.932921,
+    "lng": 2.23255,
+    "note": 4.6,
+    "nb_avis": 352,
+    "cc": "Sarcelles",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Hauts de Seine Service",
+    "adresse": "17 Rue de Colombes, 92600 Asnières-sur-Seine, France",
+    "lat": 48.912571,
+    "lng": 2.284291,
+    "note": 4.8,
+    "nb_avis": 385,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Renault Vitry-Sur-Seine - Groupe Autosphere",
+    "adresse": "21 Av. Eugène Pelletan, 94400 Vitry-sur-Seine, France",
+    "lat": 48.794684,
+    "lng": 2.384328,
+    "note": 4.4,
+    "nb_avis": 1380,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Froid Assistance Routier Frigotruck",
+    "adresse": "zone d'activité du plateau, 152 Rue Julian Grimau, 94400 Vitry-sur-Seine, France",
+    "lat": 48.77963,
+    "lng": 2.377963,
+    "note": 4.9,
+    "nb_avis": 94,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "GARAGE GENTILLY - Carrosserie et mécanique",
+    "adresse": "124 Rue Jean Jaurès, 94800 Villejuif, France",
+    "lat": 48.788781,
+    "lng": 2.366727,
+    "note": 4.5,
+    "nb_avis": 106,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "7ème AVENUE | Honda",
+    "adresse": "116 bis Bd Maxime Gorki, 94800 Villejuif, France",
+    "lat": 48.791996,
+    "lng": 2.369121,
+    "note": 4.6,
+    "nb_avis": 412,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "110 Bd Maxime Gorki, 94800 Villejuif, France",
+    "lat": 48.792672,
+    "lng": 2.369299,
+    "note": 4.3,
+    "nb_avis": 389,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Jumbo Pneus Villejuif",
+    "adresse": "8 Rue Jean Prouvé, 94800 Villejuif, France",
+    "lat": 48.7821,
+    "lng": 2.350397,
+    "note": 4.5,
+    "nb_avis": 736,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "GORKI AUTOBILAN",
+    "adresse": "10 Bd Maxime Gorki, 94800 Villejuif, France",
+    "lat": 48.798932,
+    "lng": 2.366812,
+    "note": 4.8,
+    "nb_avis": 307,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Centre Commercial Belle Epine, 94320 Thiais, France",
+    "lat": 48.756329,
+    "lng": 2.371236,
+    "note": 4.3,
+    "nb_avis": 205,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Formycar - Garage Auto 94",
+    "adresse": "2 Rue Gaston Monmousseau, 94200 Ivry-sur-Seine, France",
+    "lat": 48.80748,
+    "lng": 2.378135,
+    "note": 4.7,
+    "nb_avis": 319,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Hyundai Kremlin-Bicêtre - BPM Cars",
+    "adresse": "145 Av. de Fontainebleau, 94270 Le Kremlin-Bicêtre, France",
+    "lat": 48.807224,
+    "lng": 2.363389,
+    "note": 4.7,
+    "nb_avis": 672,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "RENAULT/DACIA Agent JMG AUTOMOBILES",
+    "adresse": "42 Rue des Mèches, 94000 Créteil, France",
+    "lat": 48.79163,
+    "lng": 2.455787,
+    "note": 4.8,
+    "nb_avis": 151,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Dacia Créteil - Groupe Autosphere",
+    "adresse": "37 bis Rue de Valenton, 94000 Créteil, France",
+    "lat": 48.790396,
+    "lng": 2.438405,
+    "note": 4.9,
+    "nb_avis": 561,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "JC AUTO - EUROREPAR CAR SERVICE",
+    "adresse": "81 Av. Marie-Claude Vaillant Couturier, 94380 Bonneuil-sur-Marne, France",
+    "lat": 48.776505,
+    "lng": 2.480501,
+    "note": 4.5,
+    "nb_avis": 68,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "ABSOLU | Honda",
+    "adresse": "18 Av. Henri Barbusse, 94460 Valenton, France",
+    "lat": 48.762434,
+    "lng": 2.442537,
+    "note": 4.6,
+    "nb_avis": 542,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "VM Automobile",
+    "adresse": "127 Bis Quai de la Pie, 94100 Saint-Maur-des-Fossés, France",
+    "lat": 48.784892,
+    "lng": 2.48573,
+    "note": 4.8,
+    "nb_avis": 100,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "GARAGE LE TOLIER",
+    "adresse": "5 Av. Danville, 94600 Choisy-le-Roi, France",
+    "lat": 48.75728,
+    "lng": 2.424086,
+    "note": 4.7,
+    "nb_avis": 122,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "31 Rue de la Varenne, 94100 Saint-Maur-des-Fossés, France",
+    "lat": 48.80757,
+    "lng": 2.474215,
+    "note": 4.2,
+    "nb_avis": 349,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Point S - Saint-Maur-des-Fossés (TVTB)",
+    "adresse": "2 Bd Rabelais, 94100 Saint-Maur-des-Fossés, France",
+    "lat": 48.807071,
+    "lng": 2.475688,
+    "note": 4.5,
+    "nb_avis": 254,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "Atelier des chevrons",
+    "adresse": "5 ter Av. de la Sablière, 94450 Limeil-Brévannes, France",
+    "lat": 48.757715,
+    "lng": 2.490835,
+    "note": 4.8,
+    "nb_avis": 136,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Diag Auto Services - Bosch Car Service",
+    "adresse": "41 Av. de l'Abbé Sieyès, 91560 Crosnes, France",
+    "lat": 48.724154,
+    "lng": 2.45564,
+    "note": 4.5,
+    "nb_avis": 270,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Bosch car service"
+  },
+  {
+    "nom": "Midas SUCY EN BRIE",
+    "adresse": "46-48 Av. Winston Churchill, 94370 Sucy-en-Brie, France",
+    "lat": 48.767871,
+    "lng": 2.523841,
+    "note": 4.2,
+    "nb_avis": 222,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Réparateur agréé Volkswagen & VW Véhicules Utilitaires - Garage Rabès - Villeneuve-St-Georges",
+    "adresse": "21 Rue Diderot, 94190 Villeneuve-Saint-Georges, France",
+    "lat": 48.736712,
+    "lng": 2.448916,
+    "note": 4.8,
+    "nb_avis": 425,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "C2J",
+    "adresse": "3 Av. de la Carelle, 94290 Villeneuve-le-Roi, France",
+    "lat": 48.736872,
+    "lng": 2.429093,
+    "note": 4.8,
+    "nb_avis": 62,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Carrosserie Falcon",
+    "adresse": "51 Av. de l'Abbé Sieyès, 91560 Crosne, France",
+    "lat": 48.724505,
+    "lng": 2.454485,
+    "note": 4.8,
+    "nb_avis": 226,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Adr Conseil Formation",
+    "adresse": "112 Av. Roger Salengro, 94500 Champigny-sur-Marne, France",
+    "lat": 48.817229,
+    "lng": 2.495338,
+    "note": 4.9,
+    "nb_avis": 190,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "MANATEGO GARAGE AD EXPERT",
+    "adresse": "14 Av. Beauregard, 94500 Champigny-sur-Marne, France",
+    "lat": 48.816452,
+    "lng": 2.548851,
+    "note": 4.4,
+    "nb_avis": 291,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Garage ad"
+  },
+  {
+    "nom": "AD Garage Expert LE CLUB AUTOMOBILE",
+    "adresse": "Rue du Centre 114 C, 94490 Ormesson-sur-Marne, France",
+    "lat": 48.786159,
+    "lng": 2.530228,
+    "note": 4.6,
+    "nb_avis": 140,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Ad garage"
+  },
+  {
+    "nom": "RMP Workshop",
+    "adresse": "8 Rue de Paris, 92190 Meudon, France",
+    "lat": 48.816625,
+    "lng": 2.247366,
+    "note": 4.9,
+    "nb_avis": 299,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "First Stop Boulogne-Billancourt",
+    "adresse": "117 Rte de la Reine, 92100 Boulogne-Billancourt, France",
+    "lat": 48.840254,
+    "lng": 2.23217,
+    "note": 4.4,
+    "nb_avis": 231,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "First stop"
+  },
+  {
+    "nom": "Renault - Garage Des Roses",
+    "adresse": "17 Av. Jean Moulin, 92260 Fontenay-aux-Roses, France",
+    "lat": 48.787042,
+    "lng": 2.287607,
+    "note": 4.8,
+    "nb_avis": 214,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Rapide Carte Grise - AUTO 20 - CARTES GRISES/PLAQUES IMMATRICULATION/PLAQUES ROSES WW ET W GARAGE",
+    "adresse": "41 Rue Fernand Enguehard, 92220 Bagneux, France",
+    "lat": 48.797221,
+    "lng": 2.308551,
+    "note": 4.9,
+    "nb_avis": 239,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Garage de la Mairie CHÂTILLON / EUROREPAR CAR SERVICE",
+    "adresse": "36 Rue de la Mairie, 92320 Châtillon, France",
+    "lat": 48.800696,
+    "lng": 2.286907,
+    "note": 4.7,
+    "nb_avis": 138,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "Eurorepar Ets Eurauto",
+    "adresse": "84 Rte du Pavé Blanc, 92140 Clamart, France",
+    "lat": 48.785749,
+    "lng": 2.237772,
+    "note": 4.6,
+    "nb_avis": 237,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "Sécuritest - Sarl hycotec",
+    "adresse": "81 Rue Jean Baptiste Clément, 92290 Châtenay-Malabry, France",
+    "lat": 48.759165,
+    "lng": 2.270387,
+    "note": 4.6,
+    "nb_avis": 617,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "548 Avenue du Général de Gaulle, 92140 Clamart, France",
+    "lat": 48.777242,
+    "lng": 2.230696,
+    "note": 4.2,
+    "nb_avis": 735,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "157 Av. de la Division Leclerc, 92290 Châtenay-Malabry, France",
+    "lat": 48.763115,
+    "lng": 2.277497,
+    "note": 4.3,
+    "nb_avis": 272,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Garage L.r.m",
+    "adresse": "68 Rue Boucicaut, 92260 Fontenay-aux-Roses, France",
+    "lat": 48.791851,
+    "lng": 2.286123,
+    "note": 4.8,
+    "nb_avis": 230,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "CARROSSERIE MECANIQUE DE L'EUROPE",
+    "adresse": "5 Rue du Saule Trapu, 91300 Massy, France",
+    "lat": 48.72845,
+    "lng": 2.301424,
+    "note": 4.9,
+    "nb_avis": 110,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "112 Av. Charles de Gaulle, 91420 Morangis, France",
+    "lat": 48.705323,
+    "lng": 2.344521,
+    "note": 4.4,
+    "nb_avis": 155,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "Renault / Dacia Athis-Mons - Athis Nationale 7",
+    "adresse": "105 Av. François Mitterrand, 91200 Athis-Mons, France",
+    "lat": 48.7065,
+    "lng": 2.371328,
+    "note": 4.8,
+    "nb_avis": 350,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "214 Av. Henri Barbusse, 91270 Vigneux-sur-Seine, France",
+    "lat": 48.704483,
+    "lng": 2.436268,
+    "note": 4.3,
+    "nb_avis": 274,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas VILLEMOISSON",
+    "adresse": "60 Rte de Corbeil, 91360 Villemoisson-sur-Orge, France",
+    "lat": 48.660577,
+    "lng": 2.340341,
+    "note": 4.5,
+    "nb_avis": 362,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Cc Champion, Rte de Corbeil, 91360 Épinay-sur-Orge, France",
+    "lat": 48.670696,
+    "lng": 2.331496,
+    "note": 4.4,
+    "nb_avis": 454,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Audi Espace Paris Sud - Aliantis concessionnaire Audi Viry-Châtillon",
+    "adresse": "93 Av. du Général de Gaulle, 91170 Viry-Châtillon, France",
+    "lat": 48.678947,
+    "lng": 2.381427,
+    "note": 4.6,
+    "nb_avis": 541,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "36 Rte de Corbeil, 91700 Sainte-Geneviève-des-Bois, France",
+    "lat": 48.648471,
+    "lng": 2.335974,
+    "note": 4.5,
+    "nb_avis": 416,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "20 Rue Albert Rémy, 91130 Ris-Orangis, France",
+    "lat": 48.656714,
+    "lng": 2.408716,
+    "note": 4.3,
+    "nb_avis": 280,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "221 Rte de Fleury, 91170 Viry-Châtillon, France",
+    "lat": 48.648853,
+    "lng": 2.367208,
+    "note": 4.4,
+    "nb_avis": 391,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Mécanique Automobile Multiservices (EUROREPAR)",
+    "adresse": "14 Rue du Plessis Briard, 91080 Évry-Courcouronnes, France",
+    "lat": 48.63222,
+    "lng": 2.408875,
+    "note": 4.8,
+    "nb_avis": 74,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "AXIS AUTO",
+    "adresse": "8 Rue du Plessis Briard, 91080 Évry-Courcouronnes, France",
+    "lat": 48.631175,
+    "lng": 2.410527,
+    "note": 4.9,
+    "nb_avis": 685,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "16 Rue de l'Université, 93160 Noisy-le-Grand, France",
+    "lat": 48.837186,
+    "lng": 2.560433,
+    "note": 4.4,
+    "nb_avis": 700,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Garage des 3JD Agent - Bosch Car Service",
+    "adresse": "63 Av. Jean Kiffer, 94420 Le Plessis-Trévise, France",
+    "lat": 48.806218,
+    "lng": 2.580183,
+    "note": 4.7,
+    "nb_avis": 79,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Bosch car service"
+  },
+  {
+    "nom": "Eurorepar Garage De La Tannerie",
+    "adresse": "23 Rue Ploix, 78000 Versailles, France",
+    "lat": 48.794725,
+    "lng": 2.144249,
+    "note": 4.8,
+    "nb_avis": 91,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "Midas VERSAILLES",
+    "adresse": "48 Rue du Pont Colbert, 78350 Versailles, France",
+    "lat": 48.789719,
+    "lng": 2.148352,
+    "note": 4.7,
+    "nb_avis": 895,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "SPEEDWAY PARIS",
+    "adresse": "237 Rue Marcadet, 75018 Paris, France",
+    "lat": 48.892451,
+    "lng": 2.329985,
+    "note": 4.6,
+    "nb_avis": 1041,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "35 Bd Bessières, 75017 Paris, France",
+    "lat": 48.897349,
+    "lng": 2.324865,
+    "note": 4.2,
+    "nb_avis": 264,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas PARIS 18 - LA FOURCHE",
+    "adresse": "40 Av. de Saint-Ouen, 75018 Paris, France",
+    "lat": 48.889772,
+    "lng": 2.326526,
+    "note": 4.2,
+    "nb_avis": 188,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Midas PARIS 20 - PYRENEES",
+    "adresse": "276-278 Rue des Pyrénées, 75020 Paris, France",
+    "lat": 48.870349,
+    "lng": 2.394204,
+    "note": 4.3,
+    "nb_avis": 341,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Serrurier Paris 20 Dépannage 24/7",
+    "adresse": "317 Rue des Pyrénées, 75020 Paris, France",
+    "lat": 48.870882,
+    "lng": 2.393107,
+    "note": 4.8,
+    "nb_avis": 202,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AD Garage Expert EURO PARTS PANTIN",
+    "adresse": "128 Av. du Général Leclerc, 93500 Pantin, France",
+    "lat": 48.900168,
+    "lng": 2.410497,
+    "note": 4.6,
+    "nb_avis": 85,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Ad garage"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "300 Av. Paul Vaillant-Couturier, 93000 Bobigny, France",
+    "lat": 48.906676,
+    "lng": 2.455653,
+    "note": 4.3,
+    "nb_avis": 203,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Carrosserie Lecourbe",
+    "adresse": "44 Rue Lecourbe, 75015 Paris, France",
+    "lat": 48.84414,
+    "lng": 2.307507,
+    "note": 4.9,
+    "nb_avis": 329,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "102 Bd de l'Hôpital, 75013 Paris, France",
+    "lat": 48.836222,
+    "lng": 2.358688,
+    "note": 4.3,
+    "nb_avis": 584,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas PARIS 04 - CELESTINS",
+    "adresse": "24-26 Quai des Célestins, 75004 Paris, France",
+    "lat": 48.852588,
+    "lng": 2.360143,
+    "note": 4.2,
+    "nb_avis": 412,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "MINI BYmyCAR Paris Rive Droite",
+    "adresse": "101 BIS Av. du Général Michel Bizot, 75012 Paris, France",
+    "lat": 48.83888,
+    "lng": 2.403984,
+    "note": 4.6,
+    "nb_avis": 557,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "130 Bd Diderot 124 A, 75012 Paris, France",
+    "lat": 48.847355,
+    "lng": 2.388214,
+    "note": 4.2,
+    "nb_avis": 379,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "238 Rue de Charenton, 75012 Paris, France",
+    "lat": 48.839242,
+    "lng": 2.388806,
+    "note": 4.8,
+    "nb_avis": 255,
+    "cc": "Thiais",
+    "score": 13,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Euromaster Gilbert et Fils Paris 20",
+    "adresse": "23 Rue des Pyrénées, 75020 Paris, France",
+    "lat": 48.849138,
+    "lng": 2.406365,
+    "note": 4.7,
+    "nb_avis": 202,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Midas PARIS 20 - NATION",
+    "adresse": "90 Boulevard de Charonne, 75020 Paris, France",
+    "lat": 48.853438,
+    "lng": 2.397126,
+    "note": 4.5,
+    "nb_avis": 658,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Antilock",
+    "adresse": "129 Rue de Montreuil, 75011 Paris, France",
+    "lat": 48.851234,
+    "lng": 2.397383,
+    "note": 4.8,
+    "nb_avis": 178,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Renault Montrouge - Groupe Losange Autos",
+    "adresse": "59 Av. Aristide Briand, 92120 Montrouge, France",
+    "lat": 48.81723,
+    "lng": 2.325794,
+    "note": 4.6,
+    "nb_avis": 1267,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "GARAGE DE L’ÉGLISE - CITROËN - PEUGEOT",
+    "adresse": "55 Bd de Vanves, 92320 Châtillon, France",
+    "lat": 48.806918,
+    "lng": 2.285477,
+    "note": 4.6,
+    "nb_avis": 330,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "MécaServices",
+    "adresse": "23 Rue Gabriel Péri, 92120 Montrouge, France",
+    "lat": 48.817919,
+    "lng": 2.322568,
+    "note": 4.8,
+    "nb_avis": 144,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "NEUBAUER // FIAT - ABARTH - JEEP - ALFA ROMEO // PARIS 15",
+    "adresse": "31 Rue Saint-Amand, 75015 Paris, France",
+    "lat": 48.834346,
+    "lng": 2.30871,
+    "note": 4.7,
+    "nb_avis": 867,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Celo Gaz",
+    "adresse": "12 Rue de Campo-Formio, 75013 Paris, France",
+    "lat": 48.833887,
+    "lng": 2.360818,
+    "note": 4.6,
+    "nb_avis": 205,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Garage des 2 moulins",
+    "adresse": "26 Rue du Maréchal Juin, 94700 Maisons-Alfort, France",
+    "lat": 48.815342,
+    "lng": 2.430207,
+    "note": 4.8,
+    "nb_avis": 218,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Top tint",
+    "adresse": "80 Rue Paul Vaillant Couturier, 94140 Alfortville, France",
+    "lat": 48.811041,
+    "lng": 2.416589,
+    "note": 4.8,
+    "nb_avis": 314,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Dans la station Total, 4 bis Av. de la Liberté, 94220 Charenton-le-Pont, France",
+    "lat": 48.821764,
+    "lng": 2.402384,
+    "note": 4.5,
+    "nb_avis": 137,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Dacia Maisons-Alfort - Groupe Sofibrie",
+    "adresse": "8 Av. du Professeur Cadiot, 94700 Maisons-Alfort, France",
+    "lat": 48.806026,
+    "lng": 2.429805,
+    "note": 4.9,
+    "nb_avis": 225,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Midas BOULOGNE PTE ST CLOUD",
+    "adresse": "22-24 Av. Édouard Vaillant, 92100 Boulogne-Billancourt, France",
+    "lat": 48.836708,
+    "lng": 2.252875,
+    "note": 4.2,
+    "nb_avis": 633,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "MOOVRIDER AUBERVILLIERS - Vente & Atelier de Réparation - Trottinettes & Vélos électriques - LES MOINS CHERS D'IDF SANS RDV",
+    "adresse": "17 Rue Régine Gosset, 93300 Aubervilliers, France",
+    "lat": 48.91618,
+    "lng": 2.375119,
+    "note": 4.7,
+    "nb_avis": 2046,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "RENAULT SERVICE PLUS",
+    "adresse": "111-115 Av. Jean Mermoz, 93120 La Courneuve, France",
+    "lat": 48.932635,
+    "lng": 2.40977,
+    "note": 4.7,
+    "nb_avis": 198,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Allocourroies",
+    "adresse": "17 Rue Lepilleur, 93120 La Courneuve, France",
+    "lat": 48.9234,
+    "lng": 2.410599,
+    "note": 4.9,
+    "nb_avis": 220,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Sl - jantes",
+    "adresse": "2 Rue René Thuillier, 93700 Drancy, France",
+    "lat": 48.927795,
+    "lng": 2.439746,
+    "note": 4.8,
+    "nb_avis": 334,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Abdapneu drancy",
+    "adresse": "55 Av. Jean Jaurès, 93700 Drancy, France",
+    "lat": 48.920934,
+    "lng": 2.449405,
+    "note": 4.8,
+    "nb_avis": 566,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "146 Av. Henri Barbusse, 93700 Drancy, France",
+    "lat": 48.920542,
+    "lng": 2.453095,
+    "note": 4.4,
+    "nb_avis": 378,
+    "cc": "Sarcelles",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "88 Rue d'Aulnay, 93270 Sevran, France",
+    "lat": 48.939858,
+    "lng": 2.514017,
+    "note": 4.7,
+    "nb_avis": 388,
+    "cc": "Sarcelles",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "First Stop",
+    "adresse": "30 Rue Lucien Chapelain, 93140 Bondy, France",
+    "lat": 48.912619,
+    "lng": 2.485664,
+    "note": 4.6,
+    "nb_avis": 463,
+    "cc": "Sarcelles",
+    "score": 11,
+    "reseau": "First stop"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "40 Av. de Rosny, 93250 Villemomble, France",
+    "lat": 48.885313,
+    "lng": 2.504121,
+    "note": 4.5,
+    "nb_avis": 488,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "DOCTEUR VAG SUR RDV SMS",
+    "adresse": "16 bis Rue Parmentier, 93110 Rosny-sous-Bois, France",
+    "lat": 48.877312,
+    "lng": 2.506335,
+    "note": 4.9,
+    "nb_avis": 875,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Dacia Villemomble - Groupe Autosphere",
+    "adresse": "25 Rte de Noisy, 93250 Villemomble, France",
+    "lat": 48.883187,
+    "lng": 2.497281,
+    "note": 4.8,
+    "nb_avis": 442,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AXIAL - Carrosserie des 3 Communes",
+    "adresse": "106 Av. de Rosny, 93250 Villemomble, France",
+    "lat": 48.883125,
+    "lng": 2.498986,
+    "note": 4.8,
+    "nb_avis": 204,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "3 Bd Aristide Briand, 93330 Neuilly-sur-Marne, France",
+    "lat": 48.854987,
+    "lng": 2.520211,
+    "note": 4.5,
+    "nb_avis": 444,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "AD Garage Expert MCA",
+    "adresse": "25 Rte de Montmorency, 95330 Domont, France",
+    "lat": 49.018222,
+    "lng": 2.315477,
+    "note": 4.5,
+    "nb_avis": 149,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Ad garage"
+  },
+  {
+    "nom": "ECOUEN AUTOMOBILES Garage Renault",
+    "adresse": "70 Rue du Maréchal Leclerc, 95440 Écouen, France",
+    "lat": 49.021842,
+    "lng": 2.384635,
+    "note": 4.9,
+    "nb_avis": 314,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Midas PIERREFITTE",
+    "adresse": "53-57 Bd Jean Mermoz Pierrefitte Sur Seine, 93380 Saint Denis, France",
+    "lat": 48.96805,
+    "lng": 2.364482,
+    "note": 4.3,
+    "nb_avis": 126,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "107 Rue du Luat, 95350 Saint-Brice-sous-Forêt, France",
+    "lat": 49.006154,
+    "lng": 2.353161,
+    "note": 4.5,
+    "nb_avis": 533,
+    "cc": "Sarcelles",
+    "score": 12,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas SAINT BRICE",
+    "adresse": "1 Av. Robert Schuman, 95350 Saint-Brice-sous-Forêt, France",
+    "lat": 49.006198,
+    "lng": 2.352859,
+    "note": 4.5,
+    "nb_avis": 215,
+    "cc": "Sarcelles",
+    "score": 12,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "L'Atelier d'Edmond by B2r",
+    "adresse": "27 Q Rue de la Gare, 95170 Deuil-la-Barre, France",
+    "lat": 48.975389,
+    "lng": 2.334992,
+    "note": 4.8,
+    "nb_avis": 141,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Diag Power , Spécialiste BM.W",
+    "adresse": "5 Rue Nadar, 95320 Saint-Leu-la-Forêt, France",
+    "lat": 49.003855,
+    "lng": 2.251434,
+    "note": 4.9,
+    "nb_avis": 324,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AD Garage Expert FRADIS SANNOIS GARAGE AD EXPERT",
+    "adresse": "173 Bd Gambetta, 95110 Sannois, France",
+    "lat": 48.979405,
+    "lng": 2.236506,
+    "note": 4.4,
+    "nb_avis": 195,
+    "cc": "Sarcelles",
+    "score": 13,
+    "reseau": "Garage ad"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Centre Cial Les Portes De Tave, 95150 Taverny, France",
+    "lat": 49.026767,
+    "lng": 2.20654,
+    "note": 4.4,
+    "nb_avis": 553,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas SANNOIS",
+    "adresse": "173 Bis Bd Gambetta, 95110 Sannois, France",
+    "lat": 48.979442,
+    "lng": 2.236867,
+    "note": 4.7,
+    "nb_avis": 595,
+    "cc": "Sarcelles",
+    "score": 12,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Clé de Voiture et Programmation Serruprogauto",
+    "adresse": "95320 Saint-Leu-la-Forêt, France",
+    "lat": 49.013301,
+    "lng": 2.242938,
+    "note": 5.0,
+    "nb_avis": 402,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "BG Automobiles",
+    "adresse": "136 Rue du 18 Juin, 95120 Ermont, France",
+    "lat": 48.993067,
+    "lng": 2.247313,
+    "note": 5.0,
+    "nb_avis": 384,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AUTOFILMS",
+    "adresse": "39 Bd Jean Allemane, 95100 Argenteuil, France",
+    "lat": 48.951481,
+    "lng": 2.253694,
+    "note": 4.9,
+    "nb_avis": 658,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Garage A.T.S",
+    "adresse": "Chem. des Glaisières, 95100 Argenteuil, France",
+    "lat": 48.964035,
+    "lng": 2.230516,
+    "note": 4.7,
+    "nb_avis": 205,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "RENAULT ENGHIEN MONTMORENCY - ROUSSEAU AUTOMOBILE",
+    "adresse": "150 Av. de la Division Leclerc, 95160 Montmorency, France",
+    "lat": 48.972788,
+    "lng": 2.310294,
+    "note": 4.5,
+    "nb_avis": 1343,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Volkswagen Garges-lès-Gonesse",
+    "adresse": "1 Rue Marcel Cerdan, 95140 Garges-lès-Gonesse, France",
+    "lat": 48.961926,
+    "lng": 2.402668,
+    "note": 4.5,
+    "nb_avis": 1643,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Point S - Saint-Ouen-l'Aumône (FTA)",
+    "adresse": "78 Rue de Paris, 95310 Saint-Ouen-l'Aumône, France",
+    "lat": 49.038084,
+    "lng": 2.118162,
+    "note": 4.9,
+    "nb_avis": 191,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "Point S - Auvers sur Oise (CFT AUTOMOBILES)",
+    "adresse": "11 Rue Parmentier, 95430 Auvers-sur-Oise, France",
+    "lat": 49.071334,
+    "lng": 2.15329,
+    "note": 4.6,
+    "nb_avis": 131,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "AS Autosécurité EUROPE CONTROLE GOUSSAINVILLE",
+    "adresse": "15 Rte de Roissy, 95190 Goussainville, France",
+    "lat": 49.012423,
+    "lng": 2.475461,
+    "note": 4.8,
+    "nb_avis": 351,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Tech Contrôle Auto 95",
+    "adresse": "8 Rue le Corbusier, 95190 Goussainville, France",
+    "lat": 49.019493,
+    "lng": 2.462482,
+    "note": 4.8,
+    "nb_avis": 151,
+    "cc": "Sarcelles",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "AD Garage Expert ABDA MECANIQUE",
+    "adresse": "24 Av. Albert Sarraut, 95190 Goussainville, France",
+    "lat": 49.026935,
+    "lng": 2.462337,
+    "note": 4.4,
+    "nb_avis": 76,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Ad garage"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Dans la station Total, 193 Rue Henri Barbusse, 95100 Argenteuil, France",
+    "lat": 48.932921,
+    "lng": 2.23255,
+    "note": 4.6,
+    "nb_avis": 352,
+    "cc": "Sarcelles",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Hauts de Seine Service",
+    "adresse": "17 Rue de Colombes, 92600 Asnières-sur-Seine, France",
+    "lat": 48.912571,
+    "lng": 2.284291,
+    "note": 4.8,
+    "nb_avis": 385,
+    "cc": "Sarcelles",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Renault Vitry-Sur-Seine - Groupe Autosphere",
+    "adresse": "21 Av. Eugène Pelletan, 94400 Vitry-sur-Seine, France",
+    "lat": 48.794684,
+    "lng": 2.384328,
+    "note": 4.4,
+    "nb_avis": 1380,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Froid Assistance Routier Frigotruck",
+    "adresse": "zone d'activité du plateau, 152 Rue Julian Grimau, 94400 Vitry-sur-Seine, France",
+    "lat": 48.77963,
+    "lng": 2.377963,
+    "note": 4.9,
+    "nb_avis": 94,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "GARAGE GENTILLY - Carrosserie et mécanique",
+    "adresse": "124 Rue Jean Jaurès, 94800 Villejuif, France",
+    "lat": 48.788781,
+    "lng": 2.366727,
+    "note": 4.5,
+    "nb_avis": 106,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "7ème AVENUE | Honda",
+    "adresse": "116 bis Bd Maxime Gorki, 94800 Villejuif, France",
+    "lat": 48.791996,
+    "lng": 2.369121,
+    "note": 4.6,
+    "nb_avis": 412,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "110 Bd Maxime Gorki, 94800 Villejuif, France",
+    "lat": 48.792672,
+    "lng": 2.369299,
+    "note": 4.3,
+    "nb_avis": 389,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Jumbo Pneus Villejuif",
+    "adresse": "8 Rue Jean Prouvé, 94800 Villejuif, France",
+    "lat": 48.7821,
+    "lng": 2.350397,
+    "note": 4.5,
+    "nb_avis": 736,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "GORKI AUTOBILAN",
+    "adresse": "10 Bd Maxime Gorki, 94800 Villejuif, France",
+    "lat": 48.798932,
+    "lng": 2.366812,
+    "note": 4.8,
+    "nb_avis": 307,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Centre Commercial Belle Epine, 94320 Thiais, France",
+    "lat": 48.756329,
+    "lng": 2.371236,
+    "note": 4.3,
+    "nb_avis": 205,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Formycar - Garage Auto 94",
+    "adresse": "2 Rue Gaston Monmousseau, 94200 Ivry-sur-Seine, France",
+    "lat": 48.80748,
+    "lng": 2.378135,
+    "note": 4.7,
+    "nb_avis": 319,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Hyundai Kremlin-Bicêtre - BPM Cars",
+    "adresse": "145 Av. de Fontainebleau, 94270 Le Kremlin-Bicêtre, France",
+    "lat": 48.807224,
+    "lng": 2.363389,
+    "note": 4.7,
+    "nb_avis": 672,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "RENAULT/DACIA Agent JMG AUTOMOBILES",
+    "adresse": "42 Rue des Mèches, 94000 Créteil, France",
+    "lat": 48.79163,
+    "lng": 2.455787,
+    "note": 4.8,
+    "nb_avis": 151,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Dacia Créteil - Groupe Autosphere",
+    "adresse": "37 bis Rue de Valenton, 94000 Créteil, France",
+    "lat": 48.790396,
+    "lng": 2.438405,
+    "note": 4.9,
+    "nb_avis": 561,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "JC AUTO - EUROREPAR CAR SERVICE",
+    "adresse": "81 Av. Marie-Claude Vaillant Couturier, 94380 Bonneuil-sur-Marne, France",
+    "lat": 48.776505,
+    "lng": 2.480501,
+    "note": 4.5,
+    "nb_avis": 68,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "ABSOLU | Honda",
+    "adresse": "18 Av. Henri Barbusse, 94460 Valenton, France",
+    "lat": 48.762434,
+    "lng": 2.442537,
+    "note": 4.6,
+    "nb_avis": 542,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "VM Automobile",
+    "adresse": "127 Bis Quai de la Pie, 94100 Saint-Maur-des-Fossés, France",
+    "lat": 48.784892,
+    "lng": 2.48573,
+    "note": 4.8,
+    "nb_avis": 100,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "GARAGE LE TOLIER",
+    "adresse": "5 Av. Danville, 94600 Choisy-le-Roi, France",
+    "lat": 48.75728,
+    "lng": 2.424086,
+    "note": 4.7,
+    "nb_avis": 122,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "31 Rue de la Varenne, 94100 Saint-Maur-des-Fossés, France",
+    "lat": 48.80757,
+    "lng": 2.474215,
+    "note": 4.2,
+    "nb_avis": 349,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Point S - Saint-Maur-des-Fossés (TVTB)",
+    "adresse": "2 Bd Rabelais, 94100 Saint-Maur-des-Fossés, France",
+    "lat": 48.807071,
+    "lng": 2.475688,
+    "note": 4.5,
+    "nb_avis": 254,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "Atelier des chevrons",
+    "adresse": "5 ter Av. de la Sablière, 94450 Limeil-Brévannes, France",
+    "lat": 48.757715,
+    "lng": 2.490835,
+    "note": 4.8,
+    "nb_avis": 136,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Diag Auto Services - Bosch Car Service",
+    "adresse": "41 Av. de l'Abbé Sieyès, 91560 Crosnes, France",
+    "lat": 48.724154,
+    "lng": 2.45564,
+    "note": 4.5,
+    "nb_avis": 270,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Bosch car service"
+  },
+  {
+    "nom": "Midas SUCY EN BRIE",
+    "adresse": "46-48 Av. Winston Churchill, 94370 Sucy-en-Brie, France",
+    "lat": 48.767871,
+    "lng": 2.523841,
+    "note": 4.2,
+    "nb_avis": 222,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Réparateur agréé Volkswagen & VW Véhicules Utilitaires - Garage Rabès - Villeneuve-St-Georges",
+    "adresse": "21 Rue Diderot, 94190 Villeneuve-Saint-Georges, France",
+    "lat": 48.736712,
+    "lng": 2.448916,
+    "note": 4.8,
+    "nb_avis": 425,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "C2J",
+    "adresse": "3 Av. de la Carelle, 94290 Villeneuve-le-Roi, France",
+    "lat": 48.736872,
+    "lng": 2.429093,
+    "note": 4.8,
+    "nb_avis": 62,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Carrosserie Falcon",
+    "adresse": "51 Av. de l'Abbé Sieyès, 91560 Crosne, France",
+    "lat": 48.724505,
+    "lng": 2.454485,
+    "note": 4.8,
+    "nb_avis": 226,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Adr Conseil Formation",
+    "adresse": "112 Av. Roger Salengro, 94500 Champigny-sur-Marne, France",
+    "lat": 48.817229,
+    "lng": 2.495338,
+    "note": 4.9,
+    "nb_avis": 190,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "MANATEGO GARAGE AD EXPERT",
+    "adresse": "14 Av. Beauregard, 94500 Champigny-sur-Marne, France",
+    "lat": 48.816452,
+    "lng": 2.548851,
+    "note": 4.4,
+    "nb_avis": 291,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Garage ad"
+  },
+  {
+    "nom": "AD Garage Expert LE CLUB AUTOMOBILE",
+    "adresse": "Rue du Centre 114 C, 94490 Ormesson-sur-Marne, France",
+    "lat": 48.786159,
+    "lng": 2.530228,
+    "note": 4.6,
+    "nb_avis": 140,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Ad garage"
+  },
+  {
+    "nom": "RMP Workshop",
+    "adresse": "8 Rue de Paris, 92190 Meudon, France",
+    "lat": 48.816625,
+    "lng": 2.247366,
+    "note": 4.9,
+    "nb_avis": 299,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "First Stop Boulogne-Billancourt",
+    "adresse": "117 Rte de la Reine, 92100 Boulogne-Billancourt, France",
+    "lat": 48.840254,
+    "lng": 2.23217,
+    "note": 4.4,
+    "nb_avis": 231,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "First stop"
+  },
+  {
+    "nom": "Renault - Garage Des Roses",
+    "adresse": "17 Av. Jean Moulin, 92260 Fontenay-aux-Roses, France",
+    "lat": 48.787042,
+    "lng": 2.287607,
+    "note": 4.8,
+    "nb_avis": 214,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Rapide Carte Grise - AUTO 20 - CARTES GRISES/PLAQUES IMMATRICULATION/PLAQUES ROSES WW ET W GARAGE",
+    "adresse": "41 Rue Fernand Enguehard, 92220 Bagneux, France",
+    "lat": 48.797221,
+    "lng": 2.308551,
+    "note": 4.9,
+    "nb_avis": 239,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Garage de la Mairie CHÂTILLON / EUROREPAR CAR SERVICE",
+    "adresse": "36 Rue de la Mairie, 92320 Châtillon, France",
+    "lat": 48.800696,
+    "lng": 2.286907,
+    "note": 4.7,
+    "nb_avis": 138,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "Eurorepar Ets Eurauto",
+    "adresse": "84 Rte du Pavé Blanc, 92140 Clamart, France",
+    "lat": 48.785749,
+    "lng": 2.237772,
+    "note": 4.6,
+    "nb_avis": 237,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "Sécuritest - Sarl hycotec",
+    "adresse": "81 Rue Jean Baptiste Clément, 92290 Châtenay-Malabry, France",
+    "lat": 48.759165,
+    "lng": 2.270387,
+    "note": 4.6,
+    "nb_avis": 617,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "548 Avenue du Général de Gaulle, 92140 Clamart, France",
+    "lat": 48.777242,
+    "lng": 2.230696,
+    "note": 4.2,
+    "nb_avis": 735,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "157 Av. de la Division Leclerc, 92290 Châtenay-Malabry, France",
+    "lat": 48.763115,
+    "lng": 2.277497,
+    "note": 4.3,
+    "nb_avis": 272,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Garage L.r.m",
+    "adresse": "68 Rue Boucicaut, 92260 Fontenay-aux-Roses, France",
+    "lat": 48.791851,
+    "lng": 2.286123,
+    "note": 4.8,
+    "nb_avis": 230,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "CARROSSERIE MECANIQUE DE L'EUROPE",
+    "adresse": "5 Rue du Saule Trapu, 91300 Massy, France",
+    "lat": 48.72845,
+    "lng": 2.301424,
+    "note": 4.9,
+    "nb_avis": 110,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "112 Av. Charles de Gaulle, 91420 Morangis, France",
+    "lat": 48.705323,
+    "lng": 2.344521,
+    "note": 4.4,
+    "nb_avis": 155,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Point s"
+  },
+  {
+    "nom": "Renault / Dacia Athis-Mons - Athis Nationale 7",
+    "adresse": "105 Av. François Mitterrand, 91200 Athis-Mons, France",
+    "lat": 48.7065,
+    "lng": 2.371328,
+    "note": 4.8,
+    "nb_avis": 350,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "214 Av. Henri Barbusse, 91270 Vigneux-sur-Seine, France",
+    "lat": 48.704483,
+    "lng": 2.436268,
+    "note": 4.3,
+    "nb_avis": 274,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Midas VILLEMOISSON",
+    "adresse": "60 Rte de Corbeil, 91360 Villemoisson-sur-Orge, France",
+    "lat": 48.660577,
+    "lng": 2.340341,
+    "note": 4.5,
+    "nb_avis": 362,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Cc Champion, Rte de Corbeil, 91360 Épinay-sur-Orge, France",
+    "lat": 48.670696,
+    "lng": 2.331496,
+    "note": 4.4,
+    "nb_avis": 454,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Audi Espace Paris Sud - Aliantis concessionnaire Audi Viry-Châtillon",
+    "adresse": "93 Av. du Général de Gaulle, 91170 Viry-Châtillon, France",
+    "lat": 48.678947,
+    "lng": 2.381427,
+    "note": 4.6,
+    "nb_avis": 541,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "36 Rte de Corbeil, 91700 Sainte-Geneviève-des-Bois, France",
+    "lat": 48.648471,
+    "lng": 2.335974,
+    "note": 4.5,
+    "nb_avis": 416,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "20 Rue Albert Rémy, 91130 Ris-Orangis, France",
+    "lat": 48.656714,
+    "lng": 2.408716,
+    "note": 4.3,
+    "nb_avis": 280,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "221 Rte de Fleury, 91170 Viry-Châtillon, France",
+    "lat": 48.648853,
+    "lng": 2.367208,
+    "note": 4.4,
+    "nb_avis": 391,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Mécanique Automobile Multiservices (EUROREPAR)",
+    "adresse": "14 Rue du Plessis Briard, 91080 Évry-Courcouronnes, France",
+    "lat": 48.63222,
+    "lng": 2.408875,
+    "note": 4.8,
+    "nb_avis": 74,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "AXIS AUTO",
+    "adresse": "8 Rue du Plessis Briard, 91080 Évry-Courcouronnes, France",
+    "lat": 48.631175,
+    "lng": 2.410527,
+    "note": 4.9,
+    "nb_avis": 685,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "16 Rue de l'Université, 93160 Noisy-le-Grand, France",
+    "lat": 48.837186,
+    "lng": 2.560433,
+    "note": 4.4,
+    "nb_avis": 700,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Garage des 3JD Agent - Bosch Car Service",
+    "adresse": "63 Av. Jean Kiffer, 94420 Le Plessis-Trévise, France",
+    "lat": 48.806218,
+    "lng": 2.580183,
+    "note": 4.7,
+    "nb_avis": 79,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Bosch car service"
+  },
+  {
+    "nom": "Eurorepar Garage De La Tannerie",
+    "adresse": "23 Rue Ploix, 78000 Versailles, France",
+    "lat": 48.794725,
+    "lng": 2.144249,
+    "note": 4.8,
+    "nb_avis": 91,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "Midas VERSAILLES",
+    "adresse": "48 Rue du Pont Colbert, 78350 Versailles, France",
+    "lat": 48.789719,
+    "lng": 2.148352,
+    "note": 4.7,
+    "nb_avis": 895,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Midas VILLEMOISSON",
+    "adresse": "60 Rte de Corbeil, 91360 Villemoisson-sur-Orge, France",
+    "lat": 48.660577,
+    "lng": 2.340341,
+    "note": 4.5,
+    "nb_avis": 362,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Cc Champion, Rte de Corbeil, 91360 Épinay-sur-Orge, France",
+    "lat": 48.670696,
+    "lng": 2.331496,
+    "note": 4.4,
+    "nb_avis": 454,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Audi Espace Paris Sud - Aliantis concessionnaire Audi Viry-Châtillon",
+    "adresse": "93 Av. du Général de Gaulle, 91170 Viry-Châtillon, France",
+    "lat": 48.678947,
+    "lng": 2.381427,
+    "note": 4.6,
+    "nb_avis": 541,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "36 Rte de Corbeil, 91700 Sainte-Geneviève-des-Bois, France",
+    "lat": 48.648471,
+    "lng": 2.335974,
+    "note": 4.5,
+    "nb_avis": 416,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "20 Rue Albert Rémy, 91130 Ris-Orangis, France",
+    "lat": 48.656714,
+    "lng": 2.408716,
+    "note": 4.3,
+    "nb_avis": 280,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "221 Rte de Fleury, 91170 Viry-Châtillon, France",
+    "lat": 48.648853,
+    "lng": 2.367208,
+    "note": 4.4,
+    "nb_avis": 391,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Mécanique Automobile Multiservices (EUROREPAR)",
+    "adresse": "14 Rue du Plessis Briard, 91080 Évry-Courcouronnes, France",
+    "lat": 48.63222,
+    "lng": 2.408875,
+    "note": 4.8,
+    "nb_avis": 74,
+    "cc": "Thiais",
+    "score": 11,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "AXIS AUTO",
+    "adresse": "8 Rue du Plessis Briard, 91080 Évry-Courcouronnes, France",
+    "lat": 48.631175,
+    "lng": 2.410527,
+    "note": 4.9,
+    "nb_avis": 685,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Indépendant"
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "16 Rue de l'Université, 93160 Noisy-le-Grand, France",
+    "lat": 48.837186,
+    "lng": 2.560433,
+    "note": 4.4,
+    "nb_avis": 700,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Speedy"
+  },
+  {
+    "nom": "Garage des 3JD Agent - Bosch Car Service",
+    "adresse": "63 Av. Jean Kiffer, 94420 Le Plessis-Trévise, France",
+    "lat": 48.806218,
+    "lng": 2.580183,
+    "note": 4.7,
+    "nb_avis": 79,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Bosch car service"
+  },
+  {
+    "nom": "Eurorepar Garage De La Tannerie",
+    "adresse": "23 Rue Ploix, 78000 Versailles, France",
+    "lat": 48.794725,
+    "lng": 2.144249,
+    "note": 4.8,
+    "nb_avis": 91,
+    "cc": "Thiais",
+    "score": 9,
+    "reseau": "Eurorepar"
+  },
+  {
+    "nom": "Midas VERSAILLES",
+    "adresse": "48 Rue du Pont Colbert, 78350 Versailles, France",
+    "lat": 48.789719,
+    "lng": 2.148352,
+    "note": 4.7,
+    "nb_avis": 895,
+    "cc": "Thiais",
+    "score": 10,
+    "reseau": "Midas"
+  }
+];
+
 const FEATURED_PARTNER_GARAGES = {
   "13": {
     type: "multi_garages",
@@ -3141,11 +5808,25 @@ if (featuredGarage) {
 
     // CAS AVEC COORDS — CC le plus proche sélectionné
     const distCC = selectedCC.dist ? ` (~${Math.round(selectedCC.dist)} km)` : "";
-    const garagesBloc = (selectedCC.garages || []).map(g =>
-      `• **${g.nom}** — ${g.adresse}\n` +
-      `  📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")})` +
-      (g.note ? ` · ${g.note}⭐ *(${g.avis} avis)*` : "")
-    ).join("\n\n");
+    // Sélection dynamique des 5 garages les plus proches de l'utilisateur
+    const poolGarages = typeof IDF_GARAGE_POOL !== "undefined" ? IDF_GARAGE_POOL : [];
+    let garagesProches = [];
+    if (userLat && userLng && poolGarages.length > 0) {
+      garagesProches = poolGarages
+        .map(g => ({ ...g, dist: haversineKm(userLat, userLng, g.lat, g.lng) }))
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, 5);
+    } else {
+      // Fallback : garages statiques du CC sélectionné
+      garagesProches = (selectedCC.garages || []).map(g => ({ ...g, dist: null }));
+    }
+    const garagesBloc = garagesProches.map(g => {
+      const distLabel = g.dist != null ? ` *(~${Math.round(g.dist)} km)*` : "";
+      const telFormatted = g.tel ? g.tel.replace(/[\s.]/g, "") : null;
+      return `• **${g.nom}** — ${g.adresse}${distLabel}\n` +
+        (telFormatted ? `  📞 [${g.tel}](tel:${telFormatted})` : "") +
+        (g.note ? ` · ${g.note}⭐ *(${g.nb_avis || g.avis} avis)*` : "");
+    }).join("\n\n");
 
     if (demontage === "self") {
       // IDF + self removal
@@ -5640,34 +8321,3 @@ if (deptCheck && (!lastExtracted.demontage || lastExtracted.demontage === "unkno
     return res.status(500).json({ error: "Erreur serveur interne", details: error.message });
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
