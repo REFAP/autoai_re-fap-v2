@@ -2871,7 +2871,7 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
     return [
       `⚠️ Pour bénéficier du nettoyage Re-FAP certifié, le garage doit impérativement`,
       `déposer ton FAP directement chez **${nomCC}**. C'est la seule façon d'obtenir`,
-      `un nettoyage Re-FAP en machine (suies + cendres) avec garantie.`,
+      `un nettoyage Re-FAP en machine (suies + cendres) **garanti 1 an**.`,
       ``,
       `Si ton garage te propose autre chose (additif, nettoyage sur place, karcher…),`,
       `demande-lui de contacter Re-FAP directement :`,
