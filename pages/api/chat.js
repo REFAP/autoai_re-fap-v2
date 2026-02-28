@@ -1906,11 +1906,11 @@ const FEATURED_PARTNER_GARAGES = {
         tarif: "99€ DV6 sans cata / 149€ avec cata (FAP déposé)",
         delai: "4h sur place",
         garages: [
-          { nom: "Garage Voitex",       adresse: "75 Rue Jean Jaurès, 93240 Stains",                tel: "01 49 51 48 34", note: "4.6", avis: 112 },
-          { nom: "Garage Auto Concept", adresse: "93800 Épinay-sur-Seine",                          tel: "01 48 26 80 23", note: "4.9", avis: 329 },
-          { nom: "Garage Des Pros",     adresse: "93350 Le Bourget",                                tel: "07 49 64 40 57", note: "4.8", avis: 87  },
-          { nom: "Planet Auto",         adresse: "80 Av. de la République, 93800 Épinay-sur-Seine", tel: "01 49 98 14 20", note: "4.5", avis: 213 },
-          { nom: "AAD93",               adresse: "108 Av. Marceau, 93700 Drancy",                   tel: "01 57 14 34 82", note: "4.8", avis: 98  }
+          { nom: "Garage Voitex",       adresse: "75 Rue Jean Jaurès, 93240 Stains",                tel: "01 49 51 48 34", note: "4.6", avis: 112, lat: 48.9382, lng: 2.3534 },
+          { nom: "Garage Auto Concept", adresse: "93800 Épinay-sur-Seine",                          tel: "01 48 26 80 23", note: "4.9", avis: 329, lat: 48.9567, lng: 2.3127 },
+          { nom: "Garage Des Pros",     adresse: "93350 Le Bourget",                                tel: "07 49 64 40 57", note: "4.8", avis: 87,  lat: 48.9283, lng: 2.4333 },
+          { nom: "Planet Auto",         adresse: "80 Av. de la République, 93800 Épinay-sur-Seine", tel: "01 49 98 14 20", note: "4.5", avis: 213, lat: 48.9558, lng: 2.3090 },
+          { nom: "AAD93",               adresse: "108 Av. Marceau, 93700 Drancy",                   tel: "01 57 14 34 82", note: "4.8", avis: 98,  lat: 48.9271, lng: 2.4563 }
         ]
       },
       {
@@ -1923,11 +1923,11 @@ const FEATURED_PARTNER_GARAGES = {
         tarif: "99€ DV6 sans cata / 149€ avec cata (FAP déposé)",
         delai: "4h sur place",
         garages: [
-          { nom: "Garage M Perf",             adresse: "66 Rue Gabriel Péri, 94240 L'Haÿ-les-Roses",       tel: "01 82 01 51 01", note: "4.7", avis: 145 },
-          { nom: "Garage de Thiais",          adresse: "109 Av. Général de Gaulle, 94320 Thiais",           tel: "01 48 52 10 50", note: "4.5", avis: 93  },
-          { nom: "Fix A Car",                 adresse: "18 All. de Bretagne, 94320 Thiais",                 tel: "07 51 48 31 81", note: "4.6", avis: 78  },
-          { nom: "Formycar - Garage Auto 94", adresse: "2 Rue Gaston Monmousseau, 94200 Ivry-sur-Seine",   tel: "01 53 14 07 85", note: "4.7", avis: 319 },
-          { nom: "Garage Le Tolier",          adresse: "5 Av. Danville, 94600 Choisy-le-Roi",               tel: "01 48 92 69 12", note: "4.7", avis: 122 }
+          { nom: "Garage M Perf",             adresse: "66 Rue Gabriel Péri, 94240 L'Haÿ-les-Roses",       tel: "01 82 01 51 01", note: "4.7", avis: 145, lat: 48.7756, lng: 2.3385 },
+          { nom: "Garage de Thiais",          adresse: "109 Av. Général de Gaulle, 94320 Thiais",           tel: "01 48 52 10 50", note: "4.5", avis: 93,  lat: 48.7646, lng: 2.3901 },
+          { nom: "Fix A Car",                 adresse: "18 All. de Bretagne, 94320 Thiais",                 tel: "07 51 48 31 81", note: "4.6", avis: 78,  lat: 48.7640, lng: 2.3878 },
+          { nom: "Formycar - Garage Auto 94", adresse: "2 Rue Gaston Monmousseau, 94200 Ivry-sur-Seine",   tel: "01 53 14 07 85", note: "4.7", avis: 319, lat: 48.8142, lng: 2.3839 },
+          { nom: "Garage Le Tolier",          adresse: "5 Av. Danville, 94600 Choisy-le-Roi",               tel: "01 48 92 69 12", note: "4.7", avis: 122, lat: 48.7635, lng: 2.4194 }
         ]
       }
     ]
@@ -2415,10 +2415,101 @@ async function findNearestGarages(supabase, refLat, refLng, maxKm = 80, maxResul
   }
 }
 // ============================================================
+// VILLE_ALIASES — Fautes de frappe et abréviations courantes → nom canonique
+// ============================================================
+const VILLE_ALIASES = {
+  "versaille": "versailles",
+  "versailes": "versailles",
+  "versaille": "versailles",
+  "st denis": "saint-denis",
+  "st germain": "saint-germain-en-laye",
+  "levalloi": "levallois-perret",
+  "levallois": "levallois-perret",
+  "neuilly": "neuilly-sur-seine",
+  "boulogne": "boulogne-billancourt",
+  "issy": "issy-les-moulineaux",
+  "asnieres": "asnieres-sur-seine",
+  "colombes": "colombes",
+  "nanterre": "nanterre",
+  "courbevoie": "courbevoie",
+  "puteaux": "puteaux",
+  "rueil": "rueil-malmaison",
+  "massy": "massy",
+  "palaiseau": "palaiseau",
+  "gif": "gif-sur-yvette",
+  "orsay": "orsay",
+  "chatou": "chatou",
+  "poissy": "poissy",
+  "rambouillet": "rambouillet",
+  "montreuil": "montreuil",
+  "bobigny": "bobigny",
+  "creteil": "creteil",
+  "evry": "evry",
+  "pontoise": "pontoise",
+  "meaux": "meaux",
+  "melun": "melun",
+  "cergy": "cergy",
+  "argenteuil": "argenteuil",
+  "sartrouville": "sartrouville",
+  "nogent": "nogent-sur-marne",
+  "vincennes": "vincennes",
+  "fontenay": "fontenay-sous-bois",
+  "vitry": "vitry-sur-seine",
+  "ivry": "ivry-sur-seine",
+  "choisy": "choisy-le-roi",
+  "villeneuve st georges": "villeneuve-saint-georges",
+  "villeneuve saint georges": "villeneuve-saint-georges",
+  "rosny": "rosny-sous-bois",
+  "aulnay": "aulnay-sous-bois",
+  "sevran": "sevran",
+  "bondy": "bondy",
+  "pantin": "pantin",
+  "aubervilliers": "aubervilliers",
+  "saint ouen": "saint-ouen",
+  "st ouen": "saint-ouen",
+  "gennevilliers": "gennevilliers",
+  "villiers": "villiers-sur-marne",
+  "champigny": "champigny-sur-marne",
+  "maisons alfort": "maisons-alfort",
+  "alfortville": "alfortville",
+  "antony": "antony",
+  "clamart": "clamart",
+  "montrouge": "montrouge",
+  "chatillon": "chatillon",
+  "malakoff": "malakoff",
+  "sceaux": "sceaux",
+  "cachan": "cachan",
+  "arcueil": "arcueil",
+  "villejuif": "villejuif",
+  "kremlin bicetre": "le-kremlin-bicetre",
+  "kremlin-bicetre": "le-kremlin-bicetre",
+  "toulouse": "toulouse",
+  "toulous": "toulouse",
+  "marseil": "marseille",
+  "marseile": "marseille",
+  "bordeau": "bordeaux",
+  "bordaux": "bordeaux",
+  "lile": "lille",
+  "lilles": "lille",
+  "nante": "nantes",
+  "nantes": "nantes",
+  "lyon": "lyon",
+  "lyo": "lyon",
+};
+
+// Applique les alias ville sur un input normalisé (sans accents, lowercase)
+function applyVilleAlias(normalized) {
+  return VILLE_ALIASES[normalized] || normalized;
+}
+
+// ============================================================
 // extractDeptFromInput — Détection département depuis input utilisateur
 // ============================================================
 function extractDeptFromInput(input) {
-  const t = input.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  let t = input.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  // Appliquer les alias ville (fautes de frappe courantes)
+  const tAlias = applyVilleAlias(t.replace(/-/g, " ").replace(/\s+/g, " "));
+  if (tAlias !== t.replace(/-/g, " ").replace(/\s+/g, " ")) t = tAlias;
   if (/^\d{6,}$/.test(t)) return null;
   if (/^\d{5}$/.test(t) && parseInt(t) >= 99000) return null;
 
@@ -2542,6 +2633,10 @@ function cleanVilleInput(message) {
   if (/\bclermont\b/.test(tLow) && !/\boise\b/.test(tLow)) return "Clermont-Ferrand";
   if (/\bst[- ]etienne\b|saint[- ]etienne\b/.test(tLow)) return "Saint-Étienne";
   if (/\bst[- ]nazaire\b|saint[- ]nazaire\b/.test(tLow)) return "Saint-Nazaire";
+
+  // Alias ville (fautes de frappe courantes) — ex: "versaille" → "versailles"
+  const aliasKey = tLow.replace(/-/g, " ").replace(/\s+/g, " ").trim();
+  if (VILLE_ALIASES[aliasKey]) return capitalizeVille(VILLE_ALIASES[aliasKey]);
 
   ville = ville
     .replace(/^(je suis |j'habite |j'suis |jsuis |je vis |je me trouve |on est |nous sommes |moi c'est |c'est |ici c'est |je veux |je voudrais |je cherche |j'aimerais |mon garage |mon garagiste )/i, "")
@@ -2817,8 +2912,9 @@ function detectDemontageFromHistory(history) {
 // ============================================================
 async function buildLocationOrientationResponse(supabase, extracted, metier, ville, history) {
   const dept = extractDeptFromInput(ville);
-  const villeNorm = (ville || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  const cityGps = CITY_GPS[villeNorm] || CITY_GPS[villeNorm.replace(/ /g, "-")] || CITY_GPS[villeNorm.replace(/-/g, " ")] || null;
+  const villeNormRaw = (ville || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const villeNorm = applyVilleAlias(villeNormRaw.replace(/-/g, " ").replace(/\s+/g, " ")).replace(/ /g, "-");
+  const cityGps = CITY_GPS[villeNorm] || CITY_GPS[villeNorm.replace(/-/g, " ")] || CITY_GPS[villeNormRaw] || CITY_GPS[villeNormRaw.replace(/ /g, "-")] || CITY_GPS[villeNormRaw.replace(/-/g, " ")] || null;
 
   const refLat = cityGps?.lat || (dept && DEPT_CENTROIDS[dept]?.lat) || null;
   const refLng = cityGps?.lng || (dept && DEPT_CENTROIDS[dept]?.lng) || null;
@@ -3140,16 +3236,31 @@ if (featuredGarage) {
     }
 
     // CAS AVEC COORDS — CC le plus proche sélectionné
-    const distCC = selectedCC.dist ? ` (~${Math.round(selectedCC.dist)} km)` : "";
-    const garagesBloc = (selectedCC.garages || []).map(g =>
-      `• **${g.nom}** — ${g.adresse}\n` +
-      `  📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")})` +
-      (g.note ? ` · ${g.note}⭐ *(${g.avis} avis)*` : "")
-    ).join("\n\n");
+    const distCCkm = selectedCC.dist ? Math.round(selectedCC.dist) : null;
+    const distCC = distCCkm ? ` (~${distCCkm} km)` : "";
+    const distCCContexte = (distCCkm && distCCkm > 20 && villeDisplay)
+      ? `📍 **${selectedCC.nom}** (~${distCCkm} km) est le centre Re-FAP le plus proche de ${villeDisplay}.\n\n`
+      : "";
+
+    // Trier les garages par distance à l'utilisateur (pas au CC)
+    let garagesSorted = [...(selectedCC.garages || [])];
+    if (userLat && userLng) {
+      garagesSorted = garagesSorted.map(g => ({
+        ...g,
+        distUser: (g.lat && g.lng) ? haversineKm(userLat, userLng, g.lat, g.lng) : 9999,
+      })).sort((a, b) => a.distUser - b.distUser);
+    }
+    const garagesBloc = garagesSorted.map(g => {
+      const distGarage = (g.distUser && g.distUser < 9999) ? ` (~${Math.round(g.distUser)} km)` : "";
+      return `• **${g.nom}**${distGarage} — ${g.adresse}\n` +
+        `  📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")})` +
+        (g.note ? ` · ${g.note}⭐ *(${g.avis} avis)*` : "");
+    }).join("\n\n");
 
     if (demontage === "self") {
       // IDF + self removal
       replyClean =
+        distCCContexte +
         `✅ **${selectedCC.nom}**${distCC} est équipé de la machine Re-FAP — nettoyage en ${selectedCC.delai}.\n` +
         `📍 ${selectedCC.adresse}\n` +
         `💶 Tarifs : ${selectedCC.tarif}\n` +
@@ -3166,6 +3277,7 @@ if (featuredGarage) {
     } else {
       // IDF + garage partenaire
       replyClean =
+        distCCContexte +
         `✅ **${selectedCC.nom}**${distCC} est équipé de la machine Re-FAP — nettoyage en ${selectedCC.delai}.\n` +
         `📍 ${selectedCC.adresse}\n` +
         `💶 Tarifs : ${selectedCC.tarif} *(dépose/repose non incluse)*\n` +
