@@ -2230,6 +2230,17 @@ const DEPT_CENTROIDS = {
   "93":{lat:48.91,lng:2.48},"94":{lat:48.77,lng:2.47},"95":{lat:49.08,lng:2.17},
 };
 
+// getDeptFromGeo — trouve le département le plus proche d'un point GPS
+function getDeptFromGeo(lat, lng) {
+  let bestDept = null;
+  let bestDist = Infinity;
+  for (const [dept, c] of Object.entries(DEPT_CENTROIDS)) {
+    const d = Math.sqrt((lat - c.lat) ** 2 + (lng - c.lng) ** 2);
+    if (d < bestDist) { bestDist = d; bestDept = dept; }
+  }
+  return bestDept;
+}
+
 // ============================================================
 // Fonctions GPS : Haversine + Recherche par proximité
 // ============================================================
@@ -4685,7 +4696,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
 
   try {
-    const { message, session_id, history = [] } = req.body;
+    const { message, session_id, history = [], geo } = req.body;
     if (!message || typeof message !== "string") return res.status(400).json({ error: "Message requis" });
     if (!session_id || typeof session_id !== "string") return res.status(400).json({ error: "session_id requis" });
 
@@ -4763,6 +4774,18 @@ export default async function handler(req, res) {
       const moyenneCertitude = ["perte_puissance", "code_p0420", "voyant_moteur_seul", "fumee", "fumee_noire", "fumee_blanche"];
       if (hauteCertitude.includes(merged)) lastExtracted.certitude_fap = "haute";
       else if (moyenneCertitude.includes(merged) && lastExtracted.certitude_fap !== "haute") lastExtracted.certitude_fap = "moyenne";
+    }
+
+    // GEO : si le frontend envoie des coordonnées GPS, résoudre le département
+    if (geo && geo.lat && geo.lng) {
+      lastExtracted.geo = { lat: geo.lat, lng: geo.lng };
+      if (!lastExtracted.departement) {
+        lastExtracted.departement = getDeptFromGeo(geo.lat, geo.lng);
+      }
+      if (!lastExtracted.ville) {
+        const fg = FEATURED_PARTNER_GARAGES[lastExtracted.departement];
+        lastExtracted.ville = (fg && fg.ville) || lastExtracted.departement;
+      }
     }
 
     const userTurns = countUserTurns(history) + 1;
@@ -4905,6 +4928,15 @@ if (lastExtracted.demontage === "self" &&
         return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, garageVille, history));
       }
       return sendResponse(garageResp);
+    }
+
+    // ========================================
+    // OVERRIDE GEO : Géolocalisation frontend (bouton 📍 Me localiser)
+    // Si geo est présent, la ville/dept a déjà été résolue dans lastExtracted
+    // → aller directement à l'orientation localisation
+    // ========================================
+    if (geo && geo.lat && geo.lng && lastExtracted.ville) {
+      return sendResponse(await buildLocationOrientationResponse(supabase, lastExtracted, metier, lastExtracted.ville, history));
     }
 
     // ========================================

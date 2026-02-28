@@ -153,7 +153,7 @@ export default function Home() {
   // --------------------------------------------------------
   // ENVOI MESSAGE
   // --------------------------------------------------------
-  const sendMessage = async (messageText) => {
+  const sendMessage = async (messageText, geo = null) => {
     const userMessage = typeof messageText === "string" ? messageText : input.trim();
     if (!userMessage || isLoading || !sessionId) return;
 
@@ -173,15 +173,18 @@ export default function Home() {
         raw: msg.raw || undefined,
       }));
 
+      const payload = {
+        message: userMessage,
+        session_id: sessionId,
+        history: historyForApi,
+        ...(geo && { geo }),
+      };
+
       const response = await fetch("/api/chat", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage,
-          session_id: sessionId,
-          history: historyForApi,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -257,6 +260,31 @@ export default function Home() {
   const quickReplies = isLoading ? null
     : showFormCTA ? null
     : dynamicReplies || getStaticQuickReplies(messages, showFormCTA);
+
+  // Géolocalisation : afficher le bouton quand le bot demande la ville
+  const showGeoButton = (() => {
+    if (isLoading || showFormCTA) return false;
+    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+    if (!lastAssistant) return false;
+    const content = (lastAssistant.raw || lastAssistant.content || "").toLowerCase();
+    return content.includes("dans quel coin") || content.includes("quel coin");
+  })();
+
+  const handleGeolocClick = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const geo = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        sendMessage("ma position", geo);
+      },
+      (error) => {
+        console.log("Géoloc refusée:", error);
+      }
+    );
+  };
 
   // --------------------------------------------------------
   // RENDER
@@ -352,6 +380,16 @@ export default function Home() {
                   {qr.label}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* BOUTON GÉOLOCALISATION */}
+          {showGeoButton && (
+            <div className="quick-replies">
+              <button onClick={handleGeolocClick} className="geo-btn">
+                📍 Me localiser automatiquement
+              </button>
+              <p className="geo-hint">pour trouver le Carter-Cash le plus proche</p>
             </div>
           )}
 
@@ -598,6 +636,29 @@ word-break: break-word;
         .quick-reply-btn:hover {
           background: #689f38;
           color: white;
+        }
+
+        .geo-btn {
+          background: #f0f7ff;
+          border: 1px solid #3b82f6;
+          border-radius: 8px;
+          padding: 8px 16px;
+          cursor: pointer;
+          font-size: 14px;
+          margin-top: 8px;
+          width: 100%;
+        }
+
+        .geo-btn:hover {
+          background: #dbeafe;
+        }
+
+        .geo-hint {
+          font-size: 11px;
+          color: #6b7280;
+          text-align: center;
+          margin-top: 2px;
+          width: 100%;
         }
 
         .error-message {
