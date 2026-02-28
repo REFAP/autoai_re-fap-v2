@@ -1602,6 +1602,8 @@ const FEATURED_PARTNER_GARAGES = {
   "13": {
     type: "multi_garages",
     ville: "Marseille",
+    machine_operationnelle: false,
+    machine_dispo_le: "11 mars 2026",
    cc: {
       nom: "Carter-Cash Marseille Les Arnavaux",
       adresse: "Rue Jean Queillau, 722 MIN Les Arnavaux, 13014 Marseille",
@@ -2871,15 +2873,16 @@ const featuredGarage = dept ? (FEATURED_PARTNER_GARAGES[dept] || (IDF_DEPTS_FG.i
 if (featuredGarage) {
  // ── TYPE multi_garages (ex: Marseille dept 13) ──
   if (featuredGarage.type === "multi_garages" && demontage !== "self") {
+    const machineOK = featuredGarage.machine_operationnelle !== false;
     const ccList = featuredGarage.cc ? [featuredGarage.cc] : (featuredGarage.cc_list || []);
     const garages = featuredGarage.garages || [];
     const secondaires = featuredGarage.partenaires_secondaires || [];
 
     const ccBloc = ccList.map(cc =>
       `🏪 [${cc.nom}](${cc.url})\n` +
-      (cc.code === "CC_MARSEILLE_ARNAVAUX"
-        ? `⏳ *Machine disponible dès le 11 mars 2026 — en attendant, dépôt possible (envoi 48-72h)*\n`
-        : `✅ Sans RDV — FAP traité sous 4h\n`) +
+      (machineOK
+        ? `✅ Sans RDV — FAP traité sous 4h\n`
+        : `⏳ *Machine disponible dès le ${featuredGarage.machine_dispo_le} — en attendant, dépôt possible (envoi 48-72h)*\n`) +
       `📍 ${cc.adresse}`
     ).join("\n\n━━━━━━━━━━━━━━━━━━━━━\n\n");
 
@@ -2899,14 +2902,24 @@ if (featuredGarage) {
         ).join("\n\n")
       : "";
 
+    const step3 = machineOK
+      ? `③ 🏭 Nettoyage en machine sur place — sous 4h\n`
+      : `③ 📦 Le FAP est expédié au centre Re-FAP — retour sous 48-72h\n`;
+    const tarifLine = machineOK
+      ? `💶 ${prixCCDetail}`
+      : `💶 199€ TTC — nettoyage + port aller-retour inclus`;
+    const wordingBloc = machineOK
+      ? wordingRefapCertifie(ccList[0]?.nom || "Carter-Cash", prixCCDetail)
+      : `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)`;
+
     replyClean =
       `OK, pour les environs de ${villeDisplay}. Re-FAP a présélectionné des garages près de chez toi — ils prennent en charge ta voiture de A à Z.\n\n` +
       `① 🔧 Le garage démonte le FAP de ton véhicule\n` +
       `② 🚗 Il le dépose sans RDV au Carter-Cash Re-FAP\n` +
       `   *(si le garage ne peut pas l'amener, tu le déposes toi-même au comptoir)*\n` +
-      `③ 🏭 Nettoyage en machine sur place — sous 4h\n` +
+      step3 +
       `④ 🔧 Le garage remonte le FAP et réinitialise le voyant\n\n` +
-      `💶 ${prixCCDetail}\n\n` +
+      `${tarifLine}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `${ccBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
@@ -2914,7 +2927,7 @@ if (featuredGarage) {
       `${garagesBloc}` +
       `${secondairesBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      wordingRefapCertifie(ccList[0]?.nom || "Carter-Cash", prixCCDetail) + `\n\n` +
+      wordingBloc + `\n\n` +
       `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
@@ -2922,22 +2935,32 @@ if (featuredGarage) {
 
   // ── TYPE multi_garages + self removal ──
   if (featuredGarage.type === "multi_garages" && demontage === "self") {
+    const machineOK = featuredGarage.machine_operationnelle !== false;
     const ccList = featuredGarage.cc ? [featuredGarage.cc] : (featuredGarage.cc_list || []);
+
+    const tarifSelf = machineOK ? prixCCDetail : `199€ TTC — nettoyage + port aller-retour inclus`;
 
     const ccBloc = ccList.map(cc =>
       `🏪 [${cc.nom}](${cc.url})\n` +
-      (cc.code === "CC_MARSEILLE_ARNAVAUX"
-        ? `⏳ *Machine disponible dès le 11 mars 2026 — en attendant, dépôt possible (envoi 48-72h)*\n`
-        : `✅ Sans RDV — FAP traité sous 4h\n`) +
+      (machineOK
+        ? `✅ Sans RDV — FAP traité sous 4h\n`
+        : `⏳ *Machine disponible dès le ${featuredGarage.machine_dispo_le} — en attendant, dépôt possible (envoi 48-72h)*\n`) +
       `📍 ${cc.adresse}\n` +
-      `💶 ${prixCCDetail}`
+      `💶 ${tarifSelf}`
     ).join("\n\n━━━━━━━━━━━━━━━━━━━━━\n\n");
 
+    const step3Self = machineOK
+      ? `③ 🏭 Nettoyage en machine — suies + cendres retirées, contrôle avant/après\n`
+      : `③ 📦 Le FAP est expédié au centre Re-FAP — retour sous 48-72h\n`;
+    const introSelf = machineOK
+      ? `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a un Carter-Cash équipé tout près.\n\n`
+      : `OK, pour les environs de ${villeDisplay}. Il y a un point dépôt Carter-Cash près de chez toi.\n\n`;
+
     replyClean =
-      `OK, pour les environs de ${villeDisplay}. Bonne nouvelle — il y a un Carter-Cash équipé tout près.\n\n` +
+      introSelf +
       `① 🔧 Tu démontes le FAP de ton véhicule\n` +
       `② 🚗 Tu le déposes sans RDV au Carter-Cash\n` +
-      `③ 🏭 Nettoyage en machine — suies + cendres retirées, contrôle avant/après\n` +
+      step3Self +
       `④ 🔧 Tu remontes le FAP et réinitialises le voyant\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `${ccBloc}\n\n` +
