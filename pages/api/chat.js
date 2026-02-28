@@ -2953,11 +2953,12 @@ if (featuredGarage) {
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `${ccBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `🔩 Garages dépose/repose sélectionnés par Re-FAP :\n\n` +
+      `🔩 Garages dépose/repose identifiés par Re-FAP :\n\n` +
       `${garagesBloc}` +
       `${secondairesBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       wordingBloc + `\n\n` +
+      disclaimerGarages() + `\n\n` +
       `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
@@ -2998,6 +2999,7 @@ if (featuredGarage) {
       (machineOK
         ? `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n`
         : wordingRefapDepot(ccList[0]?.nom || "Carter-Cash") + `\n\n`) +
+      disclaimerGarages() + `\n\n` +
       `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
@@ -3357,6 +3359,7 @@ const secondaires = featuredGarage.partenaires_secondaires || [];
         if (idfEquipped.length > 1) {
           replyClean += `\n\nAutre CC équipé à proximité : ${idfEquipped[1].name}${distLabel(idfEquipped[1])} (sans rendez-vous).`;
         }
+        replyClean += disclaimerGarages();
         replyClean += `\n\nTu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;
       } else {
         // IDF + self (ou pas de garage trouvé) → CC équipés seulement
@@ -3556,6 +3559,7 @@ replyClean =
   `🏠 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)}\n\n` +
   `━━━━━━━━━━━━━━━━━━━━━\n\n` +
   `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  disclaimerGarages() + `\n\n` +
   `Tu veux qu'un expert Re-FAP organise tout ça pour ${vehicleInfo} ?`;      }
     } else if (bestGarage && closestDepotCC) {
       // Garage partenaire + CC dépôt → tarif envoi
@@ -3581,6 +3585,7 @@ replyClean =
   `📍 ${closestDepotCC.postal} ${closestDepotCC.city}\n\n` +
   `━━━━━━━━━━━━━━━━━━━━━\n\n` +
   `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  disclaimerGarages() + `\n\n` +
   `Tu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
     } else if (bestGarage) {
       // Garage partenaire sans CC proche → envoi direct
@@ -3601,6 +3606,7 @@ replyClean =
   `🏠 ${garageLabel}${garageVille}${garageDistLabel(bestGarage)}\n\n` +
   `━━━━━━━━━━━━━━━━━━━━━\n\n` +
   `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  disclaimerGarages() + `\n\n` +
   `Tu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
     } else if (equipMentionable) {
       // Pas de garage mais centre équipé proche
@@ -3609,12 +3615,12 @@ replyClean =
       if (nearestEquip.isRefapCenter) {
         replyClean = `Le centre Re-FAP le plus proche c'est à ${nearestEquip.city}${distLabel(nearestEquip)}.\n\n${buildRefapCenterBlock(nearestEquip, demontage)}\n\nTu veux qu'un expert Re-FAP organise la prise en charge pour ${vehicleInfo} ?`;
       } else {
-        replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — sans rendez-vous, nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages recommandés dans ton secteur qui gèrent tout de A à Z.\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
+        replyClean = `OK, ${villeDisplay}. Le Carter-Cash équipé le plus proche c'est ${nearestEquip.name} (${nearestEquip.city})${distLabel(nearestEquip)} — sans rendez-vous, nettoyage sur place en ~4h (${prixCCDetail}). On a aussi des garages recommandés dans ton secteur qui gèrent tout de A à Z.` + disclaimerGarages() + `\n\nLe mieux c'est qu'un expert Re-FAP te trouve le garage le plus adapté pour ${vehicleInfo}. Tu veux qu'on te rappelle ?`;
       }
 
     } else {
       // Fallback total
-      replyClean = `OK, ${villeDisplay}. On a des garages recommandés dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Côté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
+      replyClean = `OK, ${villeDisplay}. On a des garages recommandés dans ton secteur qui s'occupent de tout : démontage, envoi au centre Re-FAP, remontage et réinitialisation. Côté budget : ${prixEnvoi} TTC port A/R inclus + main d'œuvre garage.` + disclaimerGarages() + `\n\nLe mieux c'est qu'un expert Re-FAP te mette en contact avec le bon garage. Tu veux qu'on te rappelle ?`;
     }
 
   } else {
@@ -3648,6 +3654,7 @@ replyClean =
   `🏠 ${bestGarage.nom}${garageDistLabel(bestGarage)}\n\n` +
   `━━━━━━━━━━━━━━━━━━━━━\n\n` +
   `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  disclaimerGarages() + `\n\n` +
   `Tu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;      }
 
     } else if (bestGarage && nearestDepot) {
@@ -3676,6 +3683,7 @@ replyClean =
   (equippedHint ? `${equippedHint}\n\n` : ``) +
   `━━━━━━━━━━━━━━━━━━━━━\n\n` +
   `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  disclaimerGarages() + `\n\n` +
   `Tu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
     } else if (equipMentionable && nearestEquip.distance <= 80) {
       assignedCC = { ...nearestEquip, reason: "centre express proche" };
@@ -3693,6 +3701,7 @@ replyClean =
   `On a aussi des garages recommandés dans ton secteur si tu as besoin d'une prise en charge complète.\n\n` +
   `━━━━━━━━━━━━━━━━━━━━━\n\n` +
   `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  disclaimerGarages() + `\n\n` +
   `Tu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;      }
 
     } else if (nearestDepot) {
@@ -3716,6 +3725,7 @@ replyClean =
   `On a aussi des garages recommandés dans ton secteur pour une prise en charge complète.\n\n` +
   `━━━━━━━━━━━━━━━━━━━━━\n\n` +
   `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+  disclaimerGarages() + `\n\n` +
   `Tu veux qu'un expert Re-FAP regarde la meilleure option pour ${vehicleInfo} ?`;
     } else {
 replyClean =
