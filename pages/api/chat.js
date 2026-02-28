@@ -2844,6 +2844,27 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
       : "99€ (FAP type DV6 PSA) ou 149€ (FAP combiné avec catalyseur) + main d'œuvre démontage/remontage/réinitialisation selon le véhicule";
     return `🔧 Re-FAP Clermont-Ferrand — ${center.address}\n📞 ${center.phone}\n\nMachine Re-FAP sur place. ${prixFAP}.\n\nPrise en charge totale possible. Devis en ligne : ${center.website}`;
   };
+
+  // Helper : bloc wording Re-FAP certifié (réutilisé dans tous les handlers avec CC équipé)
+  const wordingRefapCertifie = (nomCC, tarif) => {
+    return [
+      `⚠️ Pour bénéficier du nettoyage Re-FAP certifié, **le garage doit impérativement`,
+      `déposer ton FAP directement chez ${nomCC}**. Il n'y a pas d'alternative :`,
+      `c'est la seule façon d'obtenir :`,
+      `— le nettoyage en machine Re-FAP (suies + cendres, pas juste les suies)`,
+      `— la **garantie 1 an**`,
+      `— les **tarifs Carter-Cash** (${tarif})`,
+      ``,
+      `Si ton garage te propose autre chose (additif, nettoyage sur place, karcher…),`,
+      `demande-lui de contacter Re-FAP directement :`,
+      `👉 [auto.re-fap.fr](https://auto.re-fap.fr)`,
+      `📞 Julien — Expert Re-FAP : **[04 73 37 88 21](tel:0473378821)**`,
+      ``,
+      `💡 Et si ton garage ne souhaite pas se déplacer chez Carter-Cash,`,
+      `tu peux tout à fait déposer et récupérer le FAP toi-même —`,
+      `c'est simple et ça ne change rien à la garantie.`,
+    ].join("\n");
+  };
 // ============================================================
 // PRIORITÉ FEATURED_PARTNER_GARAGES : 13, 31, 33, 44, 59, 69, IDF
 // ============================================================
@@ -2895,7 +2916,7 @@ if (featuredGarage) {
       `${garagesBloc}` +
       `${secondairesBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+      wordingRefapCertifie(ccList[0]?.nom || "Carter-Cash", prixCCDetail) + `\n\n` +
       `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
@@ -2977,7 +2998,9 @@ if (featuredGarage) {
       `${ccBlocs}` +
       `${secondairesBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+      (featuredGarage.depot_only
+        ? `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n`
+        : wordingRefapCertifie(ccListGeo[0]?.nom || "Carter-Cash", prixCCDetail) + `\n\n`) +
       `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
@@ -3090,14 +3113,7 @@ if (featuredGarage) {
         `🔩 **Garages partenaires proches pour la dépose/repose :**\n\n` +
         garagesBloc + `\n\n` +
         `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `⚠️ Pour bénéficier du nettoyage Re-FAP certifié, **le garage doit impérativement déposer ton FAP directement chez ${selectedCC.nom}**. Il n'y a pas d'alternative : c'est la seule façon d'obtenir :\n` +
-        `— le nettoyage en machine Re-FAP (suies + cendres, pas juste les suies)\n` +
-        `— la **garantie 1 an**\n` +
-        `— les **tarifs Carter-Cash** (${selectedCC.tarif})\n\n` +
-        `Si ton garage te propose autre chose (additif, nettoyage sur place, karcher…), demande-lui de contacter Re-FAP directement :\n` +
-        `👉 [auto.re-fap.fr](https://auto.re-fap.fr)\n` +
-        `📞 Julien — Expert Re-FAP : **[04 73 37 88 21](tel:0473378821)**\n\n` +
-        `💡 Et si ton garage ne souhaite pas se déplacer chez Carter-Cash, tu peux tout à fait déposer et récupérer le FAP toi-même — c'est simple et ça ne change rien à la garantie.\n\n` +
+        wordingRefapCertifie(selectedCC.nom, selectedCC.tarif) + `\n\n` +
         (otherCC ? `Autre CC équipé : [${otherCC.nom}](${otherCC.url}) — ${otherCC.adresse}\n\n` : "") +
         `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
     }
@@ -3155,8 +3171,8 @@ if (featuredGarage.cc_list) {
     `${ccBloc}` +
     `${secondairesBlock}\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
-    `Tu veux qu'on organiser la prise en charge pour ${vehicleInfo} ?`;
+    wordingRefapCertifie(featuredGarage.cc_list[0]?.cc_nom || "Carter-Cash", prixCCDetail) + `\n\n` +
+    `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 }
 
   // ── CAS 2 : 69 et 33 — garage autonome, Re-FAP prend en charge le nettoyage ──
@@ -3210,7 +3226,7 @@ const secondaires = featuredGarage.partenaires_secondaires || [];
     `📞 [${featuredGarage.tel}](tel:${featuredGarage.tel.replace(/\s/g,"")}) · [📍 Voir sur Maps](${featuredGarage.url})` +
     `${secondairesBlock}\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+    (cc ? wordingRefapCertifie(cc.nom, prixCCDetail) + `\n\n` : `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n`) +
     `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 }
   const data = {
