@@ -2865,6 +2865,24 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
       `c'est simple et ça ne change rien à la garantie.`,
     ].join("\n");
   };
+
+  // Helper : bloc wording Re-FAP dépôt (CC sans machine opérationnelle — ex: Marseille avant 11 mars)
+  const wordingRefapDepot = (nomCC) => {
+    return [
+      `⚠️ Pour bénéficier du nettoyage Re-FAP certifié, le garage doit impérativement`,
+      `déposer ton FAP directement chez **${nomCC}**. C'est la seule façon d'obtenir`,
+      `un nettoyage Re-FAP en machine (suies + cendres) avec garantie.`,
+      ``,
+      `Si ton garage te propose autre chose (additif, nettoyage sur place, karcher…),`,
+      `demande-lui de contacter Re-FAP directement :`,
+      `👉 [auto.re-fap.fr](https://auto.re-fap.fr)`,
+      `📞 Julien — Expert Re-FAP : **[04 73 37 88 21](tel:0473378821)**`,
+      ``,
+      `💡 Et si ton garage ne souhaite pas se déplacer chez Carter-Cash,`,
+      `tu peux tout à fait déposer et récupérer le FAP toi-même —`,
+      `c'est simple et ça ne change rien à la garantie.`,
+    ].join("\n");
+  };
 // ============================================================
 // PRIORITÉ FEATURED_PARTNER_GARAGES : 13, 31, 33, 44, 59, 69, IDF
 // ============================================================
@@ -2910,7 +2928,7 @@ if (featuredGarage) {
       : `💶 199€ TTC — nettoyage + port aller-retour inclus`;
     const wordingBloc = machineOK
       ? wordingRefapCertifie(ccList[0]?.nom || "Carter-Cash", prixCCDetail)
-      : `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)`;
+      : wordingRefapDepot(ccList[0]?.nom || "Carter-Cash");
 
     replyClean =
       `OK, pour les environs de ${villeDisplay}. Re-FAP a présélectionné des garages près de chez toi — ils prennent en charge ta voiture de A à Z.\n\n` +
@@ -2965,7 +2983,9 @@ if (featuredGarage) {
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `${ccBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+      (machineOK
+        ? `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n`
+        : wordingRefapDepot(ccList[0]?.nom || "Carter-Cash") + `\n\n`) +
       `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
