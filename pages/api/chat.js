@@ -1890,69 +1890,45 @@ const FEATURED_PARTNER_GARAGES = {
       },
     ],
   },
-  "93": {
-    nom: "Garage Voitex",
-    ville: "Stains",
-    dept: "93",
-    adresse: "75 Rue Jean Jaurès, 93240 Stains",
-    tel: "01 49 51 48 34",
-    stars: null,
-    url: "https://share.google/i4H6F8rbr1DBfSTP7",
-    horaires: "À confirmer",
-    note: "Partenaire Re-FAP actif",
-    cc_equipe: {
-      nom: "Carter-Cash Sarcelles",
-      adresse: "2 Rue du Père Heude, 95200 Sarcelles",
-      url: "https://share.google/WClUmYLuY2mjcO25t",
-    },
-    partenaires_secondaires: [
+  "IDF": {
+    type: "idf_geo",
+    ville: "Île-de-France",
+    cc_list: [
       {
-        nom: "Garage Auto Concept",
-        adresse: "93800 Epinay-sur-Seine",
-        tel: "01 48 26 80 23",
-        url: "https://share.google/m3hezYTmi8dsWyHKT",
-        note: "4,9⭐ Google (329 avis)",
+        code: "CC_SARCELLES",
+        nom: "Carter-Cash Sarcelles",
+        adresse: "2 Rue du Père Heude, 95200 Sarcelles",
+        lat: 48.9642,
+        lng: 2.3701,
+        url: "https://www.carter-cash.com/magasins/sarcelles",
+        tarif: "99€ DV6 sans cata / 149€ avec cata (FAP déposé)",
+        delai: "4h sur place",
+        garages: [
+          { nom: "Garage Voitex",       adresse: "75 Rue Jean Jaurès, 93240 Stains",                tel: "01 49 51 48 34", note: "4.6", avis: 112 },
+          { nom: "Garage Auto Concept", adresse: "93800 Épinay-sur-Seine",                          tel: "01 48 26 80 23", note: "4.9", avis: 329 },
+          { nom: "Garage Des Pros",     adresse: "93350 Le Bourget",                                tel: "07 49 64 40 57", note: "4.8", avis: 87  },
+          { nom: "Planet Auto",         adresse: "80 Av. de la République, 93800 Épinay-sur-Seine", tel: "01 49 98 14 20", note: "4.5", avis: 213 },
+          { nom: "AAD93",               adresse: "108 Av. Marceau, 93700 Drancy",                   tel: "01 57 14 34 82", note: "4.8", avis: 98  }
+        ]
       },
       {
-        nom: "Garage Des Pros",
-        adresse: "93350 Le Bourget",
-        tel: "07 49 64 40 57",
-        url: "https://share.google/g9Wgqgla1wPC35ZMX",
-        note: "4,8⭐ Google (87 avis)",
-      },
-    ],
-  },
-  "94": {
-    nom: "Garage M Perf",
-    ville: "L'Haÿ-les-Roses",
-    dept: "94",
-    adresse: "66 Rue Gabriel Péri, 94240 L'Haÿ-les-Roses",
-    tel: "01 82 01 51 01",
-    stars: null,
-    url: "https://share.google/cJFZbKAb5NqoCx9OA",
-    horaires: "À confirmer",
-    note: "Partenaire Re-FAP actif",
-    cc_equipe: {
-      nom: "Carter-Cash Thiais",
-      adresse: "7 Rue des Alouettes, 94320 Thiais",
-      url: "https://share.google/hPtXw2SqdgHCSNnwf",
-    },
-    partenaires_secondaires: [
-      {
-        nom: "Garage de Thiais",
-        adresse: "109 Av. du Général de Gaulle, 94320 Thiais",
-        tel: "01 48 52 10 50",
-        url: "https://share.google/6IA279ADiqxWIQNdv",
-        note: "À proximité immédiate Carter-Cash Thiais",
-      },
-      {
-        nom: "Fix A Car",
-        adresse: "18 All. de Bretagne, 94320 Thiais",
-        tel: "07 51 48 31 81",
-        url: "https://share.google/dC1ntZ9tW31pYfx1V",
-        note: "Partenaire Carter-Cash",
-      },
-    ],
+        code: "CC_THIAIS",
+        nom: "Carter-Cash Thiais",
+        adresse: "7 Rue des Alouettes, 94320 Thiais",
+        lat: 48.7618,
+        lng: 2.3892,
+        url: "https://www.carter-cash.com/magasins/thiais",
+        tarif: "99€ DV6 sans cata / 149€ avec cata (FAP déposé)",
+        delai: "4h sur place",
+        garages: [
+          { nom: "Garage M Perf",             adresse: "66 Rue Gabriel Péri, 94240 L'Haÿ-les-Roses",       tel: "01 82 01 51 01", note: "4.7", avis: 145 },
+          { nom: "Garage de Thiais",          adresse: "109 Av. Général de Gaulle, 94320 Thiais",           tel: "01 48 52 10 50", note: "4.5", avis: 93  },
+          { nom: "Fix A Car",                 adresse: "18 All. de Bretagne, 94320 Thiais",                 tel: "07 51 48 31 81", note: "4.6", avis: 78  },
+          { nom: "Formycar - Garage Auto 94", adresse: "2 Rue Gaston Monmousseau, 94200 Ivry-sur-Seine",   tel: "01 53 14 07 85", note: "4.7", avis: 319 },
+          { nom: "Garage Le Tolier",          adresse: "5 Av. Danville, 94600 Choisy-le-Roi",               tel: "01 48 92 69 12", note: "4.7", avis: 122 }
+        ]
+      }
+    ]
   },
 };
 // CITY_TO_DEPT — 457 villes françaises → code département
@@ -2869,9 +2845,10 @@ async function buildLocationOrientationResponse(supabase, extracted, metier, vil
     return `🔧 Re-FAP Clermont-Ferrand — ${center.address}\n📞 ${center.phone}\n\nMachine Re-FAP sur place. ${prixFAP}.\n\nPrise en charge totale possible. Devis en ligne : ${center.website}`;
   };
 // ============================================================
-// PRIORITÉ FEATURED_PARTNER_GARAGES : 33, 44, 59, 69, 93, 94
+// PRIORITÉ FEATURED_PARTNER_GARAGES : 13, 31, 33, 44, 59, 69, IDF
 // ============================================================
-const featuredGarage = dept ? FEATURED_PARTNER_GARAGES[dept] : null;
+const IDF_DEPTS_FG = ["75", "77", "78", "91", "92", "93", "94", "95"];
+const featuredGarage = dept ? (FEATURED_PARTNER_GARAGES[dept] || (IDF_DEPTS_FG.includes(dept) ? FEATURED_PARTNER_GARAGES["IDF"] : null)) : null;
 if (featuredGarage) {
  // ── TYPE multi_garages (ex: Marseille dept 13) ──
   if (featuredGarage.type === "multi_garages" && demontage !== "self") {
@@ -3038,6 +3015,101 @@ if (featuredGarage) {
       `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
 
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(extracted)}`, extracted };
+  }
+
+  // ── TYPE idf_geo (Île-de-France) — 2 CC équipés, sélection par haversine ──
+  if (featuredGarage.type === "idf_geo") {
+    const ccListIdf = featuredGarage.cc_list || [];
+    // Coordonnées de référence : geo frontend > city GPS > dept centroid
+    const userLat = extracted?.geo?.lat || refLat;
+    const userLng = extracted?.geo?.lng || refLng;
+
+    // Sélection du CC le plus proche si on a des coords
+    let selectedCC = null;
+    let otherCC = null;
+    if (userLat && userLng && ccListIdf.length >= 2) {
+      const sorted = ccListIdf.map(cc => ({
+        ...cc,
+        dist: haversineKm(userLat, userLng, cc.lat, cc.lng),
+      })).sort((a, b) => a.dist - b.dist);
+      selectedCC = sorted[0];
+      otherCC = sorted[1];
+    } else if (ccListIdf.length >= 1) {
+      selectedCC = ccListIdf[0];
+      otherCC = ccListIdf.length >= 2 ? ccListIdf[1] : null;
+    }
+
+    // FALLBACK : pas de coords précises → message zone
+    if (!userLat || !userLng) {
+      replyClean =
+        `Tu es en Île-de-France — on a deux Carter-Cash équipés de la machine Re-FAP :\n\n` +
+        `🏪 **Carter-Cash Sarcelles** — 2 Rue du Père Heude, 95200 Sarcelles *(nord IDF : 95/93/92 nord)*\n` +
+        `🏪 **Carter-Cash Thiais** — 7 Rue des Alouettes, 94320 Thiais *(sud IDF : 94/92 sud/75 sud)*\n\n` +
+        `Tu es plutôt Paris/banlieue nord ou banlieue sud ?`;
+      const data = { ...(extracted || DEFAULT_DATA), intention: "rdv", ville: villeDisplay, departement: dept, next_best_action: "demander_zone_idf" };
+      return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data,
+        suggested_replies: [
+          { label: "📍 Nord (Sarcelles)", value: "Sarcelles" },
+          { label: "📍 Sud (Thiais)", value: "Thiais" },
+        ]
+      };
+    }
+
+    // CAS AVEC COORDS — CC le plus proche sélectionné
+    const distCC = selectedCC.dist ? ` (~${Math.round(selectedCC.dist)} km)` : "";
+    const garagesBloc = (selectedCC.garages || []).map(g =>
+      `• **${g.nom}** — ${g.adresse}\n` +
+      `  📞 [${g.tel}](tel:${g.tel.replace(/\s/g,"")})` +
+      (g.note ? ` · ${g.note}⭐ *(${g.avis} avis)*` : "")
+    ).join("\n\n");
+
+    if (demontage === "self") {
+      // IDF + self removal
+      replyClean =
+        `✅ **${selectedCC.nom}**${distCC} est équipé de la machine Re-FAP — nettoyage en ${selectedCC.delai}.\n` +
+        `📍 ${selectedCC.adresse}\n` +
+        `💶 Tarifs : ${selectedCC.tarif}\n` +
+        `🔗 [${selectedCC.nom}](${selectedCC.url})\n\n` +
+        `Tu déposes ton FAP démonté sans rendez-vous au comptoir Carter-Cash.\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `⚠️ Pour bénéficier du nettoyage Re-FAP certifié, **le FAP doit impérativement être déposé chez ${selectedCC.nom}**. C'est la seule façon d'obtenir :\n` +
+        `— le nettoyage en machine Re-FAP (suies + cendres, pas juste les suies)\n` +
+        `— la **garantie 1 an**\n` +
+        `— les **tarifs Carter-Cash** (${selectedCC.tarif})\n\n` +
+        (otherCC ? `Autre CC équipé : [${otherCC.nom}](${otherCC.url}) — ${otherCC.adresse}\n\n` : "") +
+        `❓ Une question ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+        `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
+    } else {
+      // IDF + garage partenaire
+      replyClean =
+        `✅ **${selectedCC.nom}**${distCC} est équipé de la machine Re-FAP — nettoyage en ${selectedCC.delai}.\n` +
+        `📍 ${selectedCC.adresse}\n` +
+        `💶 Tarifs : ${selectedCC.tarif} *(dépose/repose non incluse)*\n` +
+        `🔗 [${selectedCC.nom}](${selectedCC.url})\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `🔩 **Garages partenaires proches pour la dépose/repose :**\n\n` +
+        garagesBloc + `\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `⚠️ Pour bénéficier du nettoyage Re-FAP certifié, **le garage doit impérativement déposer ton FAP directement chez ${selectedCC.nom}**. Il n'y a pas d'alternative : c'est la seule façon d'obtenir :\n` +
+        `— le nettoyage en machine Re-FAP (suies + cendres, pas juste les suies)\n` +
+        `— la **garantie 1 an**\n` +
+        `— les **tarifs Carter-Cash** (${selectedCC.tarif})\n\n` +
+        `Si ton garage te propose autre chose (additif, nettoyage sur place, karcher…), demande-lui de contacter Re-FAP directement :\n` +
+        `👉 [auto.re-fap.fr](https://auto.re-fap.fr)\n` +
+        `📞 Julien — Expert Re-FAP : **[04 73 37 88 21](tel:0473378821)**\n\n` +
+        (otherCC ? `Autre CC équipé : [${otherCC.nom}](${otherCC.url}) — ${otherCC.adresse}\n\n` : "") +
+        `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
+    }
+
+    const data = {
+      ...(extracted || DEFAULT_DATA),
+      intention: "rdv",
+      ville: villeDisplay || null,
+      departement: dept || null,
+      next_best_action: "proposer_devis",
+      centre_proche: selectedCC.nom,
+    };
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
   }
 
   const nearestEquip = cc.closestEquipped;
