@@ -267,7 +267,7 @@ export default function Home() {
     const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
     if (!lastAssistant) return false;
     const content = (lastAssistant.raw || lastAssistant.content || "").toLowerCase();
-    return content.includes("dans quel coin") || content.includes("quel coin");
+    return content.includes("quel coin") || content.includes("quelle ville") || content.includes("code postal") || content.includes("numéro de département");
   })();
 
   const handleGeolocClick = () => {
@@ -389,7 +389,7 @@ export default function Home() {
               <button onClick={handleGeolocClick} className="geo-btn">
                 📍 Me localiser automatiquement
               </button>
-              <p className="geo-hint">pour trouver le Carter-Cash le plus proche</p>
+              <p className="geo-hint">pour trouver la solution la plus proche</p>
             </div>
           )}
 
