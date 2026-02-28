@@ -4573,11 +4573,11 @@ const FEATURED_PARTNER_GARAGES = {
         tarif: "99€ DV6 sans cata / 149€ avec cata (FAP déposé)",
         delai: "4h sur place",
         garages: [
-          { nom: "Garage Voitex",       adresse: "75 Rue Jean Jaurès, 93240 Stains",                tel: "01 49 51 48 34", note: "4.6", avis: 112 },
-          { nom: "Garage Auto Concept", adresse: "93800 Épinay-sur-Seine",                          tel: "01 48 26 80 23", note: "4.9", avis: 329 },
-          { nom: "Garage Des Pros",     adresse: "93350 Le Bourget",                                tel: "07 49 64 40 57", note: "4.8", avis: 87  },
-          { nom: "Planet Auto",         adresse: "80 Av. de la République, 93800 Épinay-sur-Seine", tel: "01 49 98 14 20", note: "4.5", avis: 213 },
-          { nom: "AAD93",               adresse: "108 Av. Marceau, 93700 Drancy",                   tel: "01 57 14 34 82", note: "4.8", avis: 98  }
+          { nom: "Garage Voitex",       adresse: "75 Rue Jean Jaurès, 93240 Stains",                tel: "01 49 51 48 34", note: "4.6", avis: 112,  lat: 48.9378, lng: 2.3674 },
+          { nom: "Garage Auto Concept", adresse: "93800 Épinay-sur-Seine",                          tel: "01 48 26 80 23", note: "4.9", avis: 329,  lat: 48.9527, lng: 2.3121 },
+          { nom: "Garage Des Pros",     adresse: "93350 Le Bourget",                                tel: "07 49 64 40 57", note: "4.8", avis: 87,   lat: 48.9339, lng: 2.4317 },
+          { nom: "Planet Auto",         adresse: "80 Av. de la République, 93800 Épinay-sur-Seine", tel: "01 49 98 14 20", note: "4.5", avis: 213,  lat: 48.9529, lng: 2.3187 },
+          { nom: "AAD93",               adresse: "108 Av. Marceau, 93700 Drancy",                   tel: "01 57 14 34 82", note: "4.8", avis: 98,   lat: 48.9247, lng: 2.4513 }
         ]
       },
       {
@@ -4590,11 +4590,11 @@ const FEATURED_PARTNER_GARAGES = {
         tarif: "99€ DV6 sans cata / 149€ avec cata (FAP déposé)",
         delai: "4h sur place",
         garages: [
-          { nom: "Garage M Perf",             adresse: "66 Rue Gabriel Péri, 94240 L'Haÿ-les-Roses",       tel: "01 82 01 51 01", note: "4.7", avis: 145 },
-          { nom: "Garage de Thiais",          adresse: "109 Av. Général de Gaulle, 94320 Thiais",           tel: "01 48 52 10 50", note: "4.5", avis: 93  },
-          { nom: "Fix A Car",                 adresse: "18 All. de Bretagne, 94320 Thiais",                 tel: "07 51 48 31 81", note: "4.6", avis: 78  },
-          { nom: "Formycar - Garage Auto 94", adresse: "2 Rue Gaston Monmousseau, 94200 Ivry-sur-Seine",   tel: "01 53 14 07 85", note: "4.7", avis: 319 },
-          { nom: "Garage Le Tolier",          adresse: "5 Av. Danville, 94600 Choisy-le-Roi",               tel: "01 48 92 69 12", note: "4.7", avis: 122 }
+          { nom: "Garage M Perf",             adresse: "66 Rue Gabriel Péri, 94240 L'Haÿ-les-Roses",       tel: "01 82 01 51 01", note: "4.7", avis: 145, lat: 48.7793, lng: 2.3385 },
+          { nom: "Garage de Thiais",          adresse: "109 Av. Général de Gaulle, 94320 Thiais",           tel: "01 48 52 10 50", note: "4.5", avis: 93,  lat: 48.7641, lng: 2.3895 },
+          { nom: "Fix A Car",                 adresse: "18 All. de Bretagne, 94320 Thiais",                 tel: "07 51 48 31 81", note: "4.6", avis: 78,  lat: 48.7628, lng: 2.3841 },
+          { nom: "Formycar - Garage Auto 94", adresse: "2 Rue Gaston Monmousseau, 94200 Ivry-sur-Seine",   tel: "01 53 14 07 85", note: "4.7", avis: 319, lat: 48.8148, lng: 2.3839 },
+          { nom: "Garage Le Tolier",          adresse: "5 Av. Danville, 94600 Choisy-le-Roi",               tel: "01 48 92 69 12", note: "4.7", avis: 122, lat: 48.7628, lng: 2.4082 }
         ]
       }
     ]
@@ -5809,11 +5809,13 @@ if (featuredGarage) {
     // CAS AVEC COORDS — CC le plus proche sélectionné
     const distCC = selectedCC.dist ? ` (~${Math.round(selectedCC.dist)} km)` : "";
     // Sélection dynamique des 5 garages les plus proches de l'utilisateur
+    // Curatés en premier (toujours affichés), pool en complément jusqu'à 5
     const poolGarages = typeof IDF_GARAGE_POOL !== "undefined" ? IDF_GARAGE_POOL : [];
+    const curatedGarages = (selectedCC.garages || []).map(g => ({ ...g, dist: userLat && userLng && g.lat && g.lng ? haversineKm(userLat, userLng, g.lat, g.lng) : null }));
     let garagesProches = [];
     if (userLat && userLng && poolGarages.length > 0) {
-      const seen = new Set();
-      garagesProches = poolGarages
+      const seen = new Set(curatedGarages.map(g => (g.adresse || "").toLowerCase().trim()));
+      const poolSorted = poolGarages
         .map(g => ({ ...g, dist: haversineKm(userLat, userLng, g.lat, g.lng) }))
         .sort((a, b) => a.dist - b.dist)
         .filter(g => {
@@ -5821,11 +5823,11 @@ if (featuredGarage) {
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
-        })
-        .slice(0, 5);
+        });
+      const remaining = Math.max(0, 5 - curatedGarages.length);
+      garagesProches = [...curatedGarages, ...poolSorted.slice(0, remaining)];
     } else {
-      // Fallback : garages statiques du CC sélectionné
-      garagesProches = (selectedCC.garages || []).map(g => ({ ...g, dist: null }));
+      garagesProches = curatedGarages;
     }
     const garagesBloc = garagesProches.map(g => {
       const distLabel = g.dist != null ? ` *(~${Math.round(g.dist)} km)*` : "";
