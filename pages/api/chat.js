@@ -3040,7 +3040,8 @@ if (featuredGarage) {
       `${secondairesBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       (featuredGarage.depot_only
-        ? `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n`
+        ? wordingRefapDepot(ccListGeo[0]?.nom || "Carter-Cash") + `\n\n` +
+          `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n`
         : wordingRefapCertifie(ccListGeo[0]?.nom || "Carter-Cash", prixCCDetail) + `\n\n`) +
       `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
 
@@ -3075,6 +3076,9 @@ if (featuredGarage) {
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `${ccBloc}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      (featuredGarage.depot_only
+        ? wordingRefapDepot(ccListGeo[0]?.nom || "Carter-Cash") + `\n\n`
+        : ``) +
       `❓ Une difficulté ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
       `Tu veux qu'un expert Re-FAP te confirme les détails et prépare ta venue ?`;
 
