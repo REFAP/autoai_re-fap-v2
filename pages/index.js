@@ -105,6 +105,36 @@ function getStaticQuickReplies(messages, showFormCTA) {
 }
 
 // ============================================================
+// PLACEHOLDER DYNAMIQUE — aligné sur la dernière question posée
+// ============================================================
+function getDynamicPlaceholder(messages) {
+  const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+  if (!lastAssistant) return "Décrivez votre problème...";
+  const text = (lastAssistant.content || "").toLowerCase();
+
+  if (text.includes("dans quelle ville") || text.includes("tu es dans quel coin") || text.includes("tu es plutôt") || text.includes("quelle ville") || text.includes("quel secteur") || text.includes("quel coin"))
+    return "Ex : Paris, Lyon, Bordeaux...";
+  if (text.includes("quel véhicule") || text.includes("quelle marque") || text.includes("quel moteur") || text.includes("quelle motorisation"))
+    return "Ex : Peugeot 308 1.6 HDi 2015...";
+  if (text.includes("quel voyant") || text.includes("symptôme") || text.includes("qu'est-ce qui se passe") || text.includes("décris") || text.includes("problème"))
+    return "Ex : voyant FAP allumé, perte de puissance...";
+  if (text.includes("combien") || text.includes("kilométrage") || text.includes("km au compteur"))
+    return "Ex : 150 000 km";
+  if (text.includes("code défaut") || text.includes("code erreur") || text.includes("p0"))
+    return "Ex : P2002, P244B...";
+  if (text.includes("prénom") || text.includes("comment tu t'appelles") || text.includes("ton nom"))
+    return "Votre prénom...";
+  if (text.includes("téléphone") || text.includes("numéro") || text.includes("te rappeler") || text.includes("vous rappeler"))
+    return "Votre numéro de téléphone...";
+  if (text.includes("email") || text.includes("e-mail") || text.includes("adresse mail"))
+    return "Votre adresse email...";
+  if (text.includes("nord") || text.includes("sud") || text.includes("sarcelles") || text.includes("thiais"))
+    return "Ex : nord, sud, ou une ville...";
+
+  return "Votre réponse...";
+}
+
+// ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
 export default function Home() {
@@ -410,7 +440,7 @@ export default function Home() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Décrivez votre problème..."
+              placeholder={getDynamicPlaceholder(messages)}
               disabled={isLoading || !sessionId}
               className="chat-input"
             />
@@ -753,4 +783,3 @@ word-break: break-word;
     </>
   );
 }
-
