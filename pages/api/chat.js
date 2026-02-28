@@ -5812,9 +5812,16 @@ if (featuredGarage) {
     const poolGarages = typeof IDF_GARAGE_POOL !== "undefined" ? IDF_GARAGE_POOL : [];
     let garagesProches = [];
     if (userLat && userLng && poolGarages.length > 0) {
+      const seen = new Set();
       garagesProches = poolGarages
         .map(g => ({ ...g, dist: haversineKm(userLat, userLng, g.lat, g.lng) }))
         .sort((a, b) => a.dist - b.dist)
+        .filter(g => {
+          const key = (g.adresse || "").toLowerCase().trim();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
         .slice(0, 5);
     } else {
       // Fallback : garages statiques du CC sélectionné
