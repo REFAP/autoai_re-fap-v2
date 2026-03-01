@@ -1,5 +1,8 @@
 // /pages/api/chat.js
-// FAPexpert Re-FAP — VERSION 6.3.3
+// FAPexpert Re-FAP — VERSION 6.3.4
+// CHANGELOG v6.3.4:
+//   - FRANCE_GARAGE_POOL: 670 garages géocodés, 13 nouveaux depts couverts
+//   - Nouveau type france_pool_geo avec sélection haversine
 // CHANGELOG v6.3.3:
 //   - IDF: pool 242 garages géocodés, sélection dynamique haversine user→garage
 // CHANGELOG v6.3.2:
@@ -4265,6 +4268,7382 @@ const IDF_GARAGE_POOL = [
   }
 ];
 
+// FRANCE_GARAGE_POOL
+// 670 garages
+
+const FRANCE_GARAGE_POOL = [
+  {
+    "nom": "AD Garage Expert MECAPRIME",
+    "adresse": "11 All. de Reganeau, Marcheprime",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 97,
+    "cc": "CC_LE_HAILLAN",
+    "score": 8,
+    "lat": 44.685616,
+    "lng": -0.86718
+  },
+  {
+    "nom": "EUROREPAR GARAGE ITE",
+    "adresse": "190 Av. de la Côte d'Argent, Biganos",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 24,
+    "cc": "CC_LE_HAILLAN",
+    "score": 8,
+    "lat": 44.645794,
+    "lng": -0.950201
+  },
+  {
+    "nom": "Jema Auto Services - Garage & Self Assembly Center",
+    "adresse": "Z.a Maeva, 9 Rue de la Silice, Marcheprime",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 249,
+    "cc": "CC_LE_HAILLAN",
+    "score": 7,
+    "lat": 44.690169,
+    "lng": -0.849416
+  },
+  {
+    "nom": "Garage Fullcartec - Américaines - Youngtimer - Boite de vitesse automatique",
+    "adresse": "24 Rte du Bois de Savis, Castres-Gironde",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 129,
+    "cc": "CC_LE_HAILLAN",
+    "score": 7,
+    "lat": 44.686266,
+    "lng": -0.445663
+  },
+  {
+    "nom": "EUROREPAR - GERALD PECOUT AUTOMOBILES",
+    "adresse": "2 Chem. du Sauvignon, Portets",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 68,
+    "cc": "CC_LE_HAILLAN",
+    "score": 7,
+    "lat": 44.692743,
+    "lng": -0.432399
+  },
+  {
+    "nom": "l'Atelier du Bassin",
+    "adresse": "6 All. de Crabitère, Audenge",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 147,
+    "cc": "CC_LE_HAILLAN",
+    "score": 7,
+    "lat": 44.693743,
+    "lng": -0.981894
+  },
+  {
+    "nom": "EUROREPAR car service Audenge JKM BASSIN MOTORS",
+    "adresse": "1 rue du Hapchot, Audenge",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 69,
+    "cc": "CC_LE_HAILLAN",
+    "score": 9,
+    "lat": 44.694293,
+    "lng": -0.985336
+  },
+  {
+    "nom": "Garage Blal Auto-Toulouse Sud-Muret",
+    "adresse": "52 Chem. de la Pradette, Muret",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 224,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.466732,
+    "lng": 1.3247
+  },
+  {
+    "nom": "TOULOUSE sud attelage",
+    "adresse": "83 Av. Saint-Germier, Muret",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 127,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.46318,
+    "lng": 1.314463
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "36 Av. Jacques Douzans, Muret",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 318,
+    "cc": "CC_AUCAMVILLE",
+    "score": 10,
+    "lat": 43.464822,
+    "lng": 1.32648
+  },
+  {
+    "nom": "Garage Lèze",
+    "adresse": "209 Chem. des Agries, Labarthe-sur-Lèze",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 389,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.464766,
+    "lng": 1.394891
+  },
+  {
+    "nom": "garage du capelie",
+    "adresse": "1240 Rte de Deyme, Montbrun-Lauragais",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 164,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.467072,
+    "lng": 1.522416
+  },
+  {
+    "nom": "AD Garage Expert AUTO SERVICE SAINTE FOY",
+    "adresse": "1240 ROUTE DE TOULOUSE, Sainte-Foy-de-Peyrolières",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 114,
+    "cc": "CC_AUCAMVILLE",
+    "score": 10,
+    "lat": 43.502178,
+    "lng": 1.163809
+  },
+  {
+    "nom": "TORA Auto Center",
+    "adresse": "30 Av. Marconi, Saint-Lys",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 216,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.511071,
+    "lng": 1.199144
+  },
+  {
+    "nom": "Garage Seysses gpautos",
+    "adresse": "ZI SEGLA, 7 Rue Hélène Boucher 2, Seysses",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 217,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.492427,
+    "lng": 1.318554
+  },
+  {
+    "nom": "ADTG - Garage auto, camping-car, utilitaire à Seysses",
+    "adresse": "10 bis Av. Pierre Semard, Seysses",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 124,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.490484,
+    "lng": 1.314034
+  },
+  {
+    "nom": "AD Garage Expert KS AUTOMOBILE",
+    "adresse": "1 Av. Pierre Semard, Seysses",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 178,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.489629,
+    "lng": 1.315402
+  },
+  {
+    "nom": "LE BON PNEU 31",
+    "adresse": "29 Rue Joseph Cugnot, Muret",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 222,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.480599,
+    "lng": 1.34099
+  },
+  {
+    "nom": "Point S - Pinsaguel (Auto Assi Centre de Services)",
+    "adresse": "6 Rue de la Commune 1871, Pinsaguel",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 282,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.50094,
+    "lng": 1.393053
+  },
+  {
+    "nom": "Escal auto",
+    "adresse": "3 Rue des Pyrénées, Belberaud",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 119,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.505002,
+    "lng": 1.554666
+  },
+  {
+    "nom": "RPM (Romain Pro Moto)",
+    "adresse": "15 RD 813, Ayguesvives",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 172,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.44811,
+    "lng": 1.594762
+  },
+  {
+    "nom": "Le Relais du Lys - Eurorepar Saint-Lys",
+    "adresse": "725 Rte de Toulouse, Saint-Lys",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 56,
+    "cc": "CC_AUCAMVILLE",
+    "score": 9,
+    "lat": 43.518109,
+    "lng": 1.183208
+  },
+  {
+    "nom": "Garage Marclann",
+    "adresse": "11 Bd des Pyrénées, Villeneuve-Tolosane",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 167,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.527767,
+    "lng": 1.335228
+  },
+  {
+    "nom": "Garage Da Silva",
+    "adresse": "47 Rue de Cézérou, Cugnaux",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 282,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.543931,
+    "lng": 1.334394
+  },
+  {
+    "nom": "Eurorepar Marin Automobiles",
+    "adresse": "48 BIS Av. des Pyrénées, Frouzins",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 90,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.516351,
+    "lng": 1.333276
+  },
+  {
+    "nom": "VECTEUR AUTO",
+    "adresse": "25 Rue de Neouvielle, Portet-sur-Garonne",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 408,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.537599,
+    "lng": 1.399813
+  },
+  {
+    "nom": "Pro Motors",
+    "adresse": "8 Chem. des Genêts, Portet-sur-Garonne",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 356,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.536627,
+    "lng": 1.406294
+  },
+  {
+    "nom": "AUTO-CONCEPT31",
+    "adresse": "3 Rte de la Clé, Portet-sur-Garonne",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 221,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.524294,
+    "lng": 1.405002
+  },
+  {
+    "nom": "TOP GARAGE - DELATRE ET FILS",
+    "adresse": "2 bis Rue des Crouzettes, Portet-sur-Garonne",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 133,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.518539,
+    "lng": 1.397626
+  },
+  {
+    "nom": "Auto Villeneuve - Motrio",
+    "adresse": "32 Av. de Cugnaux, Villeneuve-Tolosane",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 176,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.52964,
+    "lng": 1.342411
+  },
+  {
+    "nom": "Larrieu Automobiles",
+    "adresse": "1 bis Rue de l'Industrie, Castanet-Tolosan",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 299,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.512973,
+    "lng": 1.519217
+  },
+  {
+    "nom": "Garage Parra - AD Expert",
+    "adresse": "ZA de Bogues, Av. de Toulouse, Escalquens",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 174,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.517316,
+    "lng": 1.547482
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "98 Av. Tolosane, Ramonville-Saint-Agne",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 89,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.54014,
+    "lng": 1.479474
+  },
+  {
+    "nom": "Garage Lys Auto 31",
+    "adresse": "57 Rte de Lias, Fontenilles",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 579,
+    "cc": "CC_AUCAMVILLE",
+    "score": 9,
+    "lat": 43.560564,
+    "lng": 1.171245
+  },
+  {
+    "nom": "Garage Suberville EUROREPAR car service",
+    "adresse": "15 Av. de Gascogne, Fontenilles",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 82,
+    "cc": "CC_AUCAMVILLE",
+    "score": 9,
+    "lat": 43.558742,
+    "lng": 1.173243
+  },
+  {
+    "nom": "MNL AUTO SHOP - Centre de montage de pneus",
+    "adresse": "8 Av. Pierre Durand, Fonsorbes",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 494,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.548351,
+    "lng": 1.244193
+  },
+  {
+    "nom": "Garage DELKO Plaisance-du-Touch",
+    "adresse": "95 Rte de Lombez, Plaisance-du-Touch",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 216,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.561526,
+    "lng": 1.286354
+  },
+  {
+    "nom": "Abc garage",
+    "adresse": "48 Rte d'Espagne, Toulouse",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 117,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.576159,
+    "lng": 1.423846
+  },
+  {
+    "nom": "CARS Automobile - Bosch Car Service",
+    "adresse": "Zi Thibaud, 4 Rue Labouche, Toulouse",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 223,
+    "cc": "CC_AUCAMVILLE",
+    "score": 10,
+    "lat": 43.549873,
+    "lng": 1.402627
+  },
+  {
+    "nom": "Le Garage Toulousain",
+    "adresse": "8 Rue Edouard Branly, Ramonville-Saint-Agne",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 324,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.552337,
+    "lng": 1.47876
+  },
+  {
+    "nom": "Degriff auto",
+    "adresse": "80-84 Rte de Labège, Toulouse",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 1118,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.564332,
+    "lng": 1.501118
+  },
+  {
+    "nom": "GARAGE DEGRIFF AUTO DISCOUNT",
+    "adresse": "77 Chem. de Malepère, Toulouse",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 208,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.566256,
+    "lng": 1.508336
+  },
+  {
+    "nom": "Midas L'ISLE JOURDAIN",
+    "adresse": "45 Rte de Toulouse, L'Isle-Jourdain",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 78,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.606038,
+    "lng": 1.10006
+  },
+  {
+    "nom": "Vl Automobiles",
+    "adresse": "3 Chem. de Bordeblanque, Colomiers",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 1303,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.595065,
+    "lng": 1.30901
+  },
+  {
+    "nom": "FR AUTOMOBILES POLAT",
+    "adresse": "15 All. de Catchère, Colomiers",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 182,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.61367,
+    "lng": 1.31875
+  },
+  {
+    "nom": "CARINGTON",
+    "adresse": "22 Chem. de l'Echut, Colomiers",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 252,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.59819,
+    "lng": 1.30129
+  },
+  {
+    "nom": "Ramat Bayonne",
+    "adresse": "268 Rte de Bayonne, Toulouse",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 200,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.608775,
+    "lng": 1.373099
+  },
+  {
+    "nom": "Autopole Services - Bosch Car Service",
+    "adresse": "28 Av. Georges Guynemer, Colomiers",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 181,
+    "cc": "CC_AUCAMVILLE",
+    "score": 10,
+    "lat": 43.61874,
+    "lng": 1.34461
+  },
+  {
+    "nom": "Garage Automotive Phalippou",
+    "adresse": "15 Rue de Cugnaux, Toulouse",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 168,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.591818,
+    "lng": 1.420518
+  },
+  {
+    "nom": "AD Garage Expert DES SAULES - ETS CLEMENT AUTOMOBILES",
+    "adresse": "25 Rue des Saules, Toulouse",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 211,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.585958,
+    "lng": 1.44196
+  },
+  {
+    "nom": "De Lima",
+    "adresse": "78 Rte de Castres, Balma",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 159,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.59107,
+    "lng": 1.50917
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "43 Av. des Aérostiers, Balma",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 327,
+    "cc": "CC_AUCAMVILLE",
+    "score": 10,
+    "lat": 43.608798,
+    "lng": 1.488822
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "1 Rue Emile Dewoitine, Cornebarrieu",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 193,
+    "cc": "CC_AUCAMVILLE",
+    "score": 9,
+    "lat": 43.649291,
+    "lng": 1.336423
+  },
+  {
+    "nom": "GARAGE DEGRIFF AUTO CENTRE",
+    "adresse": "317 Av. des États-Unis, Toulouse",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 151,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.638222,
+    "lng": 1.429103
+  },
+  {
+    "nom": "CarUnivers",
+    "adresse": "62 Imp. de la Glacière, Toulouse",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 114,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.646588,
+    "lng": 1.424536
+  },
+  {
+    "nom": "AD Garage Expert GOMEZ (31000)",
+    "adresse": "3 Rue Edmond de Planet, Toulouse",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 94,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.607115,
+    "lng": 1.426483
+  },
+  {
+    "nom": "Garage HUG Motors Services Toulouse",
+    "adresse": "4 Chem. de Nicol, Toulouse",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 239,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.62534,
+    "lng": 1.474848
+  },
+  {
+    "nom": "CARGLASS Pare-Brise L'Isle Jourdain",
+    "adresse": "34 Rte de Segoufielle, L'Isle-Jourdain",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 35,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.619564,
+    "lng": 1.099303
+  },
+  {
+    "nom": "Garage Fournier J.",
+    "adresse": "29 Rte de l'Isle Jourdain, Lévignac",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 232,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.662431,
+    "lng": 1.188389
+  },
+  {
+    "nom": "RN AUTO 31",
+    "adresse": "12 Rue Aristide Berges, Aussonne",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 304,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.688261,
+    "lng": 1.338365
+  },
+  {
+    "nom": "GARAGE ALEX AUTO",
+    "adresse": "28 Rte de Grenade, Beauzelle",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 118,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.665164,
+    "lng": 1.371734
+  },
+  {
+    "nom": "L'Atelier de Ju mécanicien à domicile",
+    "adresse": "139 Rte de Paris, Saint-Alban",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 190,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.69131,
+    "lng": 1.404008
+  },
+  {
+    "nom": "Meca Pulse Garage",
+    "adresse": "217 Chem. de Boudou, Launaguet",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 197,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.663536,
+    "lng": 1.44311
+  },
+  {
+    "nom": "SEBIA AUTO",
+    "adresse": "32 Chem. de la Violette, L'Union",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 243,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.6636,
+    "lng": 1.45903
+  },
+  {
+    "nom": "HVF Automobiles Mecanique Vente et LLD",
+    "adresse": "81 Chem. de Bessayre, Saint-Jean",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 150,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.657986,
+    "lng": 1.516588
+  },
+  {
+    "nom": "L' Union Repair & Services",
+    "adresse": "Lotissement La Violette Sud, 1 Rue de Bordé Basse, L'Union",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 118,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.66289,
+    "lng": 1.46053
+  },
+  {
+    "nom": "Garage Foltran - Euro Repar",
+    "adresse": "3 Imp. du Grand Rond, Launaguet",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 237,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.681348,
+    "lng": 1.450938
+  },
+  {
+    "nom": "Faustin and Son Garage",
+    "adresse": "1 A Rte de Belloc, Saint-Geniès-Bellevue",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 129,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.691311,
+    "lng": 1.498802
+  },
+  {
+    "nom": "GARAGE FDA - AUTOPRIMO",
+    "adresse": "193 Rte de Paris, Fenouillet",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 172,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.701855,
+    "lng": 1.396603
+  },
+  {
+    "nom": "AD Garage Expert RIVIERE FRERES",
+    "adresse": "83T Rte de Paris, Fenouillet",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 135,
+    "cc": "CC_AUCAMVILLE",
+    "score": 10,
+    "lat": 43.677542,
+    "lng": 1.408428
+  },
+  {
+    "nom": "GARAGE MS AUTO",
+    "adresse": "250 Rue Léonard de Vinci, Lavaur",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 105,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.723812,
+    "lng": 1.760861
+  },
+  {
+    "nom": "Dacia Lavaur - Bony auto-mobile",
+    "adresse": "ZA des Cauquillous, 348 Rue Léonard de Vinci, Lavaur",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 111,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.723183,
+    "lng": 1.761482
+  },
+  {
+    "nom": "Midas SAINT JORY",
+    "adresse": "84 RN 20, Saint-Jory",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 58,
+    "cc": "CC_AUCAMVILLE",
+    "score": 9,
+    "lat": 43.747445,
+    "lng": 1.375884
+  },
+  {
+    "nom": "OFF-ROAD ATTITUDE",
+    "adresse": "27 All. de Sébastopol, Grenade",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 236,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.773145,
+    "lng": 1.288742
+  },
+  {
+    "nom": "Castelnau Automobiles",
+    "adresse": "2 Av. de l'Europe, Castelnau-d'Estrétefonds",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 367,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.779678,
+    "lng": 1.350921
+  },
+  {
+    "nom": "Norauto Saint-Jory",
+    "adresse": "Za Cabourdy, Route Nationale 20, Saint-Jory",
+    "tel": "",
+    "note": 4.0,
+    "nb_avis": 1143,
+    "cc": "CC_AUCAMVILLE",
+    "score": 9,
+    "lat": 43.746159,
+    "lng": 1.365992
+  },
+  {
+    "nom": "Point S - Bouloc Eurocentre (Bouloc Centre Auto)",
+    "adresse": "1 Rue des Pélissières, Bouloc",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 86,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.783638,
+    "lng": 1.40289
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "282 Av. des Terres Noires, Saint-Sulpice-la-Pointe",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 121,
+    "cc": "CC_AUCAMVILLE",
+    "score": 9,
+    "lat": 43.7716,
+    "lng": 1.676066
+  },
+  {
+    "nom": "SAINT-SULPICE PNEUS",
+    "adresse": "635 A Av. des Terres Noires, Saint-Sulpice-la-Pointe",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 138,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.770154,
+    "lng": 1.673437
+  },
+  {
+    "nom": "Midas FRONTON",
+    "adresse": "800 Rte de Toulouse, Fronton",
+    "tel": "",
+    "note": 3.9,
+    "nb_avis": 220,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.830507,
+    "lng": 1.392535
+  },
+  {
+    "nom": "Zine Vo",
+    "adresse": "D630, La Magdelaine-sur-Tarn",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 229,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.813045,
+    "lng": 1.539922
+  },
+  {
+    "nom": "Garage DELKO Bessières",
+    "adresse": "1131 Rte de Montauban, Bessières",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 219,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.805941,
+    "lng": 1.580083
+  },
+  {
+    "nom": "GMA Automobiles",
+    "adresse": "90 rue des Poiriers ZA de, La Dourdenne, Fronton",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 137,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.849968,
+    "lng": 1.389737
+  },
+  {
+    "nom": "AJY Autos",
+    "adresse": "29 Av. du Gén Leclerc, Villemur-sur-Tarn",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 113,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.857143,
+    "lng": 1.500434
+  },
+  {
+    "nom": "Garage Ambulant 31",
+    "adresse": "7 bis Av. du Président Roosevelt, Villemur-sur-Tarn",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 122,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.859707,
+    "lng": 1.491894
+  },
+  {
+    "nom": "First Stop LTI Verdier Pneus Villemur-sur-Tarn",
+    "adresse": "1 Av. Michel Rocard, Villemur-sur-Tarn",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 226,
+    "cc": "CC_AUCAMVILLE",
+    "score": 10,
+    "lat": 43.847532,
+    "lng": 1.495526
+  },
+  {
+    "nom": "Eurorepar Garage Esteves",
+    "adresse": "34 Chem. de la Cassagnère, Cugnaux",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 103,
+    "cc": "CC_AUCAMVILLE",
+    "score": 9,
+    "lat": 43.54801,
+    "lng": 1.345876
+  },
+  {
+    "nom": "Dumas Décalaminage",
+    "adresse": "36 Rue du Pin, Mons",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 135,
+    "cc": "CC_AUCAMVILLE",
+    "score": 7,
+    "lat": 43.615551,
+    "lng": 1.56255
+  },
+  {
+    "nom": "Debard Automobiles Montauban - Voiture neuve et occasion",
+    "adresse": "110 Imp. Sepat, Campsas",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 571,
+    "cc": "CC_AUCAMVILLE",
+    "score": 8,
+    "lat": 43.899073,
+    "lng": 1.308698
+  },
+  {
+    "nom": "Dépannage & Transports Sdtbl Industrie",
+    "adresse": "22 Rte du Qur les Quarts, Capens",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 289,
+    "cc": "CC_TOULOUSE_PURPAN",
+    "score": 8,
+    "lat": 43.340011,
+    "lng": 1.247681
+  },
+  {
+    "nom": "Auto Méca Pneu 31",
+    "adresse": "14 Rue du Tinal, Noé",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 120,
+    "cc": "CC_TOULOUSE_PURPAN",
+    "score": 7,
+    "lat": 43.345501,
+    "lng": 1.255146
+  },
+  {
+    "nom": "AD Garage Expert MN AUTOMOBILES",
+    "adresse": "2 Rue du Tinal, Capens",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 187,
+    "cc": "CC_TOULOUSE_PURPAN",
+    "score": 10,
+    "lat": 43.343716,
+    "lng": 1.254068
+  },
+  {
+    "nom": "Sam Répare",
+    "adresse": "10 Voie Eris, Miremont",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 126,
+    "cc": "CC_TOULOUSE_PURPAN",
+    "score": 7,
+    "lat": 43.364269,
+    "lng": 1.43978
+  },
+  {
+    "nom": "GARAGE PNEUMATIQUE, CLEAN AUTO PNEUS",
+    "adresse": "Z.I lavigne, 6 Voie Hestia, Auterive",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 136,
+    "cc": "CC_TOULOUSE_PURPAN",
+    "score": 7,
+    "lat": 43.366094,
+    "lng": 1.446601
+  },
+  {
+    "nom": "Eurorepar Garage Dedieu",
+    "adresse": "10 Pl. de la Patte d'Oie, Rieumes",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 20,
+    "cc": "CC_TOULOUSE_PURPAN",
+    "score": 8,
+    "lat": 43.41199,
+    "lng": 1.116664
+  },
+  {
+    "nom": "Profil Plus Muret",
+    "adresse": "179 Av. Jacques Douzans, Muret",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 329,
+    "cc": "CC_TOULOUSE_PURPAN",
+    "score": 7,
+    "lat": 43.471194,
+    "lng": 1.328513
+  },
+  {
+    "nom": "Mon Contrôle Technique Montgiscard",
+    "adresse": "En Rouzaud, Montgiscard",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 655,
+    "cc": "CC_TOULOUSE_PURPAN",
+    "score": 8,
+    "lat": 43.453854,
+    "lng": 1.587686
+  },
+  {
+    "nom": "AS Autosécurité Contrôle Technique Castelmaurou | Auto - Moto - VSP",
+    "adresse": "20 route d`Albi à côté Renault, Castelmaurou",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 408,
+    "cc": "CC_TOULOUSE_PURPAN",
+    "score": 8,
+    "lat": 43.684589,
+    "lng": 1.541047
+  },
+  {
+    "nom": "MNK AUTO 31 EUROREPAR car service",
+    "adresse": "94 Rte de Carbonne, Marquefave",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 18,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 8,
+    "lat": 43.31171,
+    "lng": 1.232387
+  },
+  {
+    "nom": "Eurorepar Smaca Automobile",
+    "adresse": "20 Rte de Lafitte, Carbonne",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 120,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 9,
+    "lat": 43.296412,
+    "lng": 1.206813
+  },
+  {
+    "nom": "Garage Aspe - EUROREPAR CAR SERVICE- Spécialiste Camping Car et Utilitaires",
+    "adresse": "94 Rte de Carbonne, Marquefave",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 65,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 8,
+    "lat": 43.31171,
+    "lng": 1.232387
+  },
+  {
+    "nom": "Feu Vert Services",
+    "adresse": "lieudit millet, 1 bis Av. Jean Monnet, Carbonne",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 276,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 8,
+    "lat": 43.308611,
+    "lng": 1.221009
+  },
+  {
+    "nom": "Norauto Auterive",
+    "adresse": "76 Rte de Toulouse, Auterive",
+    "tel": "",
+    "note": 4.0,
+    "nb_avis": 191,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 7,
+    "lat": 43.366197,
+    "lng": 1.453522
+  },
+  {
+    "nom": "OKOU Dépann'",
+    "adresse": "12 Chem. de la Camave, Villefranche-de-Lauragais",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 114,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 7,
+    "lat": 43.406709,
+    "lng": 1.698199
+  },
+  {
+    "nom": "GARAGE DU MARES",
+    "adresse": "24 Av. François Mitterrand, Villefranche-de-Lauragais",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 271,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 7,
+    "lat": 43.400026,
+    "lng": 1.711948
+  },
+  {
+    "nom": "AD Garage Expert REPARATION PNEU ET MAINTENANCES AUTOS - RPM AUTOS",
+    "adresse": "16 ROUTE DE CARCASSONNE, Villefranche-de-Lauragais",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 235,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 10,
+    "lat": 43.393788,
+    "lng": 1.722579
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "Za De L’hers Sud, Av. de Bordé Blanche, Villefranche-de-Lauragais",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 139,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 9,
+    "lat": 43.398907,
+    "lng": 1.705657
+  },
+  {
+    "nom": "Norauto Seysses",
+    "adresse": "Zone Industrielle Segla, 1 Rue Danielle Casanova, Seysses",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 682,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 10,
+    "lat": 43.490695,
+    "lng": 1.317495
+  },
+  {
+    "nom": "AXIAL - GARAGE DU PORT SAINT SAUVEUR",
+    "adresse": "8 Rue Bernard Mulé, Toulouse",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 127,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 7,
+    "lat": 43.5956,
+    "lng": 1.45763
+  },
+  {
+    "nom": "GARAGE DEGRIFF AUTO NORD",
+    "adresse": "16 Rte de Paris, Fenouillet",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 221,
+    "cc": "CC_PORTET_SUR_GARONNE",
+    "score": 7,
+    "lat": 43.687561,
+    "lng": 1.403616
+  },
+  {
+    "nom": "Dacia Muret - edenauto",
+    "adresse": "254 Av. des Pyrénées, Muret",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 394,
+    "cc": "CC_L_UNION",
+    "score": 7,
+    "lat": 43.43822,
+    "lng": 1.30961
+  },
+  {
+    "nom": "Contrôle Technique Léguevin",
+    "adresse": "9 Rte de Toulouse, Léguevin",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 231,
+    "cc": "CC_L_UNION",
+    "score": 7,
+    "lat": 43.600179,
+    "lng": 1.243099
+  },
+  {
+    "nom": "Eurorepar Garage Sameca",
+    "adresse": "73 Av. Pierre Fabre, Lavaur",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 47,
+    "cc": "CC_L_UNION",
+    "score": 7,
+    "lat": 43.690261,
+    "lng": 1.823326
+  },
+  {
+    "nom": "Point S - Lavaur (AMGP)",
+    "adresse": "1267 Av. Pierre Fabre, Lavaur",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 142,
+    "cc": "CC_L_UNION",
+    "score": 9,
+    "lat": 43.689011,
+    "lng": 1.825287
+  },
+  {
+    "nom": "AD Garage Expert ALBAREDE ROLAND SARL",
+    "adresse": "14 Rte de Gaillac, Lavaur",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 90,
+    "cc": "CC_L_UNION",
+    "score": 8,
+    "lat": 43.706775,
+    "lng": 1.821067
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Dans la station Total, 487 Rdpt Charles de Gaulle, Lunel",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 265,
+    "cc": "CC_N_MES",
+    "score": 11,
+    "lat": 45.537708,
+    "lng": 4.188625
+  },
+  {
+    "nom": "Garage Brunel",
+    "adresse": "150 Rue Thomas Edison, Lunel",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 490,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.685486,
+    "lng": 4.146696
+  },
+  {
+    "nom": "Garage DELKO Saint-Gilles",
+    "adresse": "9 Rue des Champs, Saint-Gilles",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 215,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.669957,
+    "lng": 4.42062
+  },
+  {
+    "nom": "First Stop CR 28 Saint-Gilles",
+    "adresse": "354 Rte de Nîmes, Saint-Gilles",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 26,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.685353,
+    "lng": 4.429154
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "2 rue des Mugues, Saint-Gilles",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 226,
+    "cc": "CC_N_MES",
+    "score": 11,
+    "lat": 43.679317,
+    "lng": 4.422391
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "42 Av. de Stalingrad, Arles",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 292,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.684623,
+    "lng": 4.633752
+  },
+  {
+    "nom": "Midas ARLES",
+    "adresse": "Rue des Bourdigues, Arles",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 343,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.664498,
+    "lng": 4.638947
+  },
+  {
+    "nom": "Villetelle Dépannage - Bosch Car Service",
+    "adresse": "Imp. du Campaillou, Villetelle",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 161,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.720592,
+    "lng": 4.140666
+  },
+  {
+    "nom": "Rapidmeca",
+    "adresse": "801 Rue des Fournels, Lunel",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 135,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.679709,
+    "lng": 4.108798
+  },
+  {
+    "nom": "Lm auto pare-brise",
+    "adresse": "240 Av. Côté Soleil, Vauvert",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 432,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.709646,
+    "lng": 4.268669
+  },
+  {
+    "nom": "AD Garage Vauvert",
+    "adresse": "361 Rue Pasteur, Vauvert",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 85,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.694843,
+    "lng": 4.273374
+  },
+  {
+    "nom": "Norauto Vauvert",
+    "adresse": "Zac Cote Soleil, Vauvert",
+    "tel": "",
+    "note": 3.9,
+    "nb_avis": 657,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.709808,
+    "lng": 4.269816
+  },
+  {
+    "nom": "Norauto Arles",
+    "adresse": "12 Av. de la Libération, Arles",
+    "tel": "",
+    "note": 4.0,
+    "nb_avis": 600,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.70061,
+    "lng": 4.642101
+  },
+  {
+    "nom": "Garage Poujol - Motrio",
+    "adresse": "401 Rue du Pont Neuf, Mus",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 128,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.735463,
+    "lng": 4.209083
+  },
+  {
+    "nom": "AD Garage Expert AUTO PASSION",
+    "adresse": "1500 Bis Rte de Nîmes KM 2, Générac",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 26,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.742762,
+    "lng": 4.343176
+  },
+  {
+    "nom": "DELTA GEO RACING",
+    "adresse": "Rte de Nîmes, Générac",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 143,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.785082,
+    "lng": 4.350441
+  },
+  {
+    "nom": "DC Performance",
+    "adresse": "2 Lot. du Mas de Serre, Générac",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 117,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.744416,
+    "lng": 4.34408
+  },
+  {
+    "nom": "Galindo Récupération",
+    "adresse": "6401 Route de Fourques, Beaucaire",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 164,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.791249,
+    "lng": 4.629152
+  },
+  {
+    "nom": "Dacia Arles - Groupe Synethis",
+    "adresse": "Pt Rte de Tarascon, Arles",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 418,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.791887,
+    "lng": 4.671989
+  },
+  {
+    "nom": "Mobil' Gom",
+    "adresse": "46 Imp. des Tourterelles, Saint-Sériès",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 155,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.729076,
+    "lng": 4.108905
+  },
+  {
+    "nom": "AD Garage Expert DES TOURELS",
+    "adresse": "1 Chem. de la Chicanette, Congénies",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 35,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.77588,
+    "lng": 4.160307
+  },
+  {
+    "nom": "Tricolore Automobiles",
+    "adresse": "70 Av. des Capitelles, Bernis",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 115,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.765897,
+    "lng": 4.276874
+  },
+  {
+    "nom": "True love workshop",
+    "adresse": "18 Av. des Capitelles, Bernis",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 133,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.765419,
+    "lng": 4.276608
+  },
+  {
+    "nom": "Automobile Nimois",
+    "adresse": "38 RN 113, N113, Bernis",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 248,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.773964,
+    "lng": 4.283854
+  },
+  {
+    "nom": "WW AUTO",
+    "adresse": "10 RN N113, Bernis",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 213,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.780753,
+    "lng": 4.293291
+  },
+  {
+    "nom": "Garage Génération Automobile eurorepar",
+    "adresse": "4 Chem. de Saint-Estève, Garons",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 98,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.776195,
+    "lng": 4.427099
+  },
+  {
+    "nom": "Point S - Caissargues (LEAL)",
+    "adresse": "19 Av. de la Vistrenque, Caissargues",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 92,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.794123,
+    "lng": 4.385277
+  },
+  {
+    "nom": "Eurorepar Planete Auto",
+    "adresse": "18 Rte de Bouillargues, Garons",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 127,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.77542,
+    "lng": 4.427969
+  },
+  {
+    "nom": "First Stop Pneus Meca Services Caissargues",
+    "adresse": "Av. de la Vistrenque, Caissargues",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 57,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.795957,
+    "lng": 4.383916
+  },
+  {
+    "nom": "First Stop FD Auto Saint-Dionisy",
+    "adresse": "9A Chem. d'Azord, Saint-Dionisy",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 38,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.807489,
+    "lng": 4.229525
+  },
+  {
+    "nom": "ULTIMATE CAR",
+    "adresse": "328 Rte des Pinèdes, Langlade",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 155,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.80616,
+    "lng": 4.247183
+  },
+  {
+    "nom": "Lamdev Developpement",
+    "adresse": "362 Chem. de Milhaud, Caveirac",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 208,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.819888,
+    "lng": 4.266779
+  },
+  {
+    "nom": "Point S Vaunage Saint Dionisy",
+    "adresse": "13 Chem. d'Azord, Saint-Dionisy",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 131,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.807489,
+    "lng": 4.229525
+  },
+  {
+    "nom": "Garage Usul Frères",
+    "adresse": "47 Rue du Pied Ferme, Nîmes",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 209,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.806865,
+    "lng": 4.325701
+  },
+  {
+    "nom": "GARAGE/CENTRE AUTO EPA Nîmes / GARAGE AUTO Nîmes",
+    "adresse": "1040 Avenue du Maréchal Juin, Imp. Juvénal, Nîmes",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 203,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.820008,
+    "lng": 4.344682
+  },
+  {
+    "nom": "Garage Sainte Perpetue Eurorepar car service",
+    "adresse": "8 Rue Sainte-Perpétue, Nîmes",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 82,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.832941,
+    "lng": 4.369819
+  },
+  {
+    "nom": "Garage de la gare",
+    "adresse": "17 Rue Sainte-Félicité, Nîmes",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 150,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.829534,
+    "lng": 4.363435
+  },
+  {
+    "nom": "Garage DELKO Nîmes",
+    "adresse": "1294 Av. Marechal Juin, Nîmes",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 154,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.818687,
+    "lng": 4.341976
+  },
+  {
+    "nom": "CDR NIMES",
+    "adresse": "138 Rue John Mac Adam, Nîmes",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 354,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.814552,
+    "lng": 4.337498
+  },
+  {
+    "nom": "Auto-Pro Normauto - Bosch Car Service",
+    "adresse": "2049 Rte de Saint-Gilles, Nîmes",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 172,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.804555,
+    "lng": 4.37302
+  },
+  {
+    "nom": "PERIF AUTO",
+    "adresse": "Bd Peripherique, 100 Imp. d'Iéna, Nîmes",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 127,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.829186,
+    "lng": 4.37824
+  },
+  {
+    "nom": "MY DREAM CAR NÎMES",
+    "adresse": "3 avenue Philippe Lamour Zone Actiparc, Bouillargues",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 223,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.810036,
+    "lng": 4.410593
+  },
+  {
+    "nom": "Mon Contrôle Technique Beaucaire",
+    "adresse": "1185 Chem. Clapas de Cornut, Beaucaire",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 132,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.811908,
+    "lng": 4.613467
+  },
+  {
+    "nom": "Garage VANNIERE agent EUROREPAR Car SERVICE",
+    "adresse": "9 Cr Sadi Carnot, Beaucaire",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 145,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.805088,
+    "lng": 4.642428
+  },
+  {
+    "nom": "Côté Route Beaucaire by First Stop",
+    "adresse": "54 Rte de Saint-Gilles, Beaucaire",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 82,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.808168,
+    "lng": 4.630475
+  },
+  {
+    "nom": "Garage EurocarFrance",
+    "adresse": "5 Rte de Russan, Nîmes",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 232,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.868004,
+    "lng": 4.328428
+  },
+  {
+    "nom": "AD Garage Expert RELAIS VILLE FORET - EXPLOITATION COUSTY",
+    "adresse": "273 Rte de Sauve, Nîmes",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 68,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.844533,
+    "lng": 4.301382
+  },
+  {
+    "nom": "Garage 46",
+    "adresse": "La Ponche S, Marguerittes",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 127,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.859479,
+    "lng": 4.422372
+  },
+  {
+    "nom": "Eurorepar Alda Autos",
+    "adresse": "6 Rue Nicot, Nîmes",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 45,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.841195,
+    "lng": 4.370959
+  },
+  {
+    "nom": "LT PERFORMANCE Réparation adblue fap egr Reprogrammation moteur et adaptation bio éthanol E85",
+    "adresse": "D6086, Lédenon",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 197,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.905303,
+    "lng": 4.516693
+  },
+  {
+    "nom": "MY VEO by Roda Auto",
+    "adresse": "580 Rte de Nîmes, La Rouvière",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 109,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.90172,
+    "lng": 4.244372
+  },
+  {
+    "nom": "RelaxAuto Nîmes Nord - Garage à Domicile !",
+    "adresse": "79 Rue des Aires, Poulx",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 148,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.910835,
+    "lng": 4.420754
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "ZAC de l'Arnède, Rue du Moulin d'Aure, Remoulins",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 142,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.945853,
+    "lng": 4.571778
+  },
+  {
+    "nom": "Mecabul",
+    "adresse": "206 Av. de Grand Angles, Les Angles",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 100,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.963282,
+    "lng": 4.742462
+  },
+  {
+    "nom": "Norauto Les Angles",
+    "adresse": "Centre Commercial Grand Angles, 1 Av. de Tavel, Les Angles",
+    "tel": "",
+    "note": 3.8,
+    "nb_avis": 1166,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 43.960659,
+    "lng": 4.749515
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "540 Av. de la 2è Division Blindée, Les Angles",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 114,
+    "cc": "CC_N_MES",
+    "score": 8,
+    "lat": 48.864802,
+    "lng": 2.498685
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "Pont des charrettes, Saint-Eugène, Uzès",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 225,
+    "cc": "CC_N_MES",
+    "score": 9,
+    "lat": 43.989381,
+    "lng": 4.432581
+  },
+  {
+    "nom": "Garage Notre Dame Rochefort du Gard - Bosch Car Service",
+    "adresse": "1237 Rte d'Orange, Rochefort-du-Gard",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 56,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 43.980576,
+    "lng": 4.699443
+  },
+  {
+    "nom": "Toiron Pneus (Eurl)",
+    "adresse": "1262 Rte des Deux Villages, Ribaute-les-Tavernes",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 375,
+    "cc": "CC_N_MES",
+    "score": 7,
+    "lat": 44.035142,
+    "lng": 4.094846
+  },
+  {
+    "nom": "RRS",
+    "adresse": "ZAE de l Orthus, Sauteyrargues",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 269,
+    "cc": "CC_AL_S",
+    "score": 8,
+    "lat": 43.844827,
+    "lng": 3.91896
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "476 Route d'Anduze, Imp. de la Micalerie ZA, Boisset-et-Gaujac",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 97,
+    "cc": "CC_AL_S",
+    "score": 7,
+    "lat": 44.056175,
+    "lng": 4.00675
+  },
+  {
+    "nom": "GARAGE LUB'AUTO EUROREPAR CAR SERVICE",
+    "adresse": "241 Chem. des Portaleses, Bagard",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 18,
+    "cc": "CC_AL_S",
+    "score": 8,
+    "lat": 44.070486,
+    "lng": 4.047846
+  },
+  {
+    "nom": "Garage JB auto",
+    "adresse": "2531 Av. Jean Moulin, Saint-Christol-lez-Alès",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 107,
+    "cc": "CC_AL_S",
+    "score": 7,
+    "lat": 44.063015,
+    "lng": 4.088421
+  },
+  {
+    "nom": "Auto Service Jannelli - Bosch Car Service",
+    "adresse": "914 Rte d'Uzès, Alès",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 112,
+    "cc": "CC_AL_S",
+    "score": 9,
+    "lat": 44.111675,
+    "lng": 4.108265
+  },
+  {
+    "nom": "La Jass'Auto",
+    "adresse": "411 Rue André Charles Boulle, Alès",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 115,
+    "cc": "CC_AL_S",
+    "score": 7,
+    "lat": 47.952936,
+    "lng": 1.862761
+  },
+  {
+    "nom": "Centre Auto Roady Alès",
+    "adresse": "82 Av. d'Alsace, Alès",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 349,
+    "cc": "CC_AL_S",
+    "score": 7,
+    "lat": 44.138874,
+    "lng": 4.088292
+  },
+  {
+    "nom": "CEVEN Performance RS-TRONIC Alès",
+    "adresse": "132 Rte d'Alès, Mons",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 133,
+    "cc": "CC_AL_S",
+    "score": 7,
+    "lat": 44.131137,
+    "lng": 4.155167
+  },
+  {
+    "nom": "EUROREPAR - Rousson Auto",
+    "adresse": "228 Rue du Saut du Loup, Salindres",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 79,
+    "cc": "CC_AL_S",
+    "score": 9,
+    "lat": 44.175354,
+    "lng": 4.148522
+  },
+  {
+    "nom": "St Martin Pneus",
+    "adresse": "826 Rte de Saint-Ambroix, Saint-Martin-de-Valgalgues",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 240,
+    "cc": "CC_AL_S",
+    "score": 7,
+    "lat": 44.163752,
+    "lng": 4.09852
+  },
+  {
+    "nom": "ARG PERFORMANCE",
+    "adresse": "202 Rue du Saut du Loup, Salindres",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 382,
+    "cc": "CC_AL_S",
+    "score": 8,
+    "lat": 44.175246,
+    "lng": 4.148377
+  },
+  {
+    "nom": "Garage Saint Christophe Eurorepar Car Service",
+    "adresse": "17 Rte de Pont Saint-Esprit, Goudargues",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 83,
+    "cc": "CC_AL_S",
+    "score": 8,
+    "lat": 44.216628,
+    "lng": 4.472724
+  },
+  {
+    "nom": "AD Garage Expert SOCIETE PRAT PNEUS",
+    "adresse": "ROUTE DE CHATEAULIN, Crozon",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 112,
+    "cc": "CC_BREST",
+    "score": 9,
+    "lat": 48.248071,
+    "lng": -4.414611
+  },
+  {
+    "nom": "AD Garage Expert SAINT PIERRE",
+    "adresse": "65 Rue du Vern, Brest",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 150,
+    "cc": "CC_BREST",
+    "score": 8,
+    "lat": 48.390853,
+    "lng": -4.539968
+  },
+  {
+    "nom": "Norauto Brest Iroise",
+    "adresse": "La Cavale Blanche, Av. de Tallinn, Brest",
+    "tel": "",
+    "note": 3.8,
+    "nb_avis": 1035,
+    "cc": "CC_BREST",
+    "score": 8,
+    "lat": 48.371411,
+    "lng": -4.543472
+  },
+  {
+    "nom": "AD Garage CLOAREC LOIC",
+    "adresse": "22 Rue Jules Guesde, Brest",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 50,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.391691,
+    "lng": -4.470974
+  },
+  {
+    "nom": "Centre Porsche Brest",
+    "adresse": "84 Rue Alain Colas, Plougastel-Daoulas",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 117,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.383872,
+    "lng": -4.350466
+  },
+  {
+    "nom": "Norauto Plougastel",
+    "adresse": "Zac De Ty Ar Menez, Plougastel-Daoulas",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 692,
+    "cc": "CC_BREST",
+    "score": 9,
+    "lat": 48.386712,
+    "lng": -4.346333
+  },
+  {
+    "nom": "ETAPE AUTO RELAIS PLOUARZEL",
+    "adresse": "639 Ménez Crenn, Plouarzel",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 132,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.434476,
+    "lng": -4.714211
+  },
+  {
+    "nom": "Iroise Contrôle Technique Plouarzel",
+    "adresse": "Berraouen, Plouarzel",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 110,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.42706,
+    "lng": -4.718783
+  },
+  {
+    "nom": "Auto Feu Vert St Renan Center",
+    "adresse": "Centre Cial Les Rives Du Lac Parking Carrefour, Rue du Pont de Bois, Saint-Renan",
+    "tel": "",
+    "note": 3.8,
+    "nb_avis": 553,
+    "cc": "CC_BREST",
+    "score": 8,
+    "lat": 48.427275,
+    "lng": -4.61315
+  },
+  {
+    "nom": "TOP GARAGE - FOREST AUTOMOBILES",
+    "adresse": "127 Imp. de la Tour, Guilers",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 227,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.424275,
+    "lng": -4.570226
+  },
+  {
+    "nom": "Norauto Guilers",
+    "adresse": "Zac De Kerebars, Guilers",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 532,
+    "cc": "CC_BREST",
+    "score": 9,
+    "lat": 48.425496,
+    "lng": -4.575777
+  },
+  {
+    "nom": "AD Garage Expert CEJEZ GARAGE",
+    "adresse": "9 Rue de Paris, Brest",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 138,
+    "cc": "CC_BREST",
+    "score": 9,
+    "lat": 48.403924,
+    "lng": -4.464942
+  },
+  {
+    "nom": "Garage Touzet Express Ltd.",
+    "adresse": "11 Rue de l'Eau Blanche, Brest",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 266,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.412245,
+    "lng": -4.458368
+  },
+  {
+    "nom": "AD Garage Expert DU CENTRE GUIPAVAS",
+    "adresse": "44 Rue de Brest, Guipavas",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 111,
+    "cc": "CC_BREST",
+    "score": 9,
+    "lat": 48.432857,
+    "lng": -4.40421
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "74 Rue du Dourjacq, Brest",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 368,
+    "cc": "CC_BREST",
+    "score": 9,
+    "lat": 48.408553,
+    "lng": -4.46892
+  },
+  {
+    "nom": "Auto Evo Performance",
+    "adresse": "ZONE, Pen ar Guéar",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 218,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.46082,
+    "lng": -4.559715
+  },
+  {
+    "nom": "AUTO 3000",
+    "adresse": "2 Rue Denis Papin, Plabennec",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 269,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.456804,
+    "lng": -4.451992
+  },
+  {
+    "nom": "AD Garage Expert MARCHADOUR AUTO",
+    "adresse": "LIEU DIT, Saint-Divy",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 82,
+    "cc": "CC_BREST",
+    "score": 9,
+    "lat": 48.842056,
+    "lng": 2.415932
+  },
+  {
+    "nom": "Kersaint Autostore",
+    "adresse": "ZA de Goarem Goz, N12, Kersaint-Plabennec",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 409,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.462225,
+    "lng": -4.357456
+  },
+  {
+    "nom": "Garage Speedy Landerneau",
+    "adresse": "495 Rue de la Petite Palud, Landerneau",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 108,
+    "cc": "CC_BREST",
+    "score": 8,
+    "lat": 48.447668,
+    "lng": -4.260726
+  },
+  {
+    "nom": "Euromaster Landerneau véhicules légers et industriels",
+    "adresse": "27 Rue Hervé de Guébriant, Landerneau",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 213,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.450428,
+    "lng": -4.261649
+  },
+  {
+    "nom": "GARAGE BRO LANDIvisiau - Réparation Automobile à Landivisiau",
+    "adresse": "3 rue Albert Camus, Landivisiau",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 196,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.513359,
+    "lng": -4.085003
+  },
+  {
+    "nom": "AD Garage Expert NICOLAS",
+    "adresse": "7 Rue de Lannilis, Plouguerneau",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 98,
+    "cc": "CC_BREST",
+    "score": 8,
+    "lat": 48.605061,
+    "lng": -4.507321
+  },
+  {
+    "nom": "AD Garage Expert DE LA BAIE",
+    "adresse": "50 Bd de l'Europe, Plouescat",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 75,
+    "cc": "CC_BREST",
+    "score": 7,
+    "lat": 48.653245,
+    "lng": -4.17232
+  },
+  {
+    "nom": "Coyote Mécanique - Top Garage -Garage Penmarch - Mécanique auto sur place et à domicile",
+    "adresse": "360 Rte de Kerameil, Penmarch",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 144,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 47.816492,
+    "lng": -4.356651
+  },
+  {
+    "nom": "Ouest Automobile",
+    "adresse": "ZA de Ti Boutic, Plomeur",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 146,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 47.847495,
+    "lng": -4.251329
+  },
+  {
+    "nom": "Garage de l'Aven - Bosch Car Service",
+    "adresse": "Rue de Kervandalen, Pont-Aven",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 38,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 47.856224,
+    "lng": -3.766916
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Relais Total de l'Etang 45, rue Victor Hugo, RN 785, Pont-l'Abbé",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 195,
+    "cc": "CC_QUIMPER",
+    "score": 10,
+    "lat": 47.870428,
+    "lng": -4.221131
+  },
+  {
+    "nom": "Norauto Pont L Abbe",
+    "adresse": "Za, Brenanvec Névez, Plonéour-Lanvern",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 1123,
+    "cc": "CC_QUIMPER",
+    "score": 9,
+    "lat": 47.873304,
+    "lng": -4.240502
+  },
+  {
+    "nom": "Garage Jaouen Père et Fils",
+    "adresse": "Combrit",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 100,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 49.06496,
+    "lng": 2.320774
+  },
+  {
+    "nom": "Norauto Fouesnant",
+    "adresse": "Pole Commercial Cascade, 7 Rte de Quimper, Fouesnant",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 562,
+    "cc": "CC_QUIMPER",
+    "score": 9,
+    "lat": 47.896133,
+    "lng": -4.017103
+  },
+  {
+    "nom": "Garage Concarneau - West Auto",
+    "adresse": "10 Rue Jacques Noël Sane, Concarneau",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 114,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 47.903802,
+    "lng": -3.910207
+  },
+  {
+    "nom": "GARAGE / BC AUTO CONCARNEAU",
+    "adresse": "3 Rue Emile Marceshe, Concarneau",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 108,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 47.90626,
+    "lng": -3.906683
+  },
+  {
+    "nom": "Norauto Concarneau",
+    "adresse": "15 Rue Louis René Villerme, Concarneau",
+    "tel": "",
+    "note": 3.9,
+    "nb_avis": 603,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 47.886771,
+    "lng": -3.912065
+  },
+  {
+    "nom": "Garage Cozic Philippe - Eurorepar",
+    "adresse": "Rue des Bruyères, Melgven",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 29,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 47.881384,
+    "lng": -3.841641
+  },
+  {
+    "nom": "Sécuritest Contrôle Technique Automobile POULDREUZIC",
+    "adresse": "kernoël, Rue de Plozevet, Pouldreuzic",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 349,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 47.958433,
+    "lng": -4.364105
+  },
+  {
+    "nom": "CARGO Service auto pare brise & pneus Quimper",
+    "adresse": "11 Rue Président Sadate, Quimper",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 305,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 47.978377,
+    "lng": -4.101633
+  },
+  {
+    "nom": "AD Expert Sas Espace Auto",
+    "adresse": "299 Rte de Bénodet, Quimper",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 623,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 47.966276,
+    "lng": -4.084219
+  },
+  {
+    "nom": "Point S - Rosporden (My Garage)",
+    "adresse": "ZA du Dioulan, Rte de Quimper, Rosporden",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 35,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 47.983605,
+    "lng": -4.035764
+  },
+  {
+    "nom": "TOP GARAGE QUEFFELEC",
+    "adresse": "45 Bis Rue de Locronan, Quimper",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 207,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 48.009472,
+    "lng": -4.119585
+  },
+  {
+    "nom": "Garage de la libération Quimper",
+    "adresse": "27-29 Av. de la Libération, Quimper",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 110,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 47.991652,
+    "lng": -4.076223
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "136 Av. de la Libération, Quimper",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 286,
+    "cc": "CC_QUIMPER",
+    "score": 10,
+    "lat": 47.99143,
+    "lng": -4.076037
+  },
+  {
+    "nom": "INTER PNEUS",
+    "adresse": "5 All. Marcel Cerdan, Quimper",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 651,
+    "cc": "CC_QUIMPER",
+    "score": 9,
+    "lat": 48.010386,
+    "lng": -4.074492
+  },
+  {
+    "nom": "MINI Pautric Quimper",
+    "adresse": "zone industrielle du, 5 Rue Joseph Cugnot, Quimper",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 339,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 47.981242,
+    "lng": -4.038776
+  },
+  {
+    "nom": "Nguyen teint véhicules",
+    "adresse": "Cité Bellevue, Gourlizon",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 149,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 48.034906,
+    "lng": -4.248811
+  },
+  {
+    "nom": "DACIA QUIMPER - BODEMERAUTO",
+    "adresse": "ZAC de Kernevez, 1 Rue Nobel, Quimper",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 448,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 48.001199,
+    "lng": -4.151579
+  },
+  {
+    "nom": "Cigogne LC Dépannage - Bosch Car Service",
+    "adresse": "11 Pl. Victor Hugo, Scaër",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 118,
+    "cc": "CC_QUIMPER",
+    "score": 8,
+    "lat": 48.025796,
+    "lng": -3.7017
+  },
+  {
+    "nom": "AD Garage Expert LE BRAS AUTOMOBILES",
+    "adresse": "Coat Pin, Beuzec-Cap-Sizun",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 134,
+    "cc": "CC_QUIMPER",
+    "score": 10,
+    "lat": 48.073968,
+    "lng": -4.463644
+  },
+  {
+    "nom": "AS Auto Sécurité Contrôle technique GOURVILY",
+    "adresse": "rond point de becharles, 1 All. Pierre Louet, Quimper",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 188,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 48.016735,
+    "lng": -4.087142
+  },
+  {
+    "nom": "ND Automotive",
+    "adresse": "Lieu dit, Bel air, Briec",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 100,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 48.072846,
+    "lng": -4.017252
+  },
+  {
+    "nom": "Triskell Auto - Bosch Car Service",
+    "adresse": "137 Rue ar Véret, Douarnenez",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 68,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 48.089035,
+    "lng": -4.34387
+  },
+  {
+    "nom": "Garage Burel - Point S - Douarnenez",
+    "adresse": "Rdpt de Kerguesten, Douarnenez",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 116,
+    "cc": "CC_QUIMPER",
+    "score": 9,
+    "lat": 48.090063,
+    "lng": -4.347169
+  },
+  {
+    "nom": "Glazik Moto",
+    "adresse": "5 Rue de Kerroc'h, Landrévarzec",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 152,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 48.091747,
+    "lng": -4.05718
+  },
+  {
+    "nom": "DACIA CHATEAULIN - BODEMERAUTO",
+    "adresse": "22 Av. de Quimper, Châteaulin",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 122,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 48.19425,
+    "lng": -4.097335
+  },
+  {
+    "nom": "Dépannage Eclair 29 - Bosch Car Service",
+    "adresse": "1 Rue Maurice de Tresiguidy, Pleyben",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 127,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 48.219622,
+    "lng": -3.979215
+  },
+  {
+    "nom": "Autovision Quimper Auto Control",
+    "adresse": "27 Rte de Douarnenez, Quimper",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 201,
+    "cc": "CC_QUIMPER",
+    "score": 7,
+    "lat": 47.999332,
+    "lng": -4.115151
+  },
+  {
+    "nom": "Davy Automobiles EUROREPAR Car Service",
+    "adresse": "30 Rte de Paris, Acon",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 43,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 48.771163,
+    "lng": 1.08961
+  },
+  {
+    "nom": "Eurorepar Garage Mathy Bruno",
+    "adresse": "1 Rue des Caves, Saint-Lubin-des-Joncherets",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 67,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 48.760649,
+    "lng": 1.205522
+  },
+  {
+    "nom": "AD Garage Expert ESPACE AUTOMOBILES 27",
+    "adresse": "Rte de Damville, Nonancourt",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 85,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 48.777558,
+    "lng": 1.190631
+  },
+  {
+    "nom": "TC AUTOMOBILE",
+    "adresse": "32 N12, Saint-Rémy-sur-Avre",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 173,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 48.761445,
+    "lng": 1.240787
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "56 Rue Alfred Pillard Soulain, Le Clos Fouquet, Breteuil",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 101,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 48.84505,
+    "lng": 0.917899
+  },
+  {
+    "nom": "DS Auto 28 EUROREPAR Car Service",
+    "adresse": "16 Rte de Dreux, Ézy-sur-Eure",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 168,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 48.860763,
+    "lng": 1.399388
+  },
+  {
+    "nom": "AD Garage Expert LETOURNEUR",
+    "adresse": "CENTRE COMMERCIAL LES PRES DE L'ILE, Saussay",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 102,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 43.72477,
+    "lng": -1.066344
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "2 Rue des Oliviers, Anet",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 312,
+    "cc": "CC_EVREUX",
+    "score": 9,
+    "lat": 48.86236,
+    "lng": 1.455568
+  },
+  {
+    "nom": "ANET PNEU MECA - 100% PNEU",
+    "adresse": "10 Rte d'Oulins, Anet",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 292,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 48.859778,
+    "lng": 1.44691
+  },
+  {
+    "nom": "Les Authieux Automobiles",
+    "adresse": "29 Rue de Damville, Les Authieux",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 161,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 48.898979,
+    "lng": 1.238989
+  },
+  {
+    "nom": "First Stop Saint André Pneus Saint-André-de-l'Eure",
+    "adresse": "ZAC de la, 11 Rue de la Croix Prunelle, Saint-André-de-l'Eure",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 101,
+    "cc": "CC_EVREUX",
+    "score": 10,
+    "lat": 48.894187,
+    "lng": 1.272549
+  },
+  {
+    "nom": "EUROREPAR CAR SERVICE SAS IVRY SERVICES AUTO",
+    "adresse": "46 Rue de Garennes, Ivry-la-Bataille",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 24,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 48.888429,
+    "lng": 1.460054
+  },
+  {
+    "nom": "AML CARS EUROREPAR CAR SERVICE",
+    "adresse": "27 Rte de Mantes, Le Mesnil-Simon",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 18,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 48.896989,
+    "lng": 1.538054
+  },
+  {
+    "nom": "GARAGE PREMIER - BL AUTO 27",
+    "adresse": "9 Rue Raymond Devos, Conches-en-Ouche",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 193,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 48.957195,
+    "lng": 0.954236
+  },
+  {
+    "nom": "Autart - Bosch Car Service",
+    "adresse": "6 Chem. de Valeuil, Conches-en-Ouche",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 54,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 48.944365,
+    "lng": 0.944124
+  },
+  {
+    "nom": "Electro Diesel 27",
+    "adresse": "658 Rue Jacquard, Évreux",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 220,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.001957,
+    "lng": 1.138718
+  },
+  {
+    "nom": "AD Garage Expert DU CAMBOLLE",
+    "adresse": "108 Av. du Maréchal Foch, Évreux",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 139,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.024193,
+    "lng": 1.124936
+  },
+  {
+    "nom": "GENERAL AUTO",
+    "adresse": "121 Imp. Jacques Monod, Évreux",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 104,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.026765,
+    "lng": 1.181948
+  },
+  {
+    "nom": "SILIGOM - SNR AUTO",
+    "adresse": "706 Rue Jacques Monod, Évreux",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 228,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 49.026306,
+    "lng": 1.180367
+  },
+  {
+    "nom": "PASCAL AUTO",
+    "adresse": "39 Av. Aristide Briand, Bonnières-sur-Seine",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 118,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.034013,
+    "lng": 1.570141
+  },
+  {
+    "nom": "Contrôle technique Autosur Sylvains-les-Moulins",
+    "adresse": "ZAC du, Rue du Coudray, Sylvains-Lès-Moulins",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 117,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 48.883644,
+    "lng": 1.095017
+  },
+  {
+    "nom": "NICO CONTRÔLE TECHNIQUE DE PACY-SUR-EURE",
+    "adresse": "24 Rue Albert Camus, Pacy-sur-Eure",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 195,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.025264,
+    "lng": 1.376163
+  },
+  {
+    "nom": "Feu Vert Services",
+    "adresse": "2Bis Rue Charles de Gaulle 2 bis, Freneuse",
+    "tel": "",
+    "note": 4.0,
+    "nb_avis": 355,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 49.040476,
+    "lng": 1.593635
+  },
+  {
+    "nom": "Autologic Motors",
+    "adresse": "134 Av. Aristide Briand, Gravigny",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 219,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 49.057363,
+    "lng": 1.169278
+  },
+  {
+    "nom": "EUROREPAR CAR SERVICE - GARAGE FSM",
+    "adresse": "6 Av. Île de France, Vernon",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 75,
+    "cc": "CC_EVREUX",
+    "score": 9,
+    "lat": 49.081661,
+    "lng": 1.50521
+  },
+  {
+    "nom": "Midas EVREUX GRAVIGNY",
+    "adresse": "1 Rue Louis Armand, Gravigny",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 197,
+    "cc": "CC_EVREUX",
+    "score": 9,
+    "lat": 49.054396,
+    "lng": 1.168642
+  },
+  {
+    "nom": "Motrio - Garage Nivault",
+    "adresse": "87 Rue Yves Montand, Autheuil-Authouillet",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 120,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.094625,
+    "lng": 1.282838
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "19 Rue de l'Artisanat, Vernon",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 272,
+    "cc": "CC_EVREUX",
+    "score": 10,
+    "lat": 49.095834,
+    "lng": 1.466963
+  },
+  {
+    "nom": "PROPAREPNEUS",
+    "adresse": "6 Rue de la Croix Blanche, Saint-Marcel",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 130,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.107731,
+    "lng": 1.453063
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "11 Bd Isambard, Vernon",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 66,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.091575,
+    "lng": 1.47189
+  },
+  {
+    "nom": "Point S - Gaillon (Auto Services Coeffier)",
+    "adresse": "D316 Rue de Pacy, Gaillon",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 224,
+    "cc": "CC_EVREUX",
+    "score": 10,
+    "lat": 49.158643,
+    "lng": 1.335302
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "31 Rue de la Bergerie, Gaillon",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 123,
+    "cc": "CC_EVREUX",
+    "score": 9,
+    "lat": 49.168849,
+    "lng": 1.350303
+  },
+  {
+    "nom": "Eurorepar Garage Du Carbonnier",
+    "adresse": "7 Rue du Carbonnier, La Haye-Malherbe",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 43,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 49.222809,
+    "lng": 1.062837
+  },
+  {
+    "nom": "Garage REL AUTOS EUROREPAR CAR SERVICE",
+    "adresse": "Rle du Coin des Saules, Val-de-Reuil",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 258,
+    "cc": "CC_EVREUX",
+    "score": 10,
+    "lat": 49.248376,
+    "lng": 1.187995
+  },
+  {
+    "nom": "First Stop Gom'Car Le Vaudreuil",
+    "adresse": "77 Rue Bernard Chédeville, Le Vaudreuil",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 128,
+    "cc": "CC_EVREUX",
+    "score": 9,
+    "lat": 49.251635,
+    "lng": 1.197018
+  },
+  {
+    "nom": "Garage Du Chateau Les Andelys GDC27",
+    "adresse": "66 Rue Maréchal Leclerc, Les Andelys",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 136,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.243165,
+    "lng": 1.406147
+  },
+  {
+    "nom": "Euromaster Cartier Pneumatiques - Les Andelys",
+    "adresse": "27 Rue Henri Rémy 25B, Les Andelys",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 347,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.24851,
+    "lng": 1.429215
+  },
+  {
+    "nom": "AD Garage Expert BOULARD 76",
+    "adresse": "Rue du Port, Caudebec-lès-Elbeuf",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 151,
+    "cc": "CC_EVREUX",
+    "score": 8,
+    "lat": 49.291202,
+    "lng": 1.021362
+  },
+  {
+    "nom": "Midas VAL DE REUIL",
+    "adresse": "Rte de Louviers, Val-de-Reuil",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 102,
+    "cc": "CC_EVREUX",
+    "score": 7,
+    "lat": 49.269971,
+    "lng": 1.200942
+  },
+  {
+    "nom": "Garage Ronjat - Bosch Car Service",
+    "adresse": "293 Av. du Vercors, Chomérac",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 64,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 44.706673,
+    "lng": 4.664269
+  },
+  {
+    "nom": "Garage Maneval - Bosch Car Service",
+    "adresse": "6 Rte du Pouzin, Saulce-sur-Rhône",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 131,
+    "cc": "CC_VALENCE",
+    "score": 9,
+    "lat": 44.705035,
+    "lng": 4.798739
+  },
+  {
+    "nom": "Sécuritest Contrôle Technique Crest | Auto - Moto - VSP",
+    "adresse": "zone industrielle, 455 Rue Henri Barbusse, Crest",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 249,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 44.732033,
+    "lng": 5.001843
+  },
+  {
+    "nom": "CARGLASS Pare-Brise Crest",
+    "adresse": "12 Rue Henri Barbusse, Crest",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 20,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 44.732239,
+    "lng": 4.999675
+  },
+  {
+    "nom": "GARAGE CLEMENT EUROREPAR",
+    "adresse": "7 La Condamine, Aouste-sur-Sye",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 73,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 44.710747,
+    "lng": 5.060789
+  },
+  {
+    "nom": "garage hermouet",
+    "adresse": "60 Av. Léon Aubin, Livron-sur-Drôme",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 151,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.774219,
+    "lng": 4.846429
+  },
+  {
+    "nom": "auto livron",
+    "adresse": "94 Av. Joseph Combier, Livron-sur-Drôme",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 118,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.767561,
+    "lng": 4.84041
+  },
+  {
+    "nom": "Norauto Loriol Sur Drome",
+    "adresse": "30 Imp. du Levant, Loriol-sur-Drôme",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 610,
+    "cc": "CC_VALENCE",
+    "score": 9,
+    "lat": 44.76085,
+    "lng": 4.83908
+  },
+  {
+    "nom": "Garage Blanc Michel Automobile - Bosch Car Service",
+    "adresse": "Quai Jean Jaurès, La Voulte-sur-Rhône",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 38,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.802112,
+    "lng": 4.78452
+  },
+  {
+    "nom": "GARAGE FABRICE FRAUD - EUROREPAR Car Service",
+    "adresse": "6 Rue des Freres Lumieres, Livron-sur-Drôme",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 41,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.781543,
+    "lng": 4.828243
+  },
+  {
+    "nom": "GARAGE EUROREPAR BRUNET Automobiles",
+    "adresse": "51 Grande Rue, Saint-Sauveur-de-Montagut",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 29,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 44.821424,
+    "lng": 4.585978
+  },
+  {
+    "nom": "Eyrieux Centre Auto",
+    "adresse": "6 Ramières, Beauchastel",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 221,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 44.832313,
+    "lng": 4.809436
+  },
+  {
+    "nom": "Sécuritest Contrôle Technique Automobile VERNOUX EN VIVARAIS",
+    "adresse": "Route de Valence, 744 All. de Prat, Vernoux-en-Vivarais",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 177,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.905416,
+    "lng": 4.650663
+  },
+  {
+    "nom": "Assistance Charras Automobiles",
+    "adresse": "170 Rue Jacqueline Auriol, Beaumont-lès-Valence",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 103,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.887155,
+    "lng": 4.922201
+  },
+  {
+    "nom": "Métiffiot",
+    "adresse": "41 Av. Maurice René Simonet, Valence",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 407,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.918174,
+    "lng": 4.931535
+  },
+  {
+    "nom": "AC Automobiles 26 - Bosch Car Service",
+    "adresse": "40 Rte de Mobos, Chabeuil",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 125,
+    "cc": "CC_VALENCE",
+    "score": 9,
+    "lat": 44.90768,
+    "lng": 5.01618
+  },
+  {
+    "nom": "First Stop Bodart Autos Services Chabeuil",
+    "adresse": "14 Rue Jacques Prevert, Chabeuil",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 59,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.901174,
+    "lng": 5.011274
+  },
+  {
+    "nom": "Dkboss26",
+    "adresse": "Zae De La Grue, 1 rue Gustave Eiffel, Chabeuil",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 101,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.898596,
+    "lng": 5.0061
+  },
+  {
+    "nom": "Ford Garage Canel",
+    "adresse": "1 Rue Roland Garros, Saint-Péray",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 168,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.945827,
+    "lng": 4.855463
+  },
+  {
+    "nom": "Métiffiot Centre-Ville",
+    "adresse": "24 Rue Chevandier, Valence",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 150,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.927402,
+    "lng": 4.892152
+  },
+  {
+    "nom": "Point S - Valence (Auto Services Valence)",
+    "adresse": "Bd Gustave André, Valence",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 169,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.940506,
+    "lng": 4.91047
+  },
+  {
+    "nom": "First Stop Julien Auto Meca 07 Lamastre",
+    "adresse": "17 Av. de Tournon, Lamastre",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 74,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 44.990165,
+    "lng": 4.590235
+  },
+  {
+    "nom": "GARAGE AUTO FIRST SERVICE SAINT-MARCEL-LES-VALENCE",
+    "adresse": "500 Rue des Petits Eynards, Saint-Marcel-lès-Valence",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 118,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.968887,
+    "lng": 4.961969
+  },
+  {
+    "nom": "First Stop LYL Bourg-lès-Valence",
+    "adresse": "Parc d'activités du Geai, 99 Av. de Lyon, Bourg-lès-Valence",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 168,
+    "cc": "CC_VALENCE",
+    "score": 9,
+    "lat": 44.952278,
+    "lng": 4.891278
+  },
+  {
+    "nom": "SARL AUTO HV",
+    "adresse": "1B Rue Isaac Newton, Bourg-lès-Valence",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 125,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 44.968103,
+    "lng": 4.877768
+  },
+  {
+    "nom": "GARAGE A.S.P. (Auto Service Péageois) Nexus auto",
+    "adresse": "34 Av. Eugène Chavant, Bourg-de-Péage",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 108,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.028001,
+    "lng": 5.059254
+  },
+  {
+    "nom": "Garage DELKO Bourg-de-Péage",
+    "adresse": "155 All. du Languedoc, Bourg-de-Péage",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 239,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.022486,
+    "lng": 5.038914
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "Zone Industriel Nord, 45 All. du Languedoc, Bourg-de-Péage",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 78,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 45.022087,
+    "lng": 5.03923
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "475 All. du Languedoc, Bourg-de-Péage",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 44,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 45.020819,
+    "lng": 5.03535
+  },
+  {
+    "nom": "Tournon Automotive Pozin",
+    "adresse": "95 Quartier St Vincent, Tournon-sur-Rhône",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 217,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.058401,
+    "lng": 4.833325
+  },
+  {
+    "nom": "AD Garage Expert DE CURSON - SARL MORIN",
+    "adresse": "ZI, Les Hauches, Chanos-Curson",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 65,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 45.053439,
+    "lng": 4.926994
+  },
+  {
+    "nom": "🛠️ Garage Aurél Car 🇫🇷",
+    "adresse": "ZA Les Revols, 10 Rue Augustin Fresnel, Mours-Saint-Eusèbe",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 202,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 45.058736,
+    "lng": 5.062961
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "17 Pl. Carnot, Romans-sur-Isère",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 33,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.048519,
+    "lng": 5.04916
+  },
+  {
+    "nom": "Moovly Romans",
+    "adresse": "4 Rue Jean Charcot, Romans-sur-Isère",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 134,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.048193,
+    "lng": 5.086323
+  },
+  {
+    "nom": "Garage Jullien Thierry",
+    "adresse": "65 Rte du Barrage, Chatuzange-le-Goubet",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 112,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.036266,
+    "lng": 5.086309
+  },
+  {
+    "nom": "Côté Route Saint-Paul-lès-Romans by First Stop",
+    "adresse": "480 All. Abbé Pierre, Saint-Paul-lès-Romans",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 79,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.059658,
+    "lng": 5.103278
+  },
+  {
+    "nom": "Garage Du Centre",
+    "adresse": "Zac Briffaut Est, 82 Chem. Forêt aux Martins, Valence",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 318,
+    "cc": "CC_VALENCE",
+    "score": 8,
+    "lat": 44.918058,
+    "lng": 4.936098
+  },
+  {
+    "nom": "Mercurol Automobile - Bosch Car Service",
+    "adresse": "590 avenue Du Vercors, Mercurol-Veaunes",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 76,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.069023,
+    "lng": 4.871174
+  },
+  {
+    "nom": "AD Garage Expert RACAMIER JEAN MICHEL",
+    "adresse": "170 ROUTE DE CREMOLIERE, Étables",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 32,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.109341,
+    "lng": 4.737263
+  },
+  {
+    "nom": "First Stop Marron Pneus Saint-Jean-de-Muzols",
+    "adresse": "ZA La Maladière, 1 Imp. des Îles, Saint-Jean-de-Muzols",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 143,
+    "cc": "CC_VALENCE",
+    "score": 9,
+    "lat": 45.077139,
+    "lng": 4.816929
+  },
+  {
+    "nom": "Point S - Saint-Donat-sur-l'Herbasse (Drom Pneus SAS)",
+    "adresse": "Route des Sables, La Cave, Saint-Donat-sur-l'Herbasse",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 35,
+    "cc": "CC_VALENCE",
+    "score": 7,
+    "lat": 45.119964,
+    "lng": 4.973973
+  },
+  {
+    "nom": "Autoccasion 25 Eurorepar Car Service",
+    "adresse": "18 Rue des Rosiers, Amancey",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 61,
+    "cc": "CC_CHALEZEULE",
+    "score": 9,
+    "lat": 47.042627,
+    "lng": 6.067087
+  },
+  {
+    "nom": "Gap Automobiles",
+    "adresse": "Zone Artisanal combe parnette 25440, Lavans-Quingey",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 132,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.079331,
+    "lng": 5.887671
+  },
+  {
+    "nom": "Point S - Ornans (Garage Chillaron du Plateau)",
+    "adresse": "21 Av. Mal de Lattre de Tassigny, Ornans",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 59,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.105521,
+    "lng": 6.130267
+  },
+  {
+    "nom": "Race engineering by RStronic etray",
+    "adresse": "2 Rue Closli, Étray",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 114,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.123466,
+    "lng": 6.340811
+  },
+  {
+    "nom": "Eurorepar Cts Automotive",
+    "adresse": "48 Rue du Bois des Foules, Montferrand-le-Château",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 19,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.1777,
+    "lng": 5.91767
+  },
+  {
+    "nom": "Garage GBO EUROREPAR",
+    "adresse": "40 Rue de sous Velles, Tarcenay-Foucherans",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 21,
+    "cc": "CC_CHALEZEULE",
+    "score": 8,
+    "lat": 47.159777,
+    "lng": 6.103934
+  },
+  {
+    "nom": "Autoprimo Garage Mercadal",
+    "adresse": "1 Rue des Gouttes, Tarcenay-Foucherans",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 127,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.160588,
+    "lng": 6.111326
+  },
+  {
+    "nom": "AB peinture",
+    "adresse": "Sur le Jura, Avoudrey",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 101,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.14188,
+    "lng": 6.443186
+  },
+  {
+    "nom": "AD Garage AG Auto Services",
+    "adresse": "ZA BELLES OUVRIERES, 6 Rue des Belles Ouvrières, Saint-Vit",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 48,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.186376,
+    "lng": 5.82526
+  },
+  {
+    "nom": "Point S - Saint-Vit (ACS Garage)",
+    "adresse": "2 Rue du Petit Bas, Rue des Gds Vaubrenots, Saint-Vit",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 61,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.186809,
+    "lng": 5.821772
+  },
+  {
+    "nom": "Pierre Clausse Adhérent Eurorepar Car Services Garage",
+    "adresse": "Rte de la Belle Étoile, Avanne-Aveney",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 62,
+    "cc": "CC_CHALEZEULE",
+    "score": 9,
+    "lat": 47.197765,
+    "lng": 5.960691
+  },
+  {
+    "nom": "Garage Barthoulot Eurorepar Car Service",
+    "adresse": "3 Rue du Chêneau Blond, Saône",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 81,
+    "cc": "CC_CHALEZEULE",
+    "score": 9,
+    "lat": 47.209123,
+    "lng": 6.100654
+  },
+  {
+    "nom": "Garage automeca25",
+    "adresse": "38 Rue du Noret, Mamirolle",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 142,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.195014,
+    "lng": 6.148416
+  },
+  {
+    "nom": "Le bison du pneus",
+    "adresse": "43 Rue Thomas Edison, Besançon",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 358,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.229903,
+    "lng": 5.96662
+  },
+  {
+    "nom": "DÉBARRAS TATTU GRATUIT",
+    "adresse": "26 Rue de Chaudanne, Besançon",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 116,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.228156,
+    "lng": 6.016441
+  },
+  {
+    "nom": "Midas BESANCON",
+    "adresse": "32 Rue Denis Papin, Besançon",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 477,
+    "cc": "CC_CHALEZEULE",
+    "score": 10,
+    "lat": 47.243598,
+    "lng": 5.983991
+  },
+  {
+    "nom": "AD Garage MECANO PNEUS",
+    "adresse": "16 Rte de Banne, Pagney",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 70,
+    "cc": "CC_CHALEZEULE",
+    "score": 8,
+    "lat": 47.25341,
+    "lng": 5.701492
+  },
+  {
+    "nom": "GARAGE MC SERVICES",
+    "adresse": "36 Rue d'École, Miserey-Salines",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 133,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.281972,
+    "lng": 5.976425
+  },
+  {
+    "nom": "Dépanne'Auto 25",
+    "adresse": "3 Rue des Marronniers, Chalèze",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 172,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.269038,
+    "lng": 6.086813
+  },
+  {
+    "nom": "Garage Marcand",
+    "adresse": "158 Rue de Belfort, Besançon",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 252,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.259449,
+    "lng": 6.046087
+  },
+  {
+    "nom": "Car Crush",
+    "adresse": "8 Rue Jean Baptiste Boisot, Besançon",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 155,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.258658,
+    "lng": 6.047869
+  },
+  {
+    "nom": "AD Garage Expert CARRION S AUTO",
+    "adresse": "148 Rue de Belfort, Besançon",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 148,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.258995,
+    "lng": 6.04545
+  },
+  {
+    "nom": "First Stop Pneurope Thise",
+    "adresse": "34 Rte de Marchaux, Thise",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 150,
+    "cc": "CC_CHALEZEULE",
+    "score": 9,
+    "lat": 47.27217,
+    "lng": 6.057649
+  },
+  {
+    "nom": "Midas CHALEZEULE",
+    "adresse": "Parking Carrefour, 3 Rue Des Agasses, Chalezeule",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 210,
+    "cc": "CC_CHALEZEULE",
+    "score": 9,
+    "lat": 47.263777,
+    "lng": 6.065272
+  },
+  {
+    "nom": "Garage JDL Méca EUROREPAR CAR SERVICE",
+    "adresse": "2B Rue de Vaugereux, Marnay",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 35,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.301218,
+    "lng": 5.760103
+  },
+  {
+    "nom": "Garage Duarte",
+    "adresse": "46 Grande Rue, Émagny",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 100,
+    "cc": "CC_CHALEZEULE",
+    "score": 7,
+    "lat": 47.310839,
+    "lng": 5.868474
+  },
+  {
+    "nom": "Point S - Miserey-Salines (JF Pneus)",
+    "adresse": "2 Imp. de l'Écureuil, Miserey-Salines",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 197,
+    "cc": "CC_CHALEZEULE",
+    "score": 9,
+    "lat": 47.285327,
+    "lng": 5.991524
+  },
+  {
+    "nom": "SARL GARAGE DU STADE - Eurorepar Car Service",
+    "adresse": "15 Rue du Stade, Baume-les-Dames",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 137,
+    "cc": "CC_CHALEZEULE",
+    "score": 9,
+    "lat": 47.349639,
+    "lng": 6.356253
+  },
+  {
+    "nom": "Gaume Pere Et Fils",
+    "adresse": "7 Rue du Chanot, Grosbois",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 244,
+    "cc": "CC_CHALEZEULE",
+    "score": 8,
+    "lat": 47.345635,
+    "lng": 6.30765
+  },
+  {
+    "nom": "Eurorepar Garage Nicolas Motoculture",
+    "adresse": "34 Rue des Chenevières, Montbozon",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 27,
+    "cc": "CC_CHALEZEULE",
+    "score": 8,
+    "lat": 47.469981,
+    "lng": 6.248981
+  },
+  {
+    "nom": "GARAGE JEROME PILLOT - EUROREPAR",
+    "adresse": "1 Rte de Clerval, Sancey",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 69,
+    "cc": "CC_BETHONCOURT",
+    "score": 9,
+    "lat": 47.307622,
+    "lng": 6.594013
+  },
+  {
+    "nom": "AD Garage Expert ST TYP AUTO",
+    "adresse": "1 Rue de Montbéliard, Saint-Hippolyte",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 71,
+    "cc": "CC_BETHONCOURT",
+    "score": 8,
+    "lat": 47.319232,
+    "lng": 6.81313
+  },
+  {
+    "nom": "JF Pneus SA",
+    "adresse": "Rte de Courgenay 21, Porrentruy",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 119,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.448131,
+    "lng": 7.200483
+  },
+  {
+    "nom": "GARAGE REB AUTOMOBILES - EUROREPAR CAR SERVICE",
+    "adresse": "3 Rue du Doubs, Colombier-Fontaine",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 35,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.45684,
+    "lng": 6.688064
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "ZI des Ansanges, Rue du Pont, Mathay",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 208,
+    "cc": "CC_BETHONCOURT",
+    "score": 10,
+    "lat": 47.44826,
+    "lng": 6.787662
+  },
+  {
+    "nom": "SARL GARAGE DUFOUR EUROREPAR",
+    "adresse": "26 Rue du Général Leclerc, Seloncourt",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 59,
+    "cc": "CC_BETHONCOURT",
+    "score": 8,
+    "lat": 47.459334,
+    "lng": 6.866401
+  },
+  {
+    "nom": "Lamborghini Porrentruy",
+    "adresse": "Le Voyeboeuf 1A, Porrentruy",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 306,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.448131,
+    "lng": 7.200483
+  },
+  {
+    "nom": "AD Garage Expert FBA AUTOMOBILES",
+    "adresse": "1 Av. Keller, Arbouans",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 80,
+    "cc": "CC_BETHONCOURT",
+    "score": 9,
+    "lat": 47.488928,
+    "lng": 6.818769
+  },
+  {
+    "nom": "Garage pro",
+    "adresse": "3 rue du port zi les, Rue des Bouquières, Exincourt",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 107,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.505842,
+    "lng": 6.840792
+  },
+  {
+    "nom": "AD Garage Expert GT AUTO - TURHAN",
+    "adresse": "1 Rue de Dampierre, Beaucourt",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 154,
+    "cc": "CC_BETHONCOURT",
+    "score": 9,
+    "lat": 47.489978,
+    "lng": 6.91727
+  },
+  {
+    "nom": "First Stop Arcey Pneus",
+    "adresse": "4 Rue de Villersexel, Arcey",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 288,
+    "cc": "CC_BETHONCOURT",
+    "score": 10,
+    "lat": 47.521171,
+    "lng": 6.656198
+  },
+  {
+    "nom": "Dr CLÉ MOTORS - Réparation AdBlue & Clés Auto",
+    "adresse": "4 Rue de Belfort, Sochaux",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 439,
+    "cc": "CC_BETHONCOURT",
+    "score": 8,
+    "lat": 47.51576,
+    "lng": 6.833001
+  },
+  {
+    "nom": "Garage Du Centre",
+    "adresse": "2 Rue de Grosne, Grandvillars",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 121,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.539483,
+    "lng": 6.967394
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "36 Rue du Lieutenant Rusconi, Grandvillars",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 119,
+    "cc": "CC_BETHONCOURT",
+    "score": 9,
+    "lat": 47.541675,
+    "lng": 6.960092
+  },
+  {
+    "nom": "AD Garage Expert MILLOT AUTOMOBILES",
+    "adresse": "55B Rue du Caporal Peugeot, Joncherey",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 94,
+    "cc": "CC_BETHONCOURT",
+    "score": 8,
+    "lat": 47.524774,
+    "lng": 7.015852
+  },
+  {
+    "nom": "Midas SEPPOIS",
+    "adresse": "7 Rue du Gma, Seppois-le-Bas",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 114,
+    "cc": "CC_BETHONCOURT",
+    "score": 8,
+    "lat": 47.537352,
+    "lng": 7.176508
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "ZAC Salomon, Centre Leclerc, Héricourt",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 112,
+    "cc": "CC_BETHONCOURT",
+    "score": 9,
+    "lat": 47.581826,
+    "lng": 6.771756
+  },
+  {
+    "nom": "Garage Henry EUROREPAR",
+    "adresse": "6 Rue de la Saline, Gouhenans",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 114,
+    "cc": "CC_BETHONCOURT",
+    "score": 9,
+    "lat": 47.60342,
+    "lng": 6.476722
+  },
+  {
+    "nom": "AD Garage AUTOCLEAN",
+    "adresse": "21 Rue de Frahier, Châlonvillars",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 123,
+    "cc": "CC_BETHONCOURT",
+    "score": 9,
+    "lat": 47.645304,
+    "lng": 6.77993
+  },
+  {
+    "nom": "Garage Akn",
+    "adresse": "22 Rue du Général Foltz, Belfort",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 202,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.632445,
+    "lng": 6.852073
+  },
+  {
+    "nom": "MG Cars",
+    "adresse": "7 Rue d'Aspach, Belfort",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 113,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.643919,
+    "lng": 6.850024
+  },
+  {
+    "nom": "Eurorepar Garage Vollmer",
+    "adresse": "8 Rue Saint-Privat, Belfort",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 72,
+    "cc": "CC_BETHONCOURT",
+    "score": 8,
+    "lat": 47.651557,
+    "lng": 6.853541
+  },
+  {
+    "nom": "Casse Auto Dartier",
+    "adresse": "Rue de Chèvremont, Vézelois",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 243,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.620827,
+    "lng": 6.921604
+  },
+  {
+    "nom": "Midas BELFORT",
+    "adresse": "71 Av. d'Altkirch, Belfort",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 384,
+    "cc": "CC_BETHONCOURT",
+    "score": 10,
+    "lat": 47.638801,
+    "lng": 6.877542
+  },
+  {
+    "nom": "AS Autosécurité Contrôle Technique",
+    "adresse": "86b avenue d`alsace, rn 83, Denney",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 386,
+    "cc": "CC_BETHONCOURT",
+    "score": 8,
+    "lat": 47.653007,
+    "lng": 6.894342
+  },
+  {
+    "nom": "Hyundai Belfort - AJM Automobiles",
+    "adresse": "4 Imp. des Marcassins, Bessoncourt",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 273,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.643019,
+    "lng": 6.912498
+  },
+  {
+    "nom": "ZE Performance - Reprogrammation Moteur - Double de clés - Réparation ADBLUE FAP EGR - Alsace Belfort Haut-Rhin Bas-Rhin",
+    "adresse": "1 rue des Silos, Dannemarie",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 103,
+    "cc": "CC_BETHONCOURT",
+    "score": 7,
+    "lat": 47.621764,
+    "lng": 7.111313
+  },
+  {
+    "nom": "Eurorepar - Garage Bruey J.J.",
+    "adresse": "42 Rue de Belfort, Frahier-et-Chatebier",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 68,
+    "cc": "CC_BETHONCOURT",
+    "score": 9,
+    "lat": 47.655361,
+    "lng": 6.751355
+  },
+  {
+    "nom": "AS Autosécurité Contrôle Technique RONCHAMP",
+    "adresse": "77 Av. de la République, Ronchamp",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 287,
+    "cc": "CC_BETHONCOURT",
+    "score": 8,
+    "lat": 47.698322,
+    "lng": 6.609206
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "218 Av. Jean Jaurès, Belfort",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 58,
+    "cc": "CC_BETHONCOURT",
+    "score": 8,
+    "lat": 47.655676,
+    "lng": 6.846998
+  },
+  {
+    "nom": "Ar Men Automobiles - EUROREPAR Car Service",
+    "adresse": "2 Rue du Sehet, Le Mené",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 59,
+    "cc": "CC_TR_GEUX",
+    "score": 8,
+    "lat": 48.273569,
+    "lng": -2.6207
+  },
+  {
+    "nom": "AD Garage HOUEE PUREN",
+    "adresse": "ESPACE D ACTIVITE DE LA PERRIERE, Le Mené",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 20,
+    "cc": "CC_TR_GEUX",
+    "score": 8,
+    "lat": 48.275411,
+    "lng": -2.609474
+  },
+  {
+    "nom": "SARL Mene Autos - Bosch Car Service",
+    "adresse": "12 Route de Collinee, Le Mené",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 46,
+    "cc": "CC_TR_GEUX",
+    "score": 7,
+    "lat": 48.249346,
+    "lng": -2.547628
+  },
+  {
+    "nom": "AD Garage Expert DE L'EPINETTE - HUET NEGOCE ET CONSEIL",
+    "adresse": "L'EPINETTE, Le Mené",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 91,
+    "cc": "CC_TR_GEUX",
+    "score": 8,
+    "lat": 48.302731,
+    "lng": -2.524718
+  },
+  {
+    "nom": "Garage LEBLANC - Bosch Car Service",
+    "adresse": "ZA de Saint-Igneuc, Jugon-les-Lacs",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 159,
+    "cc": "CC_TR_GEUX",
+    "score": 10,
+    "lat": 48.42177,
+    "lng": -2.339459
+  },
+  {
+    "nom": "TOP GARAGE - CAMP DE PERAN",
+    "adresse": "49 Av. des Châtelets, Trégueux",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 103,
+    "cc": "CC_TR_GEUX",
+    "score": 7,
+    "lat": 48.462288,
+    "lng": -2.785311
+  },
+  {
+    "nom": "AD Garage Expert YANNICK CLERICE",
+    "adresse": "ZA DU CHALLONGE, Plédran",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 188,
+    "cc": "CC_TR_GEUX",
+    "score": 9,
+    "lat": 48.444354,
+    "lng": -2.750276
+  },
+  {
+    "nom": "AD Garage Expert BOUTELOUP",
+    "adresse": "43 Bd Carnot, Saint-Brieuc",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 103,
+    "cc": "CC_TR_GEUX",
+    "score": 9,
+    "lat": 48.506542,
+    "lng": -2.76768
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "20 Bis Rue de Gouédic, Saint-Brieuc",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 419,
+    "cc": "CC_TR_GEUX",
+    "score": 10,
+    "lat": 48.509553,
+    "lng": -2.75533
+  },
+  {
+    "nom": "AD Garage Expert ARMORIC AUTO",
+    "adresse": "13 Rue du Roquet, Ploufragan",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 134,
+    "cc": "CC_TR_GEUX",
+    "score": 8,
+    "lat": 48.493376,
+    "lng": -2.777989
+  },
+  {
+    "nom": "AD Garage Expert HEURTEL AUTOMOBILES",
+    "adresse": "32 Rue de la République, Trégueux",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 168,
+    "cc": "CC_TR_GEUX",
+    "score": 8,
+    "lat": 48.492247,
+    "lng": -2.739008
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Zone Ccale De Langueux, Langueux",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 515,
+    "cc": "CC_TR_GEUX",
+    "score": 11,
+    "lat": 48.494924,
+    "lng": -2.7112
+  },
+  {
+    "nom": "WSPerformance Olivcab Reprog Optimisation Reprogrammation Conversion Flexfuel E85 Ethanol",
+    "adresse": "Quenhouet, Hillion",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 180,
+    "cc": "CC_TR_GEUX",
+    "score": 7,
+    "lat": 48.474601,
+    "lng": -2.621917
+  },
+  {
+    "nom": "AD Garage Expert LGHM - LAMBALL'GARAGE",
+    "adresse": "82 Rue Général de Gaulle, Lamballe-Armor",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 124,
+    "cc": "CC_TR_GEUX",
+    "score": 9,
+    "lat": 48.475277,
+    "lng": -2.51018
+  },
+  {
+    "nom": "A.A.F. Domalain - Bosch Car Service",
+    "adresse": "1 Rue Brindejonc des Moulinais, Plérin",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 259,
+    "cc": "CC_TR_GEUX",
+    "score": 11,
+    "lat": 48.542749,
+    "lng": -2.777757
+  },
+  {
+    "nom": "Škoda Saint-Brieuc - Cobredia",
+    "adresse": "7 Rue Chaptal, Saint-Brieuc",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 350,
+    "cc": "CC_TR_GEUX",
+    "score": 8,
+    "lat": 48.510827,
+    "lng": -2.735875
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "27 Rue Hélène Boucher, Plérin",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 81,
+    "cc": "CC_TR_GEUX",
+    "score": 8,
+    "lat": 48.545111,
+    "lng": -2.781568
+  },
+  {
+    "nom": "AD Garage Expert DANET",
+    "adresse": "15 Chem. Romain, Saint-Alban",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 90,
+    "cc": "CC_TR_GEUX",
+    "score": 7,
+    "lat": 48.55651,
+    "lng": -2.547631
+  },
+  {
+    "nom": "Eurorepar Garage De Cornouaille",
+    "adresse": "2 Rue de Cornouaille, Goudelin",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 48,
+    "cc": "CC_TR_GEUX",
+    "score": 7,
+    "lat": 48.604231,
+    "lng": -3.0228
+  },
+  {
+    "nom": "AD Garage Expert AUTOSERVICE SARL PERRIN URBAN",
+    "adresse": "La Croix Rouge, Erquy",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 207,
+    "cc": "CC_TR_GEUX",
+    "score": 11,
+    "lat": 48.600309,
+    "lng": -2.461916
+  },
+  {
+    "nom": "Alma Pneus",
+    "adresse": "5 Rue Robert Surcouf, Erquy",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 101,
+    "cc": "CC_TR_GEUX",
+    "score": 7,
+    "lat": 48.618725,
+    "lng": -2.438777
+  },
+  {
+    "nom": "AD Garage PLOUHA AUTO",
+    "adresse": "Rue de Pen Ker, Plouha",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 73,
+    "cc": "CC_TR_GEUX",
+    "score": 8,
+    "lat": 48.672453,
+    "lng": -2.935561
+  },
+  {
+    "nom": "Garage JLM Auto Services",
+    "adresse": "12 Rte de Dijon 12, Nuits-Saint-Georges",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 100,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.306021,
+    "lng": 5.01765
+  },
+  {
+    "nom": "Eurorepar Car Service Nuits-Saint-Georges - Groupe Chopard",
+    "adresse": "32 Rte de Dijon, Nuits-Saint-Georges",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 61,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.306017,
+    "lng": 5.017336
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "3 Rue Saint-Joseph, Nuits-Saint-Georges",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 91,
+    "cc": "CC_QUETIGNY",
+    "score": 8,
+    "lat": 47.134147,
+    "lng": 4.964761
+  },
+  {
+    "nom": "Contrôle Technique AUTOSUR Nuits Saint Georges",
+    "adresse": "9 Rue Georges Faiveley, Nuits-Saint-Georges",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 198,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.135346,
+    "lng": 4.968405
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "9 Rue du Bief Pérou, Auxonne",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 71,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.179257,
+    "lng": 5.401759
+  },
+  {
+    "nom": "Point S - Gevrey-Chambertin (Bourgogne Pneus Services)",
+    "adresse": "9 Rte de Saint-Philibert, Gevrey-Chambertin",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 80,
+    "cc": "CC_QUETIGNY",
+    "score": 9,
+    "lat": 47.217874,
+    "lng": 4.997765
+  },
+  {
+    "nom": "First Stop Europneus 21 Longeault",
+    "adresse": "8 RN 5, Longeault-Pluvault",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 157,
+    "cc": "CC_QUETIGNY",
+    "score": 9,
+    "lat": 47.222294,
+    "lng": 5.246017
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "138 Av. Roland Carraz, Chenôve",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 118,
+    "cc": "CC_QUETIGNY",
+    "score": 8,
+    "lat": 47.282937,
+    "lng": 5.009189
+  },
+  {
+    "nom": "Carrément Automobiles",
+    "adresse": "10 Rue Colbert, Longvic",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 249,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.280045,
+    "lng": 5.041737
+  },
+  {
+    "nom": "Chevigny Automobiles SARL",
+    "adresse": "54 Av. de Tavaux, Chevigny-Saint-Sauveur",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 373,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.286718,
+    "lng": 5.133642
+  },
+  {
+    "nom": "Carrément Automobiles",
+    "adresse": "199 Rue d'Auxonne, Dijon",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 568,
+    "cc": "CC_QUETIGNY",
+    "score": 8,
+    "lat": 47.305903,
+    "lng": 5.06021
+  },
+  {
+    "nom": "Point S - Quetigny (Quesa)",
+    "adresse": "18 Bd du Grand Marché, Quetigny",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 293,
+    "cc": "CC_QUETIGNY",
+    "score": 8,
+    "lat": 47.309561,
+    "lng": 5.099803
+  },
+  {
+    "nom": "Eurorepar Garage Auto Excellence",
+    "adresse": "4 Rue des Artisans, Chevigny-Saint-Sauveur",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 39,
+    "cc": "CC_QUETIGNY",
+    "score": 8,
+    "lat": 47.293901,
+    "lng": 5.146808
+  },
+  {
+    "nom": "Garage Domingues - Bosch Car Service",
+    "adresse": "33 Rue de Quetigny, Couternon",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 35,
+    "cc": "CC_QUETIGNY",
+    "score": 8,
+    "lat": 47.326295,
+    "lng": 5.143857
+  },
+  {
+    "nom": "As Auto & Partswagen",
+    "adresse": "Zone artisanale, Arc-sur-Tille",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 209,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.397534,
+    "lng": 4.306169
+  },
+  {
+    "nom": "Sécuritest Contrôle Technique Automobile PONTAILLER SUR SAONE",
+    "adresse": "Rue des Métiers, Pontailler-sur-Saône",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 276,
+    "cc": "CC_QUETIGNY",
+    "score": 8,
+    "lat": 47.314941,
+    "lng": 5.401236
+  },
+  {
+    "nom": "Mika Motorsport",
+    "adresse": "26 Rue des Moulissards, Talant",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 162,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.343477,
+    "lng": 4.994484
+  },
+  {
+    "nom": "Garage ALIS AUTO",
+    "adresse": "20 Rue de la Redoute, Saint-Apollinaire",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 360,
+    "cc": "CC_QUETIGNY",
+    "score": 8,
+    "lat": 47.340011,
+    "lng": 5.076711
+  },
+  {
+    "nom": "Point S - Saint-Julien (CENTRE AUTO MOBILITE 21)",
+    "adresse": "5 Rue de la Vignotte, Saint-Julien",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 29,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.397407,
+    "lng": 5.133938
+  },
+  {
+    "nom": "Daurelle Poids Lourds",
+    "adresse": "64 Rte de Marsannay le Bois, Clénay",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 159,
+    "cc": "CC_QUETIGNY",
+    "score": 7,
+    "lat": 47.412791,
+    "lng": 5.121239
+  },
+  {
+    "nom": "Sécuritest Contrôle Technique Automobile IS SUR TILLE",
+    "adresse": "3 Pl. de la République, Is-sur-Tille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 329,
+    "cc": "CC_QUETIGNY",
+    "score": 8,
+    "lat": 47.523576,
+    "lng": 5.112577
+  },
+  {
+    "nom": "Dacia Souillac - Faurie",
+    "adresse": "Rte de Martel, Souillac",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 177,
+    "cc": "CC_MALEMORT",
+    "score": 7,
+    "lat": 44.903231,
+    "lng": 1.481663
+  },
+  {
+    "nom": "AD Garage Expert ROUGIE",
+    "adresse": "Martel",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 105,
+    "cc": "CC_MALEMORT",
+    "score": 9,
+    "lat": 48.995197,
+    "lng": 2.238607
+  },
+  {
+    "nom": "AD Garage Expert PASCAL LAUMOND MEYSSAC",
+    "adresse": "Bd du Quercy, Meyssac",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 40,
+    "cc": "CC_MALEMORT",
+    "score": 7,
+    "lat": 45.057355,
+    "lng": 1.671423
+  },
+  {
+    "nom": "AD Garage Expert PASCAL LAUMOND ARGENTAT",
+    "adresse": "17 Av. du 11 Novembre, Argentat-sur-Dordogne",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 89,
+    "cc": "CC_MALEMORT",
+    "score": 8,
+    "lat": 45.09557,
+    "lng": 1.937492
+  },
+  {
+    "nom": "Point S - Terrasson-Lavilledieu (Kapusuz et Fils)",
+    "adresse": "978 Av. des Jardins, Terrasson-Lavilledieu",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 163,
+    "cc": "CC_MALEMORT",
+    "score": 8,
+    "lat": 45.128361,
+    "lng": 1.320258
+  },
+  {
+    "nom": "AD Garage Expert LE ROC AUTOMOBILES",
+    "adresse": "129 IMPASSE DU ROC, Saint-Pantaléon-de-Larche",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 108,
+    "cc": "CC_MALEMORT",
+    "score": 9,
+    "lat": 45.142426,
+    "lng": 1.457815
+  },
+  {
+    "nom": "Feu Vert",
+    "adresse": "Centre Commercial Carrefour, Lieu-dit, Brive-la-Gaillarde",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 1190,
+    "cc": "CC_MALEMORT",
+    "score": 9,
+    "lat": 49.196932,
+    "lng": 5.992309
+  },
+  {
+    "nom": "AD Garage Expert PASCAL LAUMOND LANTEUIL",
+    "adresse": "6 ROUTE DE BEAULIEU, Lanteuil",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 78,
+    "cc": "CC_MALEMORT",
+    "score": 9,
+    "lat": 45.127219,
+    "lng": 1.66589
+  },
+  {
+    "nom": "GARAGE CHARBONNEL",
+    "adresse": "5 Route d’Argentat, Albussac",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 108,
+    "cc": "CC_MALEMORT",
+    "score": 7,
+    "lat": 45.134773,
+    "lng": 1.785332
+  },
+  {
+    "nom": "Garage de l'Aérodrome",
+    "adresse": "6123 Chem. de la Galive, Saint-Pantaléon-de-Larche",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 100,
+    "cc": "CC_MALEMORT",
+    "score": 7,
+    "lat": 45.15409,
+    "lng": 1.464079
+  },
+  {
+    "nom": "GARAGE BRUNE",
+    "adresse": "22 Bis Bd Brune, Brive-la-Gaillarde",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 103,
+    "cc": "CC_MALEMORT",
+    "score": 7,
+    "lat": 45.152962,
+    "lng": 1.535116
+  },
+  {
+    "nom": "Norauto Malemort",
+    "adresse": "Zac Du Moulin, Malemort",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 819,
+    "cc": "CC_MALEMORT",
+    "score": 9,
+    "lat": 43.691258,
+    "lng": 5.725559
+  },
+  {
+    "nom": "Ligier Brive - Faurie City",
+    "adresse": "Av. de la Libération, Malemort",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 100,
+    "cc": "CC_MALEMORT",
+    "score": 7,
+    "lat": 45.175464,
+    "lng": 1.578505
+  },
+  {
+    "nom": "Christal Auto",
+    "adresse": "4 Rue Charles Boulle 6, Malemort",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 114,
+    "cc": "CC_MALEMORT",
+    "score": 7,
+    "lat": 45.164657,
+    "lng": 1.562913
+  },
+  {
+    "nom": "Sécuritest Contrôle Technique Automobile SADROC",
+    "adresse": "Sadroc",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 212,
+    "cc": "CC_MALEMORT",
+    "score": 8,
+    "lat": 47.925801,
+    "lng": -1.900942
+  },
+  {
+    "nom": "Sécuritest Contrôle Technique Automobile SAINT MEXANT",
+    "adresse": "La Croix de la Chapelle, Saint-Mexant",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 195,
+    "cc": "CC_MALEMORT",
+    "score": 7,
+    "lat": 45.278877,
+    "lng": 1.654804
+  },
+  {
+    "nom": "Point S - Tulle (Tulle Entretien Auto)",
+    "adresse": "10 Av. Victor Hugo, Tulle",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 74,
+    "cc": "CC_MALEMORT",
+    "score": 9,
+    "lat": 45.263836,
+    "lng": 1.765209
+  },
+  {
+    "nom": "AD Garage Expert DES BRUYERES",
+    "adresse": "6 Rte des Bruyères, Saint-Priest-de-Gimel",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 58,
+    "cc": "CC_MALEMORT",
+    "score": 8,
+    "lat": 45.331705,
+    "lng": 1.878959
+  },
+  {
+    "nom": "AS Auto Sécurité Contrôle technique SAINT FLORENT SUR CHER",
+    "adresse": "24 Av. du Géneral Leclerc, Saint-Florent-sur-Cher",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 172,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 7,
+    "lat": 46.997288,
+    "lng": 2.255951
+  },
+  {
+    "nom": "LIGIER STORE - BERRY VSP TROUY - VOITURES SANS PERMIS LIGIER",
+    "adresse": "Zone Artisanale Commerciale, Trouy",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 139,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 7,
+    "lat": 48.224886,
+    "lng": -1.50008
+  },
+  {
+    "nom": "AD Garage Expert DE LA CHAPELLE",
+    "adresse": "Les Laburets, La Chapelle-Saint-Ursin",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 101,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 7,
+    "lat": 47.046929,
+    "lng": 2.30291
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "208 Rte d'Orléans, Saint-Doulchard",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 236,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 11,
+    "lat": 47.107117,
+    "lng": 2.378783
+  },
+  {
+    "nom": "Norauto Bourges",
+    "adresse": "Centre Commercial Geant, Route De Vierzon, Saint-Doulchard",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 1558,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 9,
+    "lat": 47.122263,
+    "lng": 2.361185
+  },
+  {
+    "nom": "Point S - Saint-Doulchard (Garage Marembert)",
+    "adresse": "759 Rue de Malitorne, Saint-Doulchard",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 59,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 7,
+    "lat": 47.106927,
+    "lng": 2.388942
+  },
+  {
+    "nom": "Rose Meca",
+    "adresse": "Rue du Pressoir, Saint-Germain-du-Puy",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 212,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 7,
+    "lat": 47.099189,
+    "lng": 2.456596
+  },
+  {
+    "nom": "Garage De La Noue",
+    "adresse": "63 Avenue du Maréchal de Lattre de Tassigny, Vierzon",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 242,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 7,
+    "lat": 47.204565,
+    "lng": 2.072908
+  },
+  {
+    "nom": "Norauto Vierzon",
+    "adresse": "Ccial Leclerc, Rue du Mouton, Vierzon",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 682,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 9,
+    "lat": 47.230431,
+    "lng": 2.086044
+  },
+  {
+    "nom": "AS Auto Sécurité Contrôle technique ST MARTIN D AUXIGNY",
+    "adresse": "z.i, Les Petits Clais, Saint-Martin-d'Auxigny",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 178,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 7,
+    "lat": 47.210999,
+    "lng": 2.425864
+  },
+  {
+    "nom": "AS Auto Sécurité Contrôle technique HENRICHEMONT",
+    "adresse": "Rue de Verdun, Henrichemont",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 258,
+    "cc": "CC_SAINT_GERMAIN_DU_PUY",
+    "score": 8,
+    "lat": 47.301702,
+    "lng": 2.521524
+  },
+  {
+    "nom": "AD Garage GOSSELIN AUTOMOBILES",
+    "adresse": "8 Rte de la Suisse Normande, Saint-Germain-Langot",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 35,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 48.920862,
+    "lng": -0.320252
+  },
+  {
+    "nom": "AD Garage Expert QUETRON OLIVIER",
+    "adresse": "15 Rue des Grands Bureaux, Soumont-Saint-Quentin",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 73,
+    "cc": "CC_MONDEVILLE",
+    "score": 8,
+    "lat": 48.980256,
+    "lng": -0.24791
+  },
+  {
+    "nom": "GARAGE DE L'ODON",
+    "adresse": "61 Rue de Caen, Les Monts d'Aunay",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 149,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.026135,
+    "lng": -0.623981
+  },
+  {
+    "nom": "AD-AUTOMOBILES - EUROREPAR CAR SERVICE",
+    "adresse": "27 Rte de Thury, Les Monts d'Aunay",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 59,
+    "cc": "CC_MONDEVILLE",
+    "score": 9,
+    "lat": 49.015859,
+    "lng": -0.627341
+  },
+  {
+    "nom": "GTA14",
+    "adresse": "Zone Artisanale La Jalousie",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 1365,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 48.164273,
+    "lng": 7.197788
+  },
+  {
+    "nom": "Mc coy's speed shop",
+    "adresse": "Zi, Alfred zukerman, Mézidon Vallée d'Auge",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 125,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.069245,
+    "lng": -0.084116
+  },
+  {
+    "nom": "SOS COURROIE DE DISTRIBUTION",
+    "adresse": "30 Rte de Laize-la-Ville, Fontenay-le-Marmion",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 120,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.086406,
+    "lng": -0.369515
+  },
+  {
+    "nom": "GARAGE MARESCAL TOP GARAGE",
+    "adresse": "2 Rue de Navarre, Cormelles-le-Royal",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 232,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.149192,
+    "lng": -0.339419
+  },
+  {
+    "nom": "Ifs Auto - Bosch Car Service",
+    "adresse": "ZI, Rue de Rocquancourt CHEMIN DE, Ifs",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 107,
+    "cc": "CC_MONDEVILLE",
+    "score": 8,
+    "lat": 49.144016,
+    "lng": -0.340792
+  },
+  {
+    "nom": "GT NORMANDY - MOTRIO -",
+    "adresse": "Rue Georges Lemesle, Argences",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 179,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.12024,
+    "lng": -0.179843
+  },
+  {
+    "nom": "Verson Auto",
+    "adresse": "2 Imp. des 4 Vents, Verson",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 242,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.157498,
+    "lng": -0.461058
+  },
+  {
+    "nom": "Point S - Caen (Caen Pneus Services)",
+    "adresse": "ZAC de Beaulieu, 103 Rue du Général Moulin, Caen",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 232,
+    "cc": "CC_MONDEVILLE",
+    "score": 10,
+    "lat": 49.187004,
+    "lng": -0.408245
+  },
+  {
+    "nom": "GT AUTO",
+    "adresse": "78 Rue de Bayeux, Caen",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 167,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.183096,
+    "lng": -0.379815
+  },
+  {
+    "nom": "Benomeur Auto 14",
+    "adresse": "1 Rue des Muguets, Caen",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 172,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.167368,
+    "lng": -0.350558
+  },
+  {
+    "nom": "AD Garage Expert CLEMENCEAU - 135 STILL",
+    "adresse": "135 Av. Georges Clemenceau, Caen",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 140,
+    "cc": "CC_MONDEVILLE",
+    "score": 8,
+    "lat": 49.190267,
+    "lng": -0.343898
+  },
+  {
+    "nom": "AD Garage Expert SAINT PAIR GARAGE",
+    "adresse": "Chem. du Long Pré, Saint-Pair",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 74,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.168931,
+    "lng": -0.186281
+  },
+  {
+    "nom": "Aes Automobiles",
+    "adresse": "Rue des Métiers, Sannerville",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 210,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.180432,
+    "lng": -0.21673
+  },
+  {
+    "nom": "AD Garage Expert CRAPART ET FILS",
+    "adresse": "26 Bd Maréchal Juin, Caen",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 84,
+    "cc": "CC_MONDEVILLE",
+    "score": 8,
+    "lat": 49.20983,
+    "lng": -0.373075
+  },
+  {
+    "nom": "First Stop Eur-Auto Saint-Contest",
+    "adresse": "Rue du Clos Barbey, Saint-Contest",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 158,
+    "cc": "CC_MONDEVILLE",
+    "score": 8,
+    "lat": 49.200346,
+    "lng": -0.398538
+  },
+  {
+    "nom": "Anthony Assistance Automobile",
+    "adresse": "17 Rte de Ouistreham, Saint-Aubin-d'Arquenay",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 114,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.272466,
+    "lng": -0.263278
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "23 Rte de Caen, Saint-Vigor-le-Grand",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 611,
+    "cc": "CC_MONDEVILLE",
+    "score": 11,
+    "lat": 49.273155,
+    "lng": -0.688541
+  },
+  {
+    "nom": "GTA Bayeux",
+    "adresse": "Rte de Caen, Bayeux",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 120,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.183258,
+    "lng": -0.383463
+  },
+  {
+    "nom": "Midas OUISTREHAM",
+    "adresse": "Za Les, Chem. du Maresquier, Ouistreham",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 228,
+    "cc": "CC_MONDEVILLE",
+    "score": 10,
+    "lat": 49.259344,
+    "lng": -0.261047
+  },
+  {
+    "nom": "Midas DIVES SUR MER",
+    "adresse": "Herbage du Gaillon Lieu-Dit, Périers-en-Auge",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 344,
+    "cc": "CC_MONDEVILLE",
+    "score": 8,
+    "lat": 49.266956,
+    "lng": -0.100935
+  },
+  {
+    "nom": "Garage Vb Auto - Bosch Car Service",
+    "adresse": "12 Rue Marcotte, Lion-sur-Mer",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 58,
+    "cc": "CC_MONDEVILLE",
+    "score": 7,
+    "lat": 49.300087,
+    "lng": -0.315079
+  },
+  {
+    "nom": "Sécuritest Contrôle Technique Automobile COURSEULLES SUR MER",
+    "adresse": "Rue des Artisans z.i, Courseulles-sur-Mer",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 391,
+    "cc": "CC_MONDEVILLE",
+    "score": 8,
+    "lat": 49.320544,
+    "lng": -0.458608
+  },
+  {
+    "nom": "GARAGE MULTI SERVICES AUTO. EUROREPAR CAR SERVICE. LA COTE BLEUE",
+    "adresse": "55 Av. Draio de la Mar, Carry-le-Rouet",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 57,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.330238,
+    "lng": 5.139028
+  },
+  {
+    "nom": "GARAGE MÉCANIQUE EXPRESS",
+    "adresse": "angle, 87 Av. des Chartreux, Pl. du Jardin Zoologique, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 210,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.304816,
+    "lng": 5.397781
+  },
+  {
+    "nom": "Garage d'Arras",
+    "adresse": "3 Rue 5 Cents Couverts, Marseille",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 170,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.307666,
+    "lng": 5.401151
+  },
+  {
+    "nom": "L’atelier des Chartreux",
+    "adresse": "N61, Av. des Chartreux, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 127,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.306961,
+    "lng": 5.399521
+  },
+  {
+    "nom": "Garage Banck",
+    "adresse": "9 Rue de Provence, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 140,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.300769,
+    "lng": 5.376075
+  },
+  {
+    "nom": "Eurorepar MG Garage",
+    "adresse": "3 Rue du Vieux Moulin, Châteauneuf-les-Martigues",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 42,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.383061,
+    "lng": 5.161873
+  },
+  {
+    "nom": "L’AUTO PARE-BRISE / Franchise offerte + 150€",
+    "adresse": "Rue du Garagou, Châteauneuf-les-Martigues",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 107,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.377169,
+    "lng": 5.174624
+  },
+  {
+    "nom": "Garage Cars's House | Votre garage privé",
+    "adresse": "12 Trav. Collet, Les Pennes-Mirabeau",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 176,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.374483,
+    "lng": 5.354762
+  },
+  {
+    "nom": "Eurorepar Garage Achard",
+    "adresse": "10 Rue Achard, Marseille",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 128,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 10,
+    "lat": 43.313001,
+    "lng": 5.402697
+  },
+  {
+    "nom": "Midas PORT DE BOUC",
+    "adresse": "Espace Cial Athéna, Av. Clément Mille, Port-de-Bouc",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 156,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.419908,
+    "lng": 5.001932
+  },
+  {
+    "nom": "Mondial Pare-Brise",
+    "adresse": "Espace Commercial Athena, Av. Clément Mille, Port-de-Bouc",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 297,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.419908,
+    "lng": 5.001932
+  },
+  {
+    "nom": "STEF MECAPNEU",
+    "adresse": "Croix sainte, N568, Martigues",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 134,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.411079,
+    "lng": 5.029114
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Quai Sainte-Anne, Martigues",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 170,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 9,
+    "lat": 43.399833,
+    "lng": 5.064041
+  },
+  {
+    "nom": "Garage J.G Mecatech",
+    "adresse": "17 Av. de la Moutte, Châteauneuf-les-Martigues",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 138,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.390807,
+    "lng": 5.14884
+  },
+  {
+    "nom": "AD Garage Expert GMAUTOMOBILE",
+    "adresse": "12 Av. de la Moutte, Châteauneuf-les-Martigues",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 127,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 9,
+    "lat": 43.391279,
+    "lng": 5.145891
+  },
+  {
+    "nom": "Point S - Châteauneuf-les-Martigues",
+    "adresse": "Route du Jai, Chem. Carraire de Valample, Châteauneuf-les-Martigues",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 48,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.397435,
+    "lng": 5.136571
+  },
+  {
+    "nom": "AD Garage Expert JPP AUTO - SARL MDJ",
+    "adresse": "2067 RN 113, QUARTIER LA SOURCE, Les Pennes-Mirabeau",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 68,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.376607,
+    "lng": 5.341642
+  },
+  {
+    "nom": "GARAGE P&S AUTO EUROREPAR",
+    "adresse": "310 Chem. du Guigonnet, Fos-sur-Mer",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 41,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.450011,
+    "lng": 4.929606
+  },
+  {
+    "nom": "Côté Route Fos-sur-Mer by First Stop",
+    "adresse": "20 Rte du Guigonnet, Fos-sur-Mer",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 96,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.451226,
+    "lng": 4.933732
+  },
+  {
+    "nom": "DIAGAUTOFOS",
+    "adresse": "215 Rue Pierre Celadon, Fos-sur-Mer",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 101,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.455583,
+    "lng": 4.936167
+  },
+  {
+    "nom": "Garage DELKO Saint-Mitre-les-Remparts",
+    "adresse": "8 Rue des Salicornes, Saint-Mitre-les-Remparts",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 201,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.43669,
+    "lng": 5.038087
+  },
+  {
+    "nom": "Garage E-Car lg auto",
+    "adresse": "Chem. de Carthage, Marignane",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 153,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.422681,
+    "lng": 5.231895
+  },
+  {
+    "nom": "Le garage du Centre - AL Automobiles",
+    "adresse": "ZI LES ESTROUBLANS, 32 Rue d'Helsinki, Vitrolles",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 363,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.429552,
+    "lng": 5.23686
+  },
+  {
+    "nom": "M&M Auto - Bosch Car Service",
+    "adresse": "10 Rue de Patafloux, Châteauneuf-les-Martigues",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 59,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.386866,
+    "lng": 5.161883
+  },
+  {
+    "nom": "Le Canadien",
+    "adresse": "15A All. de la Billonne Z.A.C, Les Pennes-Mirabeau",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 122,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.417379,
+    "lng": 5.295879
+  },
+  {
+    "nom": "Eurorepar Garage Laugier",
+    "adresse": "383 Av. de Violési, Bouc-Bel-Air",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 31,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.443684,
+    "lng": 5.397719
+  },
+  {
+    "nom": "Garage DELKO Bouc-Bel-Air",
+    "adresse": "Av. de Violési, Bouc-Bel-Air",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 206,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.442245,
+    "lng": 5.397681
+  },
+  {
+    "nom": "First Stop Garage Automobile Fosséen Fos-sur-Mer",
+    "adresse": "ZA Lavalduc, 290 All. Jean Perrin, Fos-sur-Mer",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 30,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.471823,
+    "lng": 4.946692
+  },
+  {
+    "nom": "Garage Mkhitaryan",
+    "adresse": "Chem. des Emplaniers, Saint-Mitre-les-Remparts",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 102,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.463794,
+    "lng": 4.999861
+  },
+  {
+    "nom": "Garage Pyrame Station Entretien et Réparation Auto",
+    "adresse": "Rue Ampère ZI les Milles, Aix-en-Provence",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 262,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.487326,
+    "lng": 5.378449
+  },
+  {
+    "nom": "Atelier Du Pneu",
+    "adresse": "1226 Av. de la Croix d'Or, Bouc-Bel-Air",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 318,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.456495,
+    "lng": 5.403214
+  },
+  {
+    "nom": "GARAGE ISTRES TUBÉ",
+    "adresse": "3 Av. Clément Ader, Istres",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 359,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.51902,
+    "lng": 4.960162
+  },
+  {
+    "nom": "First Stop Garage Automobile Fosséen Istres",
+    "adresse": "Z.A du Tube, 1 All. Mongolfier, Istres",
+    "tel": "",
+    "note": 4.2,
+    "nb_avis": 159,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.518407,
+    "lng": 4.960327
+  },
+  {
+    "nom": "Point S - Istres (RGD Auto)",
+    "adresse": "16 Ronde des Florins, Istres",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 42,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.500175,
+    "lng": 4.977212
+  },
+  {
+    "nom": "AD Garage Expert ALAIN AUTO SERVICES",
+    "adresse": "QUARTIER CROIX ROUGE OUEST, Chem. de la Croix Rouge, Berre-l'Étang",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 93,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.497952,
+    "lng": 5.163798
+  },
+  {
+    "nom": "Garage Cezanne",
+    "adresse": "2530 Chem. de la Couronnade, Aix-en-Provence",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 257,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.514752,
+    "lng": 5.356301
+  },
+  {
+    "nom": "THE GARAGE Thumine",
+    "adresse": "220 Rue de la tramontane, Aix-en-Provence",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 161,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.526011,
+    "lng": 5.407052
+  },
+  {
+    "nom": "Midas AIX LES MILLES",
+    "adresse": "Zone commerciale la Pioline, 205 Rue Guillaume Du Vair Pole, Aix-en-Provence",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 326,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 10,
+    "lat": 43.508011,
+    "lng": 5.406163
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "580 Av. Guillaume du Vair, Aix-en-Provence",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 433,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 10,
+    "lat": 43.507537,
+    "lng": 5.401644
+  },
+  {
+    "nom": "Garage DELKO La Fare-les-Oliviers",
+    "adresse": "25 Av. des Puisatiers, La Fare-les-Oliviers",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 143,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.54992,
+    "lng": 5.184108
+  },
+  {
+    "nom": "Garage Boyer",
+    "adresse": "197 Chem. de l'arc, Coudoux",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 122,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.547478,
+    "lng": 5.241968
+  },
+  {
+    "nom": "Eurorepar Garage IEMMOLO Didier",
+    "adresse": "135 Chem. de Boule, Coudoux",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 59,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.556718,
+    "lng": 5.247
+  },
+  {
+    "nom": "Eurotyre - Garage Les Milles Pneus",
+    "adresse": "Route De La Base Aerienne, Chem. de la Valette",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 280,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 48.807863,
+    "lng": 2.061347
+  },
+  {
+    "nom": "allanauto",
+    "adresse": "Av. du 8 Mai 1945, Miramas",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 111,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.592077,
+    "lng": 5.004292
+  },
+  {
+    "nom": "MECA DIAG SOFT AUTO",
+    "adresse": "16 Av. de Grèce, Miramas",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 183,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.596969,
+    "lng": 4.995111
+  },
+  {
+    "nom": "Point S - Miramas (SARL BASIS)",
+    "adresse": "Avenue du 8 Mai 1945, Rond Point René Cassin, Miramas",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 134,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 42.681301,
+    "lng": 2.893862
+  },
+  {
+    "nom": "Garage de la Calade",
+    "adresse": "2965 Rte d'Avignon, Aix-en-Provence",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 670,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 9,
+    "lat": 43.567025,
+    "lng": 5.400974
+  },
+  {
+    "nom": "AD Garage Expert PINAS",
+    "adresse": "6 Av. du Foirail, Saint-Martin-de-Crau",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 77,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.633405,
+    "lng": 4.804414
+  },
+  {
+    "nom": "Olcars",
+    "adresse": "3 Rue de l'Estamaire, Salon-de-Provence",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 129,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.62926,
+    "lng": 5.097765
+  },
+  {
+    "nom": "Eurorepar Auto Salon",
+    "adresse": "531 Rue des Canesteu, Salon-de-Provence",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 109,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 9,
+    "lat": 43.633547,
+    "lng": 5.092774
+  },
+  {
+    "nom": "Speedy ( centre auto )",
+    "adresse": "Bd du Roi René, Salon-de-Provence",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 507,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 11,
+    "lat": 43.632925,
+    "lng": 5.097907
+  },
+  {
+    "nom": "MG Motor Salon-de-Provence - de Willermin",
+    "adresse": "Chem. des Cardelines, Salon-de-Provence",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 160,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.621782,
+    "lng": 5.089389
+  },
+  {
+    "nom": "Garage Eurorepar Car Service - Pôle Automobile Tordjeman",
+    "adresse": "Route de Pelissanne, RD572, Salon-de-Provence",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 165,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 9,
+    "lat": 43.636026,
+    "lng": 5.124415
+  },
+  {
+    "nom": "AD Garage Expert NEGOCE VEHICULES OCCASION",
+    "adresse": "ZA LES VIGNEROLLES LOT, 31, Pélissanne",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 200,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 9,
+    "lat": 43.631286,
+    "lng": 5.139986
+  },
+  {
+    "nom": "Centre Auto PeliPneus",
+    "adresse": "ZI du Bas Taulet, Pélissanne",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 634,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 8,
+    "lat": 43.635811,
+    "lng": 5.1728
+  },
+  {
+    "nom": "KING OTO 13",
+    "adresse": "2054 A Rte de Coudoux, Lambesc",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 101,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.627992,
+    "lng": 5.260363
+  },
+  {
+    "nom": "Garage Fitzailo - Motrio",
+    "adresse": "506 Av. de l'Europe, Saint-Cannat",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 172,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.613776,
+    "lng": 5.320219
+  },
+  {
+    "nom": "Eurorepar Garage Du Coussoul",
+    "adresse": "11 Rte de Salon, Mouriès",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 34,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.686087,
+    "lng": 4.88434
+  },
+  {
+    "nom": "GARAGE BERNARD eurorepar",
+    "adresse": "10 Impasse Du Cordon ZA Des Trebons, Aureille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 60,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 9,
+    "lat": 43.696488,
+    "lng": 4.939161
+  },
+  {
+    "nom": "Garage Patrick Pneus",
+    "adresse": "200 Av. Georges Borel, Salon-de-Provence",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 287,
+    "cc": "CC_SAINT_MITRE_LES_REMPARTS",
+    "score": 7,
+    "lat": 43.640544,
+    "lng": 5.080766
+  },
+  {
+    "nom": "EUROREPAR CAR SERVICE Garage Boero VSD Auto",
+    "adresse": "25 Bd du Sablier, Marseille",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 89,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.252649,
+    "lng": 5.382234
+  },
+  {
+    "nom": "Eurorepar Boero Valmante Cars",
+    "adresse": "124 Trav. de la Gouffonne, Marseille",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 51,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.246179,
+    "lng": 5.413875
+  },
+  {
+    "nom": "Express Pneu",
+    "adresse": "6 Rue Capitaine Jean Croisa, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 462,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.236453,
+    "lng": 5.400979
+  },
+  {
+    "nom": "Midas MARSEILLE TASSIGNY",
+    "adresse": "58 Av. du Maréchal de Lattre de Tassigny, Marseille",
+    "tel": "",
+    "note": 4.0,
+    "nb_avis": 386,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 14.620458,
+    "lng": -61.063904
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "567 Av. de Mazargues, Marseille",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 513,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 10,
+    "lat": 43.261225,
+    "lng": 5.39228
+  },
+  {
+    "nom": "Garage DELKO Carnoux-en-Provence",
+    "adresse": "25 Av. Paul Verlaine, Carnoux-en-Provence",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 177,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.252871,
+    "lng": 5.558801
+  },
+  {
+    "nom": "Eurorepar Garage Pierrot",
+    "adresse": "775 Av. Louis Crozet, La Ciotat",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 93,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 9,
+    "lat": 43.181205,
+    "lng": 5.597691
+  },
+  {
+    "nom": "GRC AUTO - Garage du Vallat",
+    "adresse": "16 Av. Frédéric Mistral, La Ciotat",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 165,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.182809,
+    "lng": 5.612569
+  },
+  {
+    "nom": "Garage DELKO La Ciotat",
+    "adresse": "399 Av. Emile Ripert, La Ciotat",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 232,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.186382,
+    "lng": 5.614493
+  },
+  {
+    "nom": "GARAGE ERRICO",
+    "adresse": "585 Rue Saint-Pierre, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 103,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 49.963624,
+    "lng": 2.102872
+  },
+  {
+    "nom": "Garage L'art De L'auto",
+    "adresse": "265 Bd Mireille Lauze, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 335,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.283243,
+    "lng": 5.412309
+  },
+  {
+    "nom": "Garage automobile - Mv Auto 13",
+    "adresse": "115 Bd de la Millière, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 164,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.283352,
+    "lng": 5.498434
+  },
+  {
+    "nom": "Garage Blanc",
+    "adresse": "Bd de la Gare, La Penne-sur-Huveaune",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 144,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.283819,
+    "lng": 5.514628
+  },
+  {
+    "nom": "Do It Yourself Cars",
+    "adresse": "115 Bd de la Millière, Marseille",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 281,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.283352,
+    "lng": 5.498434
+  },
+  {
+    "nom": "S.M Auto",
+    "adresse": "441 Chem. du Merlançon, Aubagne",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 223,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.285094,
+    "lng": 5.578047
+  },
+  {
+    "nom": "AD Garage E2L AUTO",
+    "adresse": "160 Av. de Fontfrège, Gémenos",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 60,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.277137,
+    "lng": 5.61501
+  },
+  {
+    "nom": "PRECISIUM - BMK AUTO",
+    "adresse": "110 Chem. de Saint-Martin, Gémenos",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 101,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.283652,
+    "lng": 5.610648
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Zone industrielle des Paluds, 1070 Av. des Paluds, Aubagne",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 366,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 9,
+    "lat": 43.290786,
+    "lng": 5.595139
+  },
+  {
+    "nom": "LU CARS GARAGE EUROREPAR Car Service",
+    "adresse": "7 Bd des Alpes, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 89,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 9,
+    "lat": 43.371249,
+    "lng": 5.346978
+  },
+  {
+    "nom": "2 C Meca",
+    "adresse": "120 Rue Saint-Jean du Désert, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 111,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.295784,
+    "lng": 5.433263
+  },
+  {
+    "nom": "Start",
+    "adresse": "2 BIS Bd Val Pré, Aubagne",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 147,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.290439,
+    "lng": 5.569652
+  },
+  {
+    "nom": "AD Garage Expert BERENGER",
+    "adresse": "QUARTIER, 2295 RN 96, Rte de Napollon, Aubagne",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 58,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.317973,
+    "lng": 5.586281
+  },
+  {
+    "nom": "Garage DELKO Aubagne",
+    "adresse": "2380 D96, Aubagne",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 229,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.286484,
+    "lng": 5.5463
+  },
+  {
+    "nom": "BATTERIE D'ORIGINE MARSEILLE - Dépannage batterie voiture, bateau, Camping-car, poids lourds, engin agricole",
+    "adresse": "411 Chem. du Littoral, Marseille",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 232,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.355031,
+    "lng": 5.329777
+  },
+  {
+    "nom": "Vitservice Auto",
+    "adresse": "561 Chem. des Rascous, Allauch",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 102,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.344524,
+    "lng": 5.476927
+  },
+  {
+    "nom": "Eurorepar Garage Du Logis Neuf",
+    "adresse": "2 Rue Louis Deleuil, Allauch",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 55,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 9,
+    "lat": 43.356118,
+    "lng": 5.485964
+  },
+  {
+    "nom": "Garage de la Tiranne - Nouveaux propriétaires depuis le 01/05/2023 -",
+    "adresse": "1117 av du 7eme régiment des Tirailleurs Algérien, Allauch",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 219,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.337484,
+    "lng": 5.467089
+  },
+  {
+    "nom": "AD Garage Expert SUD MECANIQUE",
+    "adresse": "ET, ANGLE BD BARA, Rue Albert Einstein, Marseille",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 112,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.33936,
+    "lng": 5.439117
+  },
+  {
+    "nom": "Garage CARPAM - Bosch Car Service",
+    "adresse": "72 Av. Jean Compadieu, Marseille",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 184,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.317323,
+    "lng": 5.435482
+  },
+  {
+    "nom": "R Racing",
+    "adresse": "13 Av. José Nobre, Martigues",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 152,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.399831,
+    "lng": 5.040793
+  },
+  {
+    "nom": "Garage du Cavaou Eurorepar Car service",
+    "adresse": "141 Chem. du Cavaou, Marseille",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 80,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.348718,
+    "lng": 5.454173
+  },
+  {
+    "nom": "Garage DELKO La Bouilladisse",
+    "adresse": "Quartier La Bourine, Av. de la Malvesine, La Bouilladisse",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 1017,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.394975,
+    "lng": 5.589923
+  },
+  {
+    "nom": "garage formule auto",
+    "adresse": "70 Rue Saint-Pierre, Marseille",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 106,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 49.963624,
+    "lng": 2.102872
+  },
+  {
+    "nom": "GARAGE APM (AUTO PNEUS MAINTENANCE)",
+    "adresse": "3 ZA La Roque Forcade, Belcodène",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 101,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.278179,
+    "lng": 5.622725
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Av. du 8 Mai 1945, Saint-Victoret",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 471,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 10,
+    "lat": 43.419213,
+    "lng": 5.230056
+  },
+  {
+    "nom": "Station Karcher Plan de Campagne & Distributeur Karcher Professionnel",
+    "adresse": "Route De Septèmes, Septeme-les-vallons",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 353,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.409261,
+    "lng": 5.365778
+  },
+  {
+    "nom": "Garage L'Atelier",
+    "adresse": "3931 Bretelle de la Plaine, Gardanne",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 131,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.448925,
+    "lng": 5.457936
+  },
+  {
+    "nom": "AD Garage Expert SP AUTOS",
+    "adresse": "158 Bd Paul Cézanne, Gardanne",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 162,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 9,
+    "lat": 43.455493,
+    "lng": 5.469319
+  },
+  {
+    "nom": "Casa del auto Maranello",
+    "adresse": "34 ZA les Pradeaux, Gréasque",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 158,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.435582,
+    "lng": 5.540512
+  },
+  {
+    "nom": "Azur Car Center",
+    "adresse": "zone Saint Charles, Zone saint charles, 210 Av. de l'étoile, Fuveau",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 106,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.45404,
+    "lng": 5.54036
+  },
+  {
+    "nom": "Garage DELKO Trets",
+    "adresse": "427 Av. René Cassin, Trets",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 160,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.449002,
+    "lng": 5.680811
+  },
+  {
+    "nom": "Norauto Trets",
+    "adresse": "Zac De La Burliere, Trets",
+    "tel": "",
+    "note": 4.1,
+    "nb_avis": 513,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 9,
+    "lat": 43.453325,
+    "lng": 5.677207
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "Co Gd, Av. Denis Padovani, Vitrolles",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 460,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 10,
+    "lat": 43.436209,
+    "lng": 5.258805
+  },
+  {
+    "nom": "GARAGE PREMIER - GARAGE MECANAS",
+    "adresse": "Chem. de la Blaque, Aix-en-Provence",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 123,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.495959,
+    "lng": 5.42357
+  },
+  {
+    "nom": "DIAGNOSTIC AUTOMOBILE AIX MARSEILLE",
+    "adresse": "2400 Rte de Gardanne, Aix-en-Provence",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 304,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.485097,
+    "lng": 5.411628
+  },
+  {
+    "nom": "Dsr auto passion",
+    "adresse": "D7N, Rousset",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 137,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.48521,
+    "lng": 5.63588
+  },
+  {
+    "nom": "Garage Cris car’s",
+    "adresse": "561 Rte de Trets, Pourrières",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 191,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.496775,
+    "lng": 5.731425
+  },
+  {
+    "nom": "Pyrame Station",
+    "adresse": "64 Cr Gambetta, Aix-en-Provence",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 201,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.522247,
+    "lng": 5.457365
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "65 Bld De La République, Aix-en-Provence",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 397,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 10,
+    "lat": 43.529055,
+    "lng": 5.439395
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "467 Av. Henri Mauriat, Aix-en-Provence",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 169,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 9,
+    "lat": 43.515689,
+    "lng": 5.466207
+  },
+  {
+    "nom": "Midas AIX EN PROVENCE",
+    "adresse": "39 Bld De La République, Aix-en-Provence",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 257,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 10,
+    "lat": 43.528513,
+    "lng": 5.440639
+  },
+  {
+    "nom": "BR-Performance",
+    "adresse": "1481 Chem. de la Muscatelle, Châteauneuf-le-Rouge",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 437,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.482227,
+    "lng": 5.552385
+  },
+  {
+    "nom": "D7N Auto",
+    "adresse": "55 Av. de la 1ère Division Française libre, Aix-en-Provence",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 101,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.550512,
+    "lng": 5.426988
+  },
+  {
+    "nom": "AD Garage Expert CENTHI",
+    "adresse": "7 Imp. du Plt de la Gare, Venelles",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 52,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 9,
+    "lat": 43.586574,
+    "lng": 5.473986
+  },
+  {
+    "nom": "Dentime",
+    "adresse": "RN 96 Chem. de la Coudourousse 13 650, Meyrargues",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 116,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.642783,
+    "lng": 5.531599
+  },
+  {
+    "nom": "L'atelier authentique",
+    "adresse": "1392 quartier les fanettes RD561, Le Puy-Sainte-Réparade",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 179,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 7,
+    "lat": 43.653808,
+    "lng": 5.461293
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "ZAC St Martin, 39 Rue François Gernelle, Pertuis",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 307,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 10,
+    "lat": 43.677899,
+    "lng": 5.503579
+  },
+  {
+    "nom": "N.Q.S",
+    "adresse": "147 Chem. des Sabouillons, Lançon-Provence",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 269,
+    "cc": "CC_LES_PENNES_MIRABEAU",
+    "score": 8,
+    "lat": 43.606116,
+    "lng": 5.137855
+  },
+  {
+    "nom": "Garage de La pétanque",
+    "adresse": "4 Av. de la Pétanque, La Ciotat",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 218,
+    "cc": "CC_MARSEILLE_LES_ARNAVAUX",
+    "score": 8,
+    "lat": 43.175543,
+    "lng": 5.599989
+  },
+  {
+    "nom": "National Grêle Services - NGS France",
+    "adresse": "Rue de la Chapelle, Saint-Cyr-sur-Mer",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 105,
+    "cc": "CC_MARSEILLE_LES_ARNAVAUX",
+    "score": 7,
+    "lat": 43.181245,
+    "lng": 5.684286
+  },
+  {
+    "nom": "MANELLI AUTOMOBILES",
+    "adresse": "10 Chem. du Roy d'Espagne, Marseille",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 369,
+    "cc": "CC_MARSEILLE_LES_ARNAVAUX",
+    "score": 7,
+    "lat": 43.243122,
+    "lng": 5.396562
+  },
+  {
+    "nom": "Daniel Nouvel Automobiles",
+    "adresse": "3 Pl. Gabriel Péri, Saint-Cyr-sur-Mer",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 366,
+    "cc": "CC_MARSEILLE_LES_ARNAVAUX",
+    "score": 8,
+    "lat": 43.181039,
+    "lng": 5.710662
+  },
+  {
+    "nom": "Buy Car Auto - garage parc sevigne",
+    "adresse": "Garage Buy Car Auto, 5 Rue Mignard, Marseille",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 142,
+    "cc": "CC_MARSEILLE_LES_ARNAVAUX",
+    "score": 7,
+    "lat": 43.262578,
+    "lng": 5.402632
+  },
+  {
+    "nom": "Côté Route Marseille Romain Rolland by First Stop",
+    "adresse": "322 Bd Romain Rolland, Marseille",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 765,
+    "cc": "CC_MARSEILLE_LES_ARNAVAUX",
+    "score": 12,
+    "lat": 43.277653,
+    "lng": 5.420627
+  },
+  {
+    "nom": "PdrX-Center",
+    "adresse": "50 Av. de Fontfrège, Gémenos",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 118,
+    "cc": "CC_MARSEILLE_LES_ARNAVAUX",
+    "score": 7,
+    "lat": 43.277371,
+    "lng": 5.613805
+  },
+  {
+    "nom": "Point S Auto Centre",
+    "adresse": "Quartier Saint Michel, Av. d'Arménie, Gardanne",
+    "tel": "",
+    "note": 4.0,
+    "nb_avis": 277,
+    "cc": "CC_MARSEILLE_LES_ARNAVAUX",
+    "score": 8,
+    "lat": 43.859847,
+    "lng": 5.418207
+  },
+  {
+    "nom": "AS Auto Sécurité Contrôle technique",
+    "adresse": "152 bis, za le canalet, Rue André Citroën, Port-la-Nouvelle",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 329,
+    "cc": "CC_NARBONNE",
+    "score": 8,
+    "lat": 43.02049,
+    "lng": 3.036156
+  },
+  {
+    "nom": "Garage de la Vieille Nouvelle ( Gruissan )",
+    "adresse": "4 rue de la vieille nouvelle, clos de l'estret, Gruissan",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 198,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.102281,
+    "lng": 3.086048
+  },
+  {
+    "nom": "Chez Ju Auto",
+    "adresse": "15 Rue du Rec de Veyret, Narbonne",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 134,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.174788,
+    "lng": 2.988006
+  },
+  {
+    "nom": "Auto Feu Vert Narbonne Center",
+    "adresse": "Rte de Perpignan, Narbonne",
+    "tel": "",
+    "note": 4.0,
+    "nb_avis": 713,
+    "cc": "CC_NARBONNE",
+    "score": 9,
+    "lat": 43.183759,
+    "lng": 2.999289
+  },
+  {
+    "nom": "Norauto Narbonne",
+    "adresse": "Centre Commercial Carrefour Zac De, Rue Pollet, Narbonne",
+    "tel": "",
+    "note": 4.0,
+    "nb_avis": 3054,
+    "cc": "CC_NARBONNE",
+    "score": 9,
+    "lat": 45.051523,
+    "lng": -0.114547
+  },
+  {
+    "nom": "AUTO SERVICE LEZIGNAN - ASL",
+    "adresse": "15 Av. des Corbières, Lézignan-Corbières",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 192,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.194399,
+    "lng": 2.756341
+  },
+  {
+    "nom": "Centre Auto Roady Lézignan-Corbières",
+    "adresse": "9001 Rue Alfred Nobel - ZI de Vitrac, Lézignan-Corbières",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 683,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.187969,
+    "lng": 2.751724
+  },
+  {
+    "nom": "Calamine Zero 11",
+    "adresse": "5 Rue Hector Malot, Lézignan-Corbières",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 154,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.191228,
+    "lng": 2.767993
+  },
+  {
+    "nom": "Le monde de la negociation",
+    "adresse": "23 Rue Saint-Pierre, Montredon-des-Corbières",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 207,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.181111,
+    "lng": 2.940646
+  },
+  {
+    "nom": "Service Auto 11",
+    "adresse": "16 Av. Carnot, Narbonne",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 203,
+    "cc": "CC_NARBONNE",
+    "score": 8,
+    "lat": 43.191499,
+    "lng": 3.007672
+  },
+  {
+    "nom": "Le Pneu Futé",
+    "adresse": "ZA La plaine, Rue des Artisans, Canet",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 199,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 44.439506,
+    "lng": 3.190981
+  },
+  {
+    "nom": "First Stop CTN Auto Coursan",
+    "adresse": "54 Rue Gustave Eiffel, Coursan",
+    "tel": "",
+    "note": 4.3,
+    "nb_avis": 145,
+    "cc": "CC_NARBONNE",
+    "score": 8,
+    "lat": 43.227362,
+    "lng": 3.047809
+  },
+  {
+    "nom": "Vo Pneu",
+    "adresse": "14 Av. de L Hérault, Coursan",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 205,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.23769,
+    "lng": 3.058616
+  },
+  {
+    "nom": "Garage selectauto34",
+    "adresse": "7 Rue Ronsard, Valras-Plage",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 525,
+    "cc": "CC_NARBONNE",
+    "score": 9,
+    "lat": 43.248436,
+    "lng": 3.29113
+  },
+  {
+    "nom": "Garage du Somail - 1,2,3 AutoService",
+    "adresse": "5529 Rte de Saint-Pons, Saint-Nazaire-d'Aude",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 112,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.25809,
+    "lng": 2.908735
+  },
+  {
+    "nom": "AD Garage Expert MONTAGNE",
+    "adresse": "2 ZA DE LA GARE, Bize-Minervois",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 73,
+    "cc": "CC_NARBONNE",
+    "score": 9,
+    "lat": 43.311972,
+    "lng": 2.871759
+  },
+  {
+    "nom": "Contrôle Technique ST MARCEL",
+    "adresse": "Rte de Saint-Pons, Saint-Marcel-sur-Aude",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 225,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.248711,
+    "lng": 2.917224
+  },
+  {
+    "nom": "GARAGE Mad 34 Eurl AUTO MOTO REPROGRAMATION MOTEUR",
+    "adresse": "Chem. du Viala, Nissan-lez-Enserune",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 108,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.291231,
+    "lng": 3.122918
+  },
+  {
+    "nom": "Garage Pastre",
+    "adresse": "ZAE VIA EUROPA, 1 bis Rue de Varsovie, Vendres",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 163,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.293794,
+    "lng": 3.214755
+  },
+  {
+    "nom": "Eurorepar Car Service Barre Philippe | Garage - centre auto Beziers",
+    "adresse": "Av. Pierre Bérégovoy, Villeneuve-lès-Béziers",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 214,
+    "cc": "CC_NARBONNE",
+    "score": 10,
+    "lat": 43.321711,
+    "lng": 3.272109
+  },
+  {
+    "nom": "Horsepower Garage conversion bio éthanol et reprogrammation moteur",
+    "adresse": "1 Rue Pierre Alengry AIGRAIN, Portiragnes",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 317,
+    "cc": "CC_NARBONNE",
+    "score": 8,
+    "lat": 43.305655,
+    "lng": 3.339839
+  },
+  {
+    "nom": "AUTOSUR OLONZAC",
+    "adresse": "14 Rte d'Oupia, Olonzac",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 116,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.28423,
+    "lng": 2.74071
+  },
+  {
+    "nom": "Tony Auto 34",
+    "adresse": "1 ZAC du Languedoc, Maureilhan",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 221,
+    "cc": "CC_NARBONNE",
+    "score": 8,
+    "lat": 43.350905,
+    "lng": 3.125027
+  },
+  {
+    "nom": "Allo Services Dépannages Martinez",
+    "adresse": "3 Av. Henri Galinier, Béziers",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 106,
+    "cc": "CC_NARBONNE",
+    "score": 7,
+    "lat": 43.338355,
+    "lng": 3.20159
+  },
+  {
+    "nom": "GARAGE CHAOURCOIS EUROREPAR",
+    "adresse": "34 Rte de Troyes, Chaource",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 46,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 7,
+    "lat": 48.061849,
+    "lng": 4.142709
+  },
+  {
+    "nom": "Eurorepar Jc Services",
+    "adresse": "36 Rd 660, Saint-Benoist-sur-Vanne",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 46,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 7,
+    "lat": 48.234545,
+    "lng": 3.666429
+  },
+  {
+    "nom": "Garage de Maisons Blanches - Eurorepar",
+    "adresse": "34 Rte de Maisons Blanches, Buchères",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 120,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 10,
+    "lat": 48.231547,
+    "lng": 4.111362
+  },
+  {
+    "nom": "Midas SAINT ANDRE LES VERGERS",
+    "adresse": "4 rue des Barolais, Saint-André-les-Vergers",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 194,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 9,
+    "lat": 48.286289,
+    "lng": 4.042179
+  },
+  {
+    "nom": "TOP GARAGE - GARAGE SIMON'AUTO",
+    "adresse": "3 B Bd de Dijon, Saint-Julien-les-Villas",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 109,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 7,
+    "lat": 48.265684,
+    "lng": 4.090067
+  },
+  {
+    "nom": "Tm Auto 10",
+    "adresse": "10 bis Rue Jean Baptiste Colbert, La Chapelle-Saint-Luc",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 317,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 8,
+    "lat": 48.311055,
+    "lng": 4.025105
+  },
+  {
+    "nom": "AD Garage Expert SAS GARAGE GUILLAUME & CIE",
+    "adresse": "84 Av. Général Leclerc, Sainte-Savine",
+    "tel": "",
+    "note": 4.4,
+    "nb_avis": 97,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 7,
+    "lat": 48.291868,
+    "lng": 4.037072
+  },
+  {
+    "nom": "GARAGE AUTO FARIAT",
+    "adresse": "4b Rue Edmond Fariat, Troyes",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 111,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 7,
+    "lat": 48.295647,
+    "lng": 4.096117
+  },
+  {
+    "nom": "Eurorepar Energic Auto Garage",
+    "adresse": "111 Av. Major Général Georges Vanier, Troyes",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 103,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 9,
+    "lat": 48.30811,
+    "lng": 4.068929
+  },
+  {
+    "nom": "AD Garage Expert PILOTE REPARATION SAINTE SAVINE",
+    "adresse": "28 Rue Louis Auger, Sainte-Savine",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 36,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 8,
+    "lat": 48.295863,
+    "lng": 4.050815
+  },
+  {
+    "nom": "AD Garage Expert DE LA PLACE - SAS BEUVE GRADOS",
+    "adresse": "63 Rue du Haut, Laubressel",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 92,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 8,
+    "lat": 48.297831,
+    "lng": 4.213022
+  },
+  {
+    "nom": "CRIS'AUTO",
+    "adresse": "113 Rue Alphonse Daudet, Barberey-Saint-Sulpice",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 242,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 7,
+    "lat": 48.336369,
+    "lng": 4.021759
+  },
+  {
+    "nom": "GARAGE BONHOMME CAR WITHOUT A LICENSE",
+    "adresse": "8 bis Rte Claude Bertrand, Creney-près-Troyes",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 150,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 7,
+    "lat": 48.32858,
+    "lng": 4.120966
+  },
+  {
+    "nom": "Auto Champenoise",
+    "adresse": "9 ZA, Les Ruchelats, Saint-Hilaire-sous-Romilly",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 294,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 7,
+    "lat": 48.51331,
+    "lng": 3.664643
+  },
+  {
+    "nom": "AS Autosécurité Contrôle Technique ROMILLY SUR SEINE",
+    "adresse": "5 Av. Jean Jaurès, Romilly-sur-Seine",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 210,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 8,
+    "lat": 48.517459,
+    "lng": 3.722221
+  },
+  {
+    "nom": "Aub Control Technic",
+    "adresse": "56 Rue de l'Orme, Maizières-la-Grande-Paroisse",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 454,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 8,
+    "lat": 48.502045,
+    "lng": 3.8035
+  },
+  {
+    "nom": "AS Autosécurité Contrôle Technique MERY SUR SEINE",
+    "adresse": "route de plancy zi mery, Méry-sur-Seine",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 262,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 8,
+    "lat": 48.512609,
+    "lng": 3.897252
+  },
+  {
+    "nom": "Eurorepar Garage de Clesles",
+    "adresse": "74 Rte de Saint-Just, Clesles",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 58,
+    "cc": "CC_BARBEREY_SAINT_SULPICE",
+    "score": 8,
+    "lat": 48.537384,
+    "lng": 3.823251
+  },
+  {
+    "nom": "Sécuritest Contrôle Technique Automobile CHATEAUNEUF SUR CHARENTE",
+    "adresse": "12 Bd Pasteur, Châteauneuf-sur-Charente",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 182,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 45.597815,
+    "lng": -0.054643
+  },
+  {
+    "nom": "CHARENTE REPROG",
+    "adresse": "235 Le Maine Barraud, Châteauneuf-sur-Charente",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 178,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 45.601297,
+    "lng": -0.023131
+  },
+  {
+    "nom": "AUTOFIT - R L Automobiles",
+    "adresse": "4 Av. de Concordia, La Couronne",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 45,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 45.597532,
+    "lng": 0.095406
+  },
+  {
+    "nom": "Garage MERCERON EUROREPAR CAR SERVICE",
+    "adresse": "Tourtron, Mosnac-Saint-Simeux",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 37,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.625266,
+    "lng": -0.029848
+  },
+  {
+    "nom": "Feu Vert Services",
+    "adresse": "15 Rte de Bordeaux, La Couronne",
+    "tel": "",
+    "note": 4.0,
+    "nb_avis": 401,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.619769,
+    "lng": 0.105998
+  },
+  {
+    "nom": "Inotec Performance - Fred Auto Sport Angoulême",
+    "adresse": "125 Rue d'Angoulême, Puymoyen",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 102,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 45.625747,
+    "lng": 0.156943
+  },
+  {
+    "nom": "AD Garage Expert DE PUYMOYEN",
+    "adresse": "26 ZONE DES BRANDEAUX, Puymoyen",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 85,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.625278,
+    "lng": 0.163363
+  },
+  {
+    "nom": "Norauto Soyaux",
+    "adresse": "Zac Les Effamiers, 284 Av. du Général de Gaulle, Soyaux",
+    "tel": "",
+    "note": 3.9,
+    "nb_avis": 917,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.634353,
+    "lng": 0.212857
+  },
+  {
+    "nom": "Auto Bilan Ste Catherine",
+    "adresse": "Sainte-Catherine, Garat",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 121,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 45.624795,
+    "lng": 0.243352
+  },
+  {
+    "nom": "Landypoint SAS France",
+    "adresse": "82 Rue Jean Ducongé, Garat",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 68,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.621239,
+    "lng": 0.254774
+  },
+  {
+    "nom": "Eur-Auto Garat Seguy Automobiles",
+    "adresse": "1471 route de Périgueux, Garat",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 237,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 45.613088,
+    "lng": 0.262244
+  },
+  {
+    "nom": "AD Garage Expert BERTRAND MONTBRON",
+    "adresse": "Av. du 11 Novembre, Montbron",
+    "tel": "",
+    "note": 4.7,
+    "nb_avis": 64,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.662686,
+    "lng": 0.499384
+  },
+  {
+    "nom": "Eurorepar SERVICE AUTO PINTO",
+    "adresse": "Montbron",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 20,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 48.524228,
+    "lng": 3.341935
+  },
+  {
+    "nom": "AD Garage Expert JOURDE",
+    "adresse": "59 Rue Léo Lagrange, Ruelle-sur-Touvre",
+    "tel": "",
+    "note": 4.6,
+    "nb_avis": 67,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.680075,
+    "lng": 0.228797
+  },
+  {
+    "nom": "Gge DES LAURIERS EUROREPAR CAR SERVICE",
+    "adresse": "D736 Z.A. de Fontainebleau, Sigogne",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 25,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.73842,
+    "lng": -0.156825
+  },
+  {
+    "nom": "Speedy",
+    "adresse": "9 Rue des Meneaux, Champniers",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 107,
+    "cc": "CC_CHAMPNIERS",
+    "score": 10,
+    "lat": 45.693164,
+    "lng": 0.178844
+  },
+  {
+    "nom": "CKS CONCEPT",
+    "adresse": "728 Les Brissauds, Champniers",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 101,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 45.717775,
+    "lng": 0.217777
+  },
+  {
+    "nom": "AS Auto Sécurité Contrôle Technique La Rochefoucauld - Saint Projet",
+    "adresse": "ZAE des Hauts du Bandiat, 6 Rue Du Bandiat, La Rochefoucauld-en-Angoumois",
+    "tel": "",
+    "note": 5.0,
+    "nb_avis": 301,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.736821,
+    "lng": 0.350225
+  },
+  {
+    "nom": "Boncour Automobiles",
+    "adresse": "40 Fbg la Souché, La Rochefoucauld-en-Angoumois",
+    "tel": "",
+    "note": 4.8,
+    "nb_avis": 162,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 45.744978,
+    "lng": 0.384249
+  },
+  {
+    "nom": "Eurorepar Automobiles Des Grands Pres",
+    "adresse": "Rte de Saint-Jean d'Angély, Rouillac",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 15,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.781021,
+    "lng": -0.081922
+  },
+  {
+    "nom": "Eurorepar Garage Gourdon Laurent",
+    "adresse": "12 Bois Girauds, Val-de-Bonnieure",
+    "tel": "",
+    "note": 4.5,
+    "nb_avis": 33,
+    "cc": "CC_CHAMPNIERS",
+    "score": 7,
+    "lat": 45.842904,
+    "lng": 0.267551
+  },
+  {
+    "nom": "AS Auto Sécurité Contrôle technique Mansle",
+    "adresse": "40 Rue du Relais de Poste, MANSLE",
+    "tel": "",
+    "note": 4.9,
+    "nb_avis": 236,
+    "cc": "CC_CHAMPNIERS",
+    "score": 8,
+    "lat": 45.889398,
+    "lng": 0.188662
+  }
+];
+
 const FEATURED_PARTNER_GARAGES = {
   "13": {
     type: "multi_garages",
@@ -4501,6 +11880,50 @@ const FEATURED_PARTNER_GARAGES = {
       },
     ],
   },
+
+  // ── DEPTS COUVERTS PAR FRANCE_GARAGE_POOL (type france_pool_geo) ──
+  "10": { type: "france_pool_geo", ville: "Troyes", cc_list: [
+    { id: "CC_BARBEREY_SAINT_SULPICE", nom: "Carter-Cash Barberey-Saint-Sulpice", adresse: "Zone commerciale Les Goguenettes, 10600 Barberey-Saint-Sulpice", lat: 48.3336631, lng: 4.0184306, url: "https://www.carter-cash.com/magasins/barberey-saint-sulpice", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "11": { type: "france_pool_geo", ville: "Narbonne", cc_list: [
+    { id: "CC_NARBONNE", nom: "Carter-Cash Narbonne", adresse: "1 Rue Éd Delamare Deboutteville, 11100 Narbonne", lat: 43.156293, lng: 2.9832422, url: "https://www.carter-cash.com/magasins/narbonne", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "14": { type: "france_pool_geo", ville: "Caen", cc_list: [
+    { id: "CC_MONDEVILLE", nom: "Carter-Cash Mondeville", adresse: "45 Rue Pierre Mendès France, 14120 Mondeville", lat: 49.1713851, lng: -0.3264199, url: "https://www.carter-cash.com/magasins/mondeville", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "16": { type: "france_pool_geo", ville: "Angoulême", cc_list: [
+    { id: "CC_CHAMPNIERS", nom: "Carter-Cash Champniers", adresse: "946 Rue de la Génoise, 16430 Champniers", lat: 45.6897321, lng: 0.1800492, url: "https://www.carter-cash.com/magasins/champniers", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "18": { type: "france_pool_geo", ville: "Bourges", cc_list: [
+    { id: "CC_SAINT_GERMAIN_DU_PUY", nom: "Carter-Cash Saint-Germain-du-Puy", adresse: "20 Rue des Vignes, 18390 Saint-Germain-du-Puy", lat: 47.0977937, lng: 2.4585467, url: "https://www.carter-cash.com/magasins/saint-germain-du-puy", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "19": { type: "france_pool_geo", ville: "Brive", cc_list: [
+    { id: "CC_MALEMORT", nom: "Carter-Cash Malemort", adresse: "21 Bis Av. de la Riante Borie, 19360 Malemort", lat: 45.1646328, lng: 1.5591993, url: "https://www.carter-cash.com/magasins/malemort", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "21": { type: "france_pool_geo", ville: "Dijon", cc_list: [
+    { id: "CC_QUETIGNY", nom: "Carter-Cash Quetigny", adresse: "5 Av. de Bourgogne, 21800 Quetigny", lat: 47.3090897, lng: 5.1078252, url: "https://www.carter-cash.com/magasins/quetigny", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "22": { type: "france_pool_geo", ville: "Saint-Brieuc", cc_list: [
+    { id: "CC_TR_GEUX", nom: "Carter-Cash Trégueux", adresse: "17 Rue Marc Seguin, 22950 Trégueux", lat: 48.4893198, lng: -2.7218333, url: "https://www.carter-cash.com/magasins/tregueux", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "25": { type: "france_pool_geo", ville: "Besançon", cc_list: [
+    { id: "CC_CHALEZEULE", nom: "Carter-Cash Chalezeule", adresse: "1a Rue du Murgelot, 25220 Chalezeule", lat: 47.265605, lng: 6.0602343, url: "https://www.carter-cash.com/magasins/chalezeule", tarif: "199€ port inclus", delai: "48-72h" },
+    { id: "CC_BETHONCOURT", nom: "Carter-Cash Bethoncourt", adresse: "4 Rue du Champ du Moulin, 25200 Bethoncourt", lat: 47.5256398, lng: 6.7986755, url: "https://www.carter-cash.com/magasins/bethoncourt", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "26": { type: "france_pool_geo", ville: "Valence", cc_list: [
+    { id: "CC_VALENCE", nom: "Carter-Cash Valence", adresse: "34 Av. de Marseille, 26000 Valence", lat: 44.9004788, lng: 4.8817746, url: "https://www.carter-cash.com/magasins/valence", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "27": { type: "france_pool_geo", ville: "Évreux", cc_list: [
+    { id: "CC_EVREUX", nom: "Carter-Cash Évreux", adresse: "631 Rue Jacques Monod, 27000 Évreux", lat: 49.0260228, lng: 1.1792031, url: "https://www.carter-cash.com/magasins/evreux", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "29": { type: "france_pool_geo", ville: "Brest", cc_list: [
+    { id: "CC_BREST", nom: "Carter-Cash Brest", adresse: "Rue Edouard Belin, 29200 Brest", lat: 48.4180083, lng: -4.4572654, url: "https://www.carter-cash.com/magasins/brest", tarif: "199€ port inclus", delai: "48-72h" },
+    { id: "CC_QUIMPER", nom: "Carter-Cash Quimper", adresse: "1bis Rue Jules Verne, 29000 Quimper", lat: 47.9943818, lng: -4.0690965, url: "https://www.carter-cash.com/magasins/quimper", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
+  "30": { type: "france_pool_geo", ville: "Nîmes", cc_list: [
+    { id: "CC_N_MES", nom: "Carter-Cash Nîmes", adresse: "371 Rue Octave Camplan, 30000 Nîmes", lat: 43.8526626, lng: 4.4021933, url: "https://www.carter-cash.com/magasins/nimes", tarif: "199€ port inclus", delai: "48-72h" },
+    { id: "CC_AL_S", nom: "Carter-Cash Alès", adresse: "1341 Quai du Mas d'Hours, 30100 Alès", lat: 44.1093305, lng: 4.0988232, url: "https://www.carter-cash.com/magasins/ales", tarif: "199€ port inclus", delai: "48-72h" }
+  ]},
   "59": {
     cc_list: [
       {
@@ -5881,6 +13304,70 @@ if (featuredGarage) {
     return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
   }
 
+  // ── TYPE france_pool_geo — CC dépôt + garages proches depuis FRANCE_GARAGE_POOL ──
+  if (featuredGarage.type === "france_pool_geo") {
+    const ccListFr = featuredGarage.cc_list || [];
+    const userLat = extracted?.geo?.lat || refLat;
+    const userLng = extracted?.geo?.lng || refLng;
+
+    // CC le plus proche
+    let selectedCC = ccListFr[0];
+    if (userLat && userLng && ccListFr.length > 1) {
+      selectedCC = ccListFr.map(c => ({ ...c, dist: haversineKm(userLat, userLng, c.lat, c.lng) }))
+        .sort((a, b) => a.dist - b.dist)[0];
+    }
+
+    // Garages proches depuis le pool France
+    const frPool = typeof FRANCE_GARAGE_POOL !== "undefined" ? FRANCE_GARAGE_POOL : [];
+    let garagesProches = [];
+    if (userLat && userLng && frPool.length > 0) {
+      const seen = new Set();
+      garagesProches = frPool
+        .map(g => ({ ...g, dist: haversineKm(userLat, userLng, g.lat, g.lng) }))
+        .sort((a, b) => a.dist - b.dist)
+        .filter(g => {
+          const key = (g.adresse || "").toLowerCase().trim();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, 5);
+    }
+
+    const distCC = selectedCC.dist ? ` (~${Math.round(selectedCC.dist)} km)` : "";
+    const garagesBloc = garagesProches.map(g => {
+      const distLabel = g.dist != null ? ` *(~${Math.round(g.dist)} km)*` : "";
+      const tel = (g.tel || "").replace(/[\s.]/g, "");
+      return `• **${g.nom}** — ${g.adresse}${distLabel}\n` +
+        (tel ? `  📞 [${g.tel}](tel:${tel})` : "") +
+        (g.note ? ` · ${g.note}⭐ *(${g.nb_avis} avis)*` : "");
+    }).join("\n\n");
+
+    if (demontage === "self") {
+      replyClean =
+        `✅ **${selectedCC.nom}**${distCC} — dépôt FAP Re-FAP\n` +
+        `📍 ${selectedCC.adresse}\n` +
+        `💶 ${selectedCC.tarif} *(port inclus, retour sous ${selectedCC.delai})*\n` +
+        `🔗 [${selectedCC.nom}](${selectedCC.url})\n\n` +
+        `Tu déposes ton FAP démonté au comptoir Carter-Cash — ils l'envoient au centre Re-FAP, nettoyage en machine, retour sous 48-72h.\n\n` +
+        `❓ Une question ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+        `Tu veux qu'un expert Re-FAP te confirme les détails ?`;
+    } else {
+      replyClean =
+        `✅ **${selectedCC.nom}**${distCC} — dépôt FAP Re-FAP\n` +
+        `📍 ${selectedCC.adresse}\n` +
+        `💶 ${selectedCC.tarif} *(dépose/repose non incluse)*\n` +
+        `🔗 [${selectedCC.nom}](${selectedCC.url})\n\n` +
+        (garagesBloc ? `━━━━━━━━━━━━━━━━━━━━━\n\n🔩 **Garages recommandés proches pour la dépose/repose :**\n\n${garagesBloc}\n\n━━━━━━━━━━━━━━━━━━━━━\n\n` : "") +
+        wordingRefapCertifie(selectedCC.nom, selectedCC.tarif) + `\n\n` +
+        disclaimerGarages() + `\n\n` +
+        `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
+    }
+
+    const data = { ...(extracted || DEFAULT_DATA), intention: "rdv", ville: villeDisplay || null, departement: dept || null, next_best_action: "proposer_devis", centre_proche: selectedCC.nom };
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+  }
+
   const nearestEquip = cc.closestEquipped;
   const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
 
@@ -6124,7 +13611,71 @@ replyClean =
 }
     } else {
       const closestDepotCC = cc.closestDepot;
-      const nearestEquip = cc.closestEquipped;
+      // ── TYPE france_pool_geo — CC dépôt + garages proches depuis FRANCE_GARAGE_POOL ──
+  if (featuredGarage.type === "france_pool_geo") {
+    const ccListFr = featuredGarage.cc_list || [];
+    const userLat = extracted?.geo?.lat || refLat;
+    const userLng = extracted?.geo?.lng || refLng;
+
+    // CC le plus proche
+    let selectedCC = ccListFr[0];
+    if (userLat && userLng && ccListFr.length > 1) {
+      selectedCC = ccListFr.map(c => ({ ...c, dist: haversineKm(userLat, userLng, c.lat, c.lng) }))
+        .sort((a, b) => a.dist - b.dist)[0];
+    }
+
+    // Garages proches depuis le pool France
+    const frPool = typeof FRANCE_GARAGE_POOL !== "undefined" ? FRANCE_GARAGE_POOL : [];
+    let garagesProches = [];
+    if (userLat && userLng && frPool.length > 0) {
+      const seen = new Set();
+      garagesProches = frPool
+        .map(g => ({ ...g, dist: haversineKm(userLat, userLng, g.lat, g.lng) }))
+        .sort((a, b) => a.dist - b.dist)
+        .filter(g => {
+          const key = (g.adresse || "").toLowerCase().trim();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, 5);
+    }
+
+    const distCC = selectedCC.dist ? ` (~${Math.round(selectedCC.dist)} km)` : "";
+    const garagesBloc = garagesProches.map(g => {
+      const distLabel = g.dist != null ? ` *(~${Math.round(g.dist)} km)*` : "";
+      const tel = (g.tel || "").replace(/[\s.]/g, "");
+      return `• **${g.nom}** — ${g.adresse}${distLabel}\n` +
+        (tel ? `  📞 [${g.tel}](tel:${tel})` : "") +
+        (g.note ? ` · ${g.note}⭐ *(${g.nb_avis} avis)*` : "");
+    }).join("\n\n");
+
+    if (demontage === "self") {
+      replyClean =
+        `✅ **${selectedCC.nom}**${distCC} — dépôt FAP Re-FAP\n` +
+        `📍 ${selectedCC.adresse}\n` +
+        `💶 ${selectedCC.tarif} *(port inclus, retour sous ${selectedCC.delai})*\n` +
+        `🔗 [${selectedCC.nom}](${selectedCC.url})\n\n` +
+        `Tu déposes ton FAP démonté au comptoir Carter-Cash — ils l'envoient au centre Re-FAP, nettoyage en machine, retour sous 48-72h.\n\n` +
+        `❓ Une question ? Julien, Expert Re-FAP : [04 73 37 88 21](tel:0473378821)\n\n` +
+        `Tu veux qu'un expert Re-FAP te confirme les détails ?`;
+    } else {
+      replyClean =
+        `✅ **${selectedCC.nom}**${distCC} — dépôt FAP Re-FAP\n` +
+        `📍 ${selectedCC.adresse}\n` +
+        `💶 ${selectedCC.tarif} *(dépose/repose non incluse)*\n` +
+        `🔗 [${selectedCC.nom}](${selectedCC.url})\n\n` +
+        (garagesBloc ? `━━━━━━━━━━━━━━━━━━━━━\n\n🔩 **Garages recommandés proches pour la dépose/repose :**\n\n${garagesBloc}\n\n━━━━━━━━━━━━━━━━━━━━━\n\n` : "") +
+        wordingRefapCertifie(selectedCC.nom, selectedCC.tarif) + `\n\n` +
+        disclaimerGarages() + `\n\n` +
+        `Tu veux qu'on organise la prise en charge pour ${vehicleInfo} ?`;
+    }
+
+    const data = { ...(extracted || DEFAULT_DATA), intention: "rdv", ville: villeDisplay || null, departement: dept || null, next_best_action: "proposer_devis", centre_proche: selectedCC.nom };
+    return { replyClean, replyFull: `${replyClean}\nDATA: ${safeJsonStringify(data)}`, extracted: data };
+  }
+
+  const nearestEquip = cc.closestEquipped;
       const equipMentionable = nearestEquip && nearestEquip.distance <= MAX_EQUIPPED_MENTION_KM;
 
       if (closestDepotCC && equipMentionable && closestDepotCC.distance < nearestEquip.distance) {
